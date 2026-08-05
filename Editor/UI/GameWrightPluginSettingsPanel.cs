@@ -176,7 +176,8 @@ namespace GameWright.Editor.MCP.Server
             root.Add(track);
 
             var valueBox = new IntegerField();
-            valueBox.style.minWidth = 60;
+            valueBox.style.width = 60;
+            valueBox.style.flexGrow = 0;
             valueBox.style.flexShrink = 0;
             valueBox.style.marginLeft = 10;
             var vbInput = valueBox.Q("unity-text-input");
