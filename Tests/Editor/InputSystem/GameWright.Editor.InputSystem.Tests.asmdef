@@ -1,0 +1,24 @@
+{
+    "name": "GameWright.Editor.InputSystem.Tests",
+    "rootNamespace": "GameWright.Editor.Tests",
+    "references": [
+        "GameWright.Editor.InputSystem",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "ENABLE_INPUT_SYSTEM"
+    ],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}

@@ -1,0 +1,33 @@
+{
+  "name": "GameWright.Editor.Tests",
+  "rootNamespace": "GameWright.Editor.Tests",
+  "references": [
+    "GameWright.Editor",
+    "Unity.Newtonsoft.Json",
+    "GUID:df380645f10b7bc4b97d4f5eb6303d95",
+    "GUID:15fc0a57446b3144c949da3e2b9737a9",
+    "GUID:8c4bfcb5b17948478ccb955bccff9652"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.render-pipelines.universal",
+      "expression": "",
+      "define": "GAMEWRIGHT_URP"
+    }
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

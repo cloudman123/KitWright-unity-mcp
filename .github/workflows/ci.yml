@@ -1,0 +1,132 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+jobs:
+    validate:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.x"
+
+            - name: Validate repository
+              run: |
+                  python - <<'PY'
+                  import json
+                  import pathlib
+                  import sys
+
+                  root = pathlib.Path(".")
+                  errors = []
+
+                  package_path = root / "package.json"
+                  try:
+                      package = json.loads(package_path.read_text(encoding="utf-8"))
+                  except Exception as exc:
+                      errors.append(f"package.json is not valid JSON: {exc}")
+                  else:
+                      for key in ("name", "version", "displayName", "unity"):
+                          if key not in package or not package[key]:
+                              errors.append(f"package.json is missing required key: {key}")
+
+                  forbidden_paths = []
+                  for path in root.rglob("*"):
+                      if ".git" in path.parts:
+                          continue
+                      if path.name == ".DS_Store" or ".idea" in path.parts:
+                          forbidden_paths.append(str(path))
+
+                  if forbidden_paths:
+                      errors.append("Repository contains local junk files:\n- " + "\n- ".join(sorted(forbidden_paths)))
+
+                  if errors:
+                      print("Validation failed:\n")
+                      for error in errors:
+                          print(f"- {error}")
+                      sys.exit(1)
+
+                  print("Repository validation passed.")
+                  PY
+
+    # ────────────────────────────────────────────────────────────────
+    # Unity EditMode Tests
+    # ────────────────────────────────────────────────────────────────
+    # YÊU CẦU SECRETS:
+    #   game-ci/unity-test-runner cần Unity license để chạy.
+    #   Cấu hình MỘT trong hai cách sau trong repo Settings → Secrets:
+    #
+    #   Cách 1 – License file (khuyên dùng cho Personal):
+    #     UNITY_LICENSE  : nội dung file .ulf (Unity License File)
+    #
+    #   Cách 2 – Serial (Professional / Plus):
+    #     UNITY_EMAIL    : email tài khoản Unity
+    #     UNITY_PASSWORD : mật khẩu
+    #     UNITY_SERIAL   : serial key (xxxx-xxxx-xxxx-xxxx-xxxx)
+    #
+    #   Xem chi tiết: https://game.ci/docs/github/activation
+    # ────────────────────────────────────────────────────────────────
+    test:
+        name: Unity EditMode Tests
+        runs-on: ubuntu-latest
+        needs: validate
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            # Tạo Unity project tạm vì repo này là package, không phải full project.
+            # Package được symlink vào Packages/ của project tạm.
+            - name: Create temporary Unity project structure
+              run: |
+                  mkdir -p UnityProject/Assets
+                  mkdir -p UnityProject/Packages
+                  mkdir -p UnityProject/ProjectSettings
+
+                  # ProjectSettings/ProjectVersion.txt – game-ci dùng file này để auto-detect version
+                  # Đọc "unity" field từ package.json (vd: "2022.3") rồi thêm patch ".0f1"
+                  UNITY_VER=$(python3 -c "import json; print(json.load(open('package.json'))['unity'])")
+                  echo "m_EditorVersion: ${UNITY_VER}.0f1" > UnityProject/ProjectSettings/ProjectVersion.txt
+                  echo "Unity version detected: ${UNITY_VER}.0f1"
+
+                  # Manifest – khai báo dependencies rỗng (package sẽ được link riêng)
+                  echo '{ "dependencies": {} }' > UnityProject/Packages/manifest.json
+
+                  # Symlink toàn bộ package repo vào Packages/ với tên package từ package.json
+                  PKG_NAME=$(python3 -c "import json; print(json.load(open('package.json'))['name'])")
+                  ln -s "$(pwd)" "UnityProject/Packages/${PKG_NAME}"
+                  echo "Package '${PKG_NAME}' linked into UnityProject/Packages/"
+
+            - name: Run EditMode tests
+              uses: game-ci/unity-test-runner@v4
+              env:
+                  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+                  UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+                  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+                  UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+              with:
+                  unityVersion: auto
+                  testMode: EditMode
+                  customParameters: -nographics
+                  projectPath: UnityProject
+                  githubToken: ${{ secrets.GITHUB_TOKEN }}
+                  checkName: EditMode Test Results
+
+            - name: Upload test results
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: editmode-test-results
+                  path: artifacts/

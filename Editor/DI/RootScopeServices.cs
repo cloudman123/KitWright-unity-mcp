@@ -1,0 +1,78 @@
+// Copyright (C) GameWright. Licensed under MIT.
+
+using System;
+using GameWright.Editor.MCP.Server;
+using GameWright.Editor.Settings;
+using GameWright.Editor.Services.UnityLogs;
+using UnityEditor;
+using UnityEngine;
+
+namespace GameWright.Editor.DI
+{
+    [InitializeOnLoad]
+    internal static class RootScopeServices
+    {
+        private static ServiceProvider _serviceProvider;
+
+        public static IServiceProvider Services => _serviceProvider;
+
+        static RootScopeServices()
+        {
+            if (Application.isBatchMode)
+            {
+                PluginDebugLogger.Log("[GameWright] Root services skipped in Unity batch mode process.");
+                return;
+            }
+
+            Initialize();
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+        }
+
+        private static void Initialize()
+        {
+            try
+            {
+                var services = new ServiceCollection();
+                services.RegisterServices();
+                _serviceProvider = services.BuildServiceProvider();
+                PluginDebugLogger.Log("[GameWright] Root services initialized.");
+
+                var unityLogsRepository =
+                    _serviceProvider.GetService(typeof(UnityLogsRepository)) as UnityLogsRepository;
+                unityLogsRepository?.StartListening();
+
+                var settings = _serviceProvider.GetService(typeof(ISettingsController)) as ISettingsController;
+                if (settings?.MCPServerEnabled == true &&
+                    settings.MCPAutostartEnabled &&
+                    !MCPServerDomainReloadHandler.IsPendingPostReloadRestart())
+                {
+                    // Cold-start path only. During a domain reload, OnAfterReload owns the restart
+                    // so the previous AppDomain's listener has time to release the port.
+                    var mcpServer = _serviceProvider.GetService(typeof(MCPServerService)) as MCPServerService;
+                    if (mcpServer != null)
+                    {
+                        _ = mcpServer.StartAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameWright] Failed to initialize root services: {ex}");
+            }
+        }
+
+        private static void OnBeforeAssemblyReload()
+        {
+            try
+            {
+                MCPServerDomainReloadHandler.PrepareForReload(_serviceProvider);
+                _serviceProvider?.Dispose();
+                _serviceProvider = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameWright] Error disposing root services: {ex}");
+            }
+        }
+    }
+}
