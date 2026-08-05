@@ -13,7 +13,7 @@
     <a href="./README_CN.md">中文</a> | English
   </p>
   <p align="center">
-    <img src="./Documentation~/Text%2BLogo.png" alt="The Most Advanced MCP Server for Unity" width="100%">
+    <img src="./Documentation~/Video_Logo.gif" alt="The Most Advanced MCP Server for Unity" width="100%">
   </p>
 </p>
 
@@ -76,7 +76,7 @@ Or add the scoped registry manually in `Packages/manifest.json`:
     }
   ],
   "dependencies": {
-    "com.gamewright.unity.mcp": "0.5.1"
+    "com.gamewright.unity.mcp": "0.6.0"
   }
 }
 ```

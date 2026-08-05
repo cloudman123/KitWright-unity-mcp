@@ -13,7 +13,7 @@
     中文 | <a href="./README.md">English</a>
   </p>
   <p align="center">
-    <img src="./Documentation~/Text%2BLogo.png" alt="The Most Advanced MCP Server for Unity" width="100%">
+    <img src="./Documentation~/Video_Logo.gif" alt="The Most Advanced MCP Server for Unity" width="100%">
   </p>
 </p>
 
@@ -76,7 +76,7 @@ openupm add com.gamewright.unity.mcp
     }
   ],
   "dependencies": {
-    "com.gamewright.unity.mcp": "0.5.1"
+    "com.gamewright.unity.mcp": "0.6.0"
   }
 }
 ```
