@@ -13,7 +13,7 @@
     <a href="./README_CN.md">中文</a> | English
   </p>
   <p align="center">
-    <img src="./Documentation~/Video_Logo.gif" alt="The Most Advanced MCP Server for Unity" width="100%">
+    <img src="./Documentation~/Video_Logo.gif" alt="The Most Advanced MCP Server for Unity" width="60%">
   </p>
 </p>
 
