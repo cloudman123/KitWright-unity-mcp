@@ -19,7 +19,17 @@ namespace GameWright.Editor.MCP.Server
             if (_cache.TryGetValue(assetName, out var cached))
                 return cached;
 
-            Texture2D found = null;
+            // Direct path first: FindAssets scans the whole project (~60ms in big projects),
+            // which is paid during CreateGUI after every domain reload.
+            Texture2D found =
+                AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.gamewright.unity.mcp/Editor/Icons/{assetName}.png")
+                ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/GameWright/Editor/Icons/{assetName}.png");
+            if (found != null)
+            {
+                _cache[assetName] = found;
+                return found;
+            }
+
             foreach (var guid in AssetDatabase.FindAssets($"{assetName} t:Texture2D"))
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);

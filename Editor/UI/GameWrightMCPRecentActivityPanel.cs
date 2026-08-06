@@ -18,6 +18,7 @@ namespace GameWright.Editor.MCP.Server
         private ScrollView _scrollView;
         private Label _totalTokensLabel;
         private readonly HashSet<string> _enabled = new HashSet<string> { "Success", "Interrupted", "Error" };
+        private const string ScrollOffsetKey = "GameWright.MCP.RecentActivity.ScrollY";
 
         public GameWrightMCPRecentActivityPanel(MCPServerService server)
         {
@@ -33,7 +34,7 @@ namespace GameWright.Editor.MCP.Server
             // Rebuild synchronously: RenderEntries uploads fresh textures from the on-disk PNGs, so it
             // replaces the context-lost (black) ones immediately. A delayCall waits for the next editor
             // tick, which on an idle editor can be a few hundred ms -- long enough to see a black flash.
-            if (change == PlayModeStateChange.EnteredEditMode)
+            if (change == PlayModeStateChange.EnteredEditMode || change == PlayModeStateChange.EnteredPlayMode)
                 RenderEntries();
         }
 
@@ -79,9 +80,14 @@ namespace GameWright.Editor.MCP.Server
             _scrollView.style.backgroundColor = new Color(0.14f, 0.14f, 0.14f);
             _scrollView.Rounded(4);
             _scrollView.Padding(4, 6, 4, 6);
+            // Persist scroll position so it survives the panel rebuilds caused by domain
+            // reload (play mode with reload enabled) and play-mode transitions.
+            _scrollView.verticalScroller.valueChanged += v => SessionState.SetFloat(ScrollOffsetKey, v);
             foldout.Add(_scrollView);
 
-            RenderEntries();
+            // Deferred: building ~100 entry cards synchronously adds ~80ms to CreateGUI after
+            // every domain reload, which the user sees as a blank-window flash on Play.
+            _scrollView.schedule.Execute(RenderEntries);
         }
 
         private VisualElement BuildFilterBar()
@@ -263,6 +269,18 @@ namespace GameWright.Editor.MCP.Server
                 if (PassesFilter(entries[i].Status))
                     AddRow(entries[i]);
             }
+
+            // Restore the persisted offset once the new rows have real geometry; setting it
+            // immediately (or on a timer) gets clamped to 0 while content height is still 0.
+            var content = _scrollView.contentContainer;
+            EventCallback<GeometryChangedEvent> restore = null;
+            restore = _ =>
+            {
+                content.UnregisterCallback(restore);
+                if (_scrollView != null)
+                    _scrollView.scrollOffset = new Vector2(0, SessionState.GetFloat(ScrollOffsetKey, 0f));
+            };
+            content.RegisterCallback(restore);
         }
 
         public void OnEntryAdded(MCPLogEntry entry)
@@ -473,42 +491,51 @@ namespace GameWright.Editor.MCP.Server
             if (string.IsNullOrEmpty(imageFilePath) || !File.Exists(imageFilePath))
                 return false;
 
-            try
+            preview = new Image { scaleMode = ScaleMode.ScaleToFit };
+            preview.style.height = 220;
+            preview.style.marginTop = 6;
+            preview.style.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
+            preview.Rounded(3);
+            preview.tooltip = "Double-click to open in the default image viewer";
+            preview.RegisterCallback<MouseDownEvent>(evt =>
             {
-                var bytes = File.ReadAllBytes(imageFilePath);
-                var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, false);
-                if (!texture.LoadImage(bytes))
+                if (evt.button == 0 && evt.clickCount == 2)
                 {
-                    UnityEngine.Object.DestroyImmediate(texture);
-                    return false;
+                    OpenImageExternally(imageFilePath);
+                    evt.StopPropagation();
                 }
+            });
 
-                _previewTextures.Add(texture);
-
-                preview = new Image
-                {
-                    image = texture,
-                    scaleMode = ScaleMode.ScaleToFit
-                };
-                preview.style.height = 220;
-                preview.style.marginTop = 6;
-                preview.style.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
-                preview.Rounded(3);
-                preview.tooltip = "Double-click to open in the default image viewer";
-                preview.RegisterCallback<MouseDownEvent>(evt =>
-                {
-                    if (evt.button == 0 && evt.clickCount == 2)
-                    {
-                        OpenImageExternally(imageFilePath);
-                        evt.StopPropagation();
-                    }
-                });
-                return true;
-            }
-            catch
+            // Decode after the window has painted: synchronous PNG decode for every entry adds
+            // ~100ms to CreateGUI after each domain reload, which shows as a blank-window flash.
+            var target = preview;
+            preview.schedule.Execute(() =>
             {
-                return false;
-            }
+                try
+                {
+                    var bytes = File.ReadAllBytes(imageFilePath);
+                    // HideAndDontSave: without it Unity destroys editor-created textures on
+                    // play-mode enter / scene load, leaving the preview black.
+                    var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, false)
+                    {
+                        hideFlags = HideFlags.HideAndDontSave
+                    };
+                    if (!texture.LoadImage(bytes))
+                    {
+                        UnityEngine.Object.DestroyImmediate(texture);
+                        target.RemoveFromHierarchy();
+                        return;
+                    }
+
+                    _previewTextures.Add(texture);
+                    target.image = texture;
+                }
+                catch
+                {
+                    target.RemoveFromHierarchy();
+                }
+            });
+            return true;
         }
 
         private static void OpenImageExternally(string imageFilePath)

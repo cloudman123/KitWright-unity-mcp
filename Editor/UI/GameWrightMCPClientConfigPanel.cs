@@ -144,7 +144,9 @@ namespace GameWright.Editor.MCP.Server
 
             body.Add(row);
 
-            AddManualConfigurationSection(body, selectedTarget);
+            // Deferred: the snippet build's first Newtonsoft call after a domain reload pays
+            // the JIT cost (~40ms), lengthening the blank-window flash on Play.
+            body.schedule.Execute(() => AddManualConfigurationSection(body, selectedTarget));
 
             RefreshStatus();
         }

@@ -9,51 +9,54 @@ namespace GameWright.Editor.MCP.Server
     {
         private VisualElement _container;
         private Label _statusLabel;
-        private Button _updateButton;
-        private ProgressBar _progressBar;
+        private Label _percentLabel;
+        private VisualElement _progressTrack;
+        private VisualElement _progressFill;
 
         public void AddTo(VisualElement parent)
         {
             _container = new VisualElement();
             _container.style.display = DisplayStyle.None;
-            _container.style.backgroundColor = new Color(0.23f, 0.20f, 0.13f);
+            _container.style.backgroundColor = new Color(0.13f, 0.19f, 0.15f);
             _container.style.borderLeftWidth = 3;
-            _container.style.borderLeftColor = new Color(1f, 0.75f, 0.3f);
+            _container.style.borderLeftColor = new Color(0.30f, 0.66f, 0.36f);
             _container.Rounded(4);
-            _container.Padding(6, 8, 6, 8);
+            _container.Padding(8, 10, 8, 10);
             _container.style.marginBottom = 10;
 
-            var updateRow = new VisualElement();
-            updateRow.style.flexDirection = FlexDirection.Row;
-            updateRow.style.alignItems = Align.Center;
-            _container.Add(updateRow);
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.marginBottom = 6;
+            _container.Add(row);
 
             _statusLabel = new Label();
-            _statusLabel.style.fontSize = 13;
-            _statusLabel.style.color = new Color(0.95f, 0.88f, 0.68f);
+            _statusLabel.style.fontSize = 12;
+            _statusLabel.style.color = new Color(0.80f, 0.92f, 0.82f);
             _statusLabel.style.whiteSpace = WhiteSpace.Normal;
             _statusLabel.style.flexGrow = 1;
-            updateRow.Add(_statusLabel);
+            row.Add(_statusLabel);
 
-            _updateButton = new Button(GameWrightMCPUpdateChecker.UpdateToLatestFromWindow);
-            _updateButton.text = "Update";
-            _updateButton.style.height = 24;
-            _updateButton.style.minWidth = 86;
-            _updateButton.style.marginLeft = 8;
-            _updateButton.style.backgroundColor = new Color(0.82f, 0.48f, 0.18f);
-            _updateButton.style.color = Color.white;
-            updateRow.Add(_updateButton);
+            _percentLabel = new Label();
+            _percentLabel.style.fontSize = 12;
+            _percentLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _percentLabel.style.color = new Color(0.55f, 0.85f, 0.60f);
+            _percentLabel.style.marginLeft = 8;
+            row.Add(_percentLabel);
 
-            _progressBar = new ProgressBar
-            {
-                lowValue = 0f,
-                highValue = 1f,
-                value = 0f
-            };
-            _progressBar.style.display = DisplayStyle.None;
-            _progressBar.style.height = 16;
-            _progressBar.style.marginTop = 6;
-            _container.Add(_progressBar);
+            _progressTrack = new VisualElement();
+            _progressTrack.style.height = 5;
+            _progressTrack.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
+            _progressTrack.Rounded(3);
+            _progressTrack.style.overflow = Overflow.Hidden;
+            _container.Add(_progressTrack);
+
+            _progressFill = new VisualElement();
+            _progressFill.style.height = Length.Percent(100);
+            _progressFill.style.width = Length.Percent(0);
+            _progressFill.style.backgroundColor = new Color(0.36f, 0.76f, 0.44f);
+            _progressFill.Rounded(3);
+            _progressTrack.Add(_progressFill);
 
             parent.Add(_container);
             Refresh();
@@ -61,41 +64,22 @@ namespace GameWright.Editor.MCP.Server
 
         public void Refresh()
         {
-            if (_container == null || _statusLabel == null || _updateButton == null || _progressBar == null)
+            if (_container == null || _statusLabel == null || _progressFill == null)
                 return;
 
             var state = GameWrightMCPUpdateChecker.CurrentState;
-            var showUpdatePanel = state.HasUpdateAvailable || state.IsUpdating || state.UpdateStarted;
-            _container.style.display = showUpdatePanel ? DisplayStyle.Flex : DisplayStyle.None;
-            if (!showUpdatePanel)
+            var show = state.IsUpdating || state.UpdateStarted;
+            _container.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!show)
                 return;
 
-            if (state.IsUpdating || state.UpdateStarted)
-            {
-                _statusLabel.text = string.IsNullOrEmpty(state.StatusMessage)
-                    ? $"Updating to version {state.LatestVersion}..."
-                    : state.StatusMessage;
-            }
-            else
-            {
-                var installDescription = string.IsNullOrEmpty(state.InstallDescription)
-                    ? string.Empty
-                    : $" ({state.InstallDescription})";
-                _statusLabel.text = $"Version {state.LatestVersion} is available{installDescription}.";
-            }
-
-            var showButton = state.HasUpdateAvailable && !state.IsUpdating && !state.UpdateStarted;
-            _updateButton.style.display = showButton ? DisplayStyle.Flex : DisplayStyle.None;
-            _updateButton.text = string.IsNullOrEmpty(state.LatestVersion)
-                ? "Update"
-                : $"Update to v{state.LatestVersion}";
-
-            var showProgress = state.IsUpdating || state.UpdateStarted;
-            _progressBar.style.display = showProgress ? DisplayStyle.Flex : DisplayStyle.None;
-            _progressBar.value = Mathf.Clamp01(state.Progress);
-            _progressBar.title = string.IsNullOrEmpty(state.StatusMessage)
-                ? "Updating..."
+            _statusLabel.text = string.IsNullOrEmpty(state.StatusMessage)
+                ? $"Updating to v{state.LatestVersion}..."
                 : state.StatusMessage;
+
+            var progress = Mathf.Clamp01(state.Progress);
+            _percentLabel.text = $"{Mathf.RoundToInt(progress * 100f)}%";
+            _progressFill.style.width = Length.Percent(progress * 100f);
         }
     }
 }

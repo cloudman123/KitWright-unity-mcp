@@ -36,7 +36,7 @@ namespace GameWright.Editor.MCP.Server
         private VisualElement _contentContainer;
         private IMCPWindowPanel _activePanel;
         private MCPTabBar<Tab> _tabBar;
-        private Tab _activeTab = Tab.Server;
+        [SerializeField] private Tab _activeTab = Tab.Server;
         private bool? _lastRunning;
 
         [MenuItem("Window/GameWright/MCP Window", false, 0)]
@@ -173,10 +173,18 @@ namespace GameWright.Editor.MCP.Server
             _activePanel = null;
             _contentContainer.Clear();
 
-            _activePanel = CreatePanel(tab);
-            _activePanel.Build(_contentContainer);
+            // Build one tick later so the window chrome paints immediately after a domain
+            // reload instead of blocking CreateGUI on the panel build (blank-window flash).
+            _contentContainer.schedule.Execute(() =>
+            {
+                if (_activeTab != tab || _activePanel != null)
+                    return;
 
-            ApplyRoundedButtons(_contentContainer);
+                _activePanel = CreatePanel(tab);
+                _activePanel.Build(_contentContainer);
+
+                ApplyRoundedButtons(_contentContainer);
+            });
         }
 
         private static void ApplyRoundedButtons(VisualElement root)

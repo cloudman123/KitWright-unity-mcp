@@ -312,15 +312,8 @@ namespace GameWright.Editor.MCP.Server
                 case InstallMode.GitPackage:
                     StartGitPackageUpdate(latestVersion);
                     return;
-                case InstallMode.UnityPackageImport:
-                    await DownloadAndImportUnityPackageAsync(installContext, latestRelease, latestVersion);
-                    return;
                 default:
-                    EditorUtility.DisplayDialog(
-                        "GameWright MCP",
-                        "Automatic updates are only supported for Git installs and unitypackage imports.\n\nOpening the release page instead.",
-                        "OK");
-                    Application.OpenURL(string.IsNullOrEmpty(latestRelease.html_url) ? DefaultReleasesUrl : latestRelease.html_url);
+                    await DownloadAndImportUnityPackageAsync(installContext, latestRelease, latestVersion);
                     return;
             }
         }
@@ -373,21 +366,15 @@ namespace GameWright.Editor.MCP.Server
                 Debug.Log($"[GameWright MCP] {filterSummary}");
 
                 SetUpdateProgress($"Importing {safeFileName}...", 0.95f);
-                AssetDatabase.ImportPackage(filteredPackagePath, false);
-                AssetDatabase.Refresh();
-
                 EditorUtility.ClearProgressBar();
-                SetUpdateProgress($"Imported {safeFileName}. Unity may recompile and reload.", 1f);
-                EditorUtility.DisplayDialog(
-                    "GameWright MCP",
-                    $"Imported {safeFileName}.\n\nLatest version: {latestVersion}",
-                    "OK");
+                AssetDatabase.ImportPackage(filteredPackagePath, true);
+
+                SetUpdateProgress($"Import window opened for {safeFileName}.", 1f);
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
                 TryDeleteFile(tempPackagePath);
-                TryDeleteFile(filteredPackagePath);
             }
         }
 
