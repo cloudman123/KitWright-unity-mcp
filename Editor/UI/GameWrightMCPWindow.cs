@@ -88,6 +88,7 @@ namespace GameWright.Editor.MCP.Server
 
         private void OnDestroy()
         {
+            GameWrightMCPUpdateChecker.StateChanged -= RefreshUpdateButton;
             _activePanel?.Dispose();
             _activePanel = null;
         }
@@ -109,38 +110,59 @@ namespace GameWright.Editor.MCP.Server
             rootVisualElement.Add(CreateFooter());
         }
 
+        private VisualElement _updateFooter;
+        private Button _updateButton;
+
         private VisualElement CreateFooter()
         {
-            var footer = new VisualElement();
-            footer.style.flexShrink = 0;
-            footer.style.borderTopWidth = 1;
-            footer.style.borderTopColor = new Color(0.08f, 0.08f, 0.08f);
-            footer.style.backgroundColor = new Color(0.13f, 0.13f, 0.13f);
-            footer.Padding(6, 8, 8, 8);
+            _updateFooter = new VisualElement();
+            _updateFooter.style.flexShrink = 0;
+            _updateFooter.style.borderTopWidth = 1;
+            _updateFooter.style.borderTopColor = new Color(0.08f, 0.08f, 0.08f);
+            _updateFooter.style.backgroundColor = new Color(0.13f, 0.13f, 0.13f);
+            _updateFooter.Padding(6, 8, 8, 8);
+            _updateFooter.style.display = DisplayStyle.None;
 
-            var checkButton = new Button(GameWrightMCPUpdateChecker.CheckForUpdates)
+            _updateButton = new Button(GameWrightMCPUpdateChecker.UpdateToLatestFromWindow);
+            _updateButton.style.height = 28;
+            _updateButton.style.marginTop = 0;
+            _updateButton.style.marginBottom = 0;
+            _updateButton.style.marginLeft = 0;
+            _updateButton.style.marginRight = 0;
+            _updateButton.Rounded(5);
+            _updateButton.style.backgroundColor = new Color(0.30f, 0.66f, 0.36f);
+            _updateButton.style.color = Color.white;
+            _updateButton.style.fontSize = 13;
+            _updateButton.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _updateButton.style.transitionProperty = new List<StylePropertyName> { "background-color" };
+            _updateButton.style.transitionDuration = new List<TimeValue> { new TimeValue(0.12f, TimeUnit.Second) };
+            _updateButton.RegisterCallback<MouseEnterEvent>(_ =>
+                _updateButton.style.backgroundColor = new Color(0.36f, 0.76f, 0.44f));
+            _updateButton.RegisterCallback<MouseLeaveEvent>(_ =>
+                _updateButton.style.backgroundColor = new Color(0.30f, 0.66f, 0.36f));
+            _updateFooter.Add(_updateButton);
+
+            GameWrightMCPUpdateChecker.StateChanged -= RefreshUpdateButton;
+            GameWrightMCPUpdateChecker.StateChanged += RefreshUpdateButton;
+            RefreshUpdateButton();
+            GameWrightMCPUpdateChecker.MaybeCheckForUpdatesInBackground();
+
+            return _updateFooter;
+        }
+
+        private void RefreshUpdateButton()
+        {
+            if (_updateFooter == null || _updateButton == null)
+                return;
+
+            var state = GameWrightMCPUpdateChecker.CurrentState;
+            var show = state.HasUpdateAvailable && !state.UpdateStarted;
+            _updateFooter.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show)
             {
-                text = "Check for Updates"
-            };
-            checkButton.style.height = 28;
-            checkButton.style.marginTop = 0;
-            checkButton.style.marginBottom = 0;
-            checkButton.style.marginLeft = 0;
-            checkButton.style.marginRight = 0;
-            checkButton.Rounded(5);
-            checkButton.style.backgroundColor = new Color(0.24f, 0.42f, 0.58f);
-            checkButton.style.color = Color.white;
-            checkButton.style.fontSize = 13;
-            checkButton.style.unityFontStyleAndWeight = FontStyle.Bold;
-            checkButton.style.transitionProperty = new List<StylePropertyName> { "background-color" };
-            checkButton.style.transitionDuration = new List<TimeValue> { new TimeValue(0.12f, TimeUnit.Second) };
-            checkButton.RegisterCallback<MouseEnterEvent>(_ =>
-                checkButton.style.backgroundColor = new Color(0.30f, 0.52f, 0.70f));
-            checkButton.RegisterCallback<MouseLeaveEvent>(_ =>
-                checkButton.style.backgroundColor = new Color(0.24f, 0.42f, 0.58f));
-            footer.Add(checkButton);
-
-            return footer;
+                _updateButton.text = $"Update to v{state.LatestVersion}";
+                _updateButton.SetEnabled(!state.IsUpdating);
+            }
         }
 
         private void SelectTab(Tab tab)
