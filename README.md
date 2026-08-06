@@ -437,3 +437,5 @@ Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
 ## License
 
 [MIT](LICENSE) — Free to use, modify, distribute, and integrate into commercial or open-source projects.
+
+The GameWright name and logo are trademarks of the GameWright project and are **not** covered by the MIT license. You may not use the name or logo to brand derivative works or imply endorsement without prior written permission. All rights to the brand assets (files under `Editor/Icons/`) are reserved.

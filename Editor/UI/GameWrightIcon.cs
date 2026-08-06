@@ -10,9 +10,9 @@ namespace GameWright.Editor.MCP.Server
         private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _cache =
             new System.Collections.Generic.Dictionary<string, Texture2D>();
 
-        public static Texture2D Texture => Load("gamewright_icon");
-
         public static Texture2D TabTexture => Load("gamewright_icon_tab");
+
+        public static Texture2D LogoTextTexture => Load("gamewright_logo_text");
 
         private static Texture2D Load(string assetName)
         {

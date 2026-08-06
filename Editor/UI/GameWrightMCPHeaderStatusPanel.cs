@@ -26,24 +26,30 @@ namespace GameWright.Editor.MCP.Server
             titleRow.style.flexDirection = FlexDirection.Row;
             titleRow.style.alignItems = Align.Center;
             titleRow.style.marginBottom = 8;
+            titleRow.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
+            titleRow.Rounded(6);
+            titleRow.Border(1, new Color(0.09f, 0.09f, 0.09f));
+            titleRow.Padding(6, 10, 6, 10);
             parent.Add(titleRow);
 
-            var icon = GameWrightIcon.TabTexture;
+            var icon = GameWrightIcon.LogoTextTexture;
             if (icon != null)
             {
                 var logo = new Image { image = icon, scaleMode = ScaleMode.ScaleToFit };
-                logo.style.width = 16;
-                logo.style.height = 16;
-                logo.style.marginRight = 8;
+                var h = 28;
+                logo.style.height = h;
+                logo.style.width = h * icon.width / icon.height;
                 logo.style.flexShrink = 0;
                 titleRow.Add(logo);
             }
-
-            var title = new Label("MCP Server");
-            title.style.fontSize = 18;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.color = Color.white;
-            titleRow.Add(title);
+            else
+            {
+                var title = new Label("GameWright");
+                title.style.fontSize = 18;
+                title.style.unityFontStyleAndWeight = FontStyle.Bold;
+                title.style.color = Color.white;
+                titleRow.Add(title);
+            }
 
             _statusLabel = new Label();
             _statusLabel.style.fontSize = 14;
