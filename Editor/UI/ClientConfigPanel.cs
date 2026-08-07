@@ -13,7 +13,7 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightMCPClientConfigPanel
+    internal sealed class ClientConfigPanel
     {
         private readonly ISettingsController _settings;
         private readonly MCPServerService _server;
@@ -23,7 +23,7 @@ namespace GameWright.Editor.MCP.Server
         private Label _configStatusLabel;
         private Label _configPathLabel;
 
-        public GameWrightMCPClientConfigPanel(
+        public ClientConfigPanel(
             ISettingsController settings,
             MCPServerService server,
             Action rebuildWindow)

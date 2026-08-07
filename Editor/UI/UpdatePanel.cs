@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightMCPUpdatePanel
+    internal sealed class UpdatePanel
     {
         private VisualElement _container;
         private Label _statusLabel;
@@ -67,7 +67,7 @@ namespace GameWright.Editor.MCP.Server
             if (_container == null || _statusLabel == null || _progressFill == null)
                 return;
 
-            var state = GameWrightMCPUpdateChecker.CurrentState;
+            var state = UpdateChecker.CurrentState;
             var show = state.IsUpdating || state.UpdateStarted;
             _container.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             if (!show)

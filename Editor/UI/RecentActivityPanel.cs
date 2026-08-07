@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightMCPRecentActivityPanel : IDisposable
+    internal sealed class RecentActivityPanel : IDisposable
     {
         private readonly MCPServerService _server;
         private readonly List<Texture2D> _previewTextures = new List<Texture2D>();
@@ -20,7 +20,7 @@ namespace GameWright.Editor.MCP.Server
         private readonly HashSet<string> _enabled = new HashSet<string> { "Success", "Interrupted", "Error" };
         private const string ScrollOffsetKey = "GameWright.MCP.RecentActivity.ScrollY";
 
-        public GameWrightMCPRecentActivityPanel(MCPServerService server)
+        public RecentActivityPanel(MCPServerService server)
         {
             _server = server;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;

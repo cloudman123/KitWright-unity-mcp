@@ -7,14 +7,14 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightMCPHeaderStatusPanel
+    internal sealed class HeaderStatusPanel
     {
         private readonly ISettingsController _settings;
         private readonly MCPServerService _server;
         private Label _statusLabel;
         private Label _versionLabel;
 
-        public GameWrightMCPHeaderStatusPanel(ISettingsController settings, MCPServerService server)
+        public HeaderStatusPanel(ISettingsController settings, MCPServerService server)
         {
             _settings = settings;
             _server = server;
@@ -27,7 +27,7 @@ namespace GameWright.Editor.MCP.Server
             titleRow.style.alignItems = Align.Center;
             parent.Add(titleRow);
 
-            var icon = GameWrightIcon.LogoTextTexture;
+            var icon = PluginIcon.LogoTextTexture;
             if (icon != null)
             {
                 var logo = new Image { image = icon, scaleMode = ScaleMode.ScaleToFit };
@@ -87,7 +87,7 @@ namespace GameWright.Editor.MCP.Server
         public void RefreshVersion()
         {
             if (_versionLabel != null)
-                _versionLabel.text = $"v{GameWrightMCPUpdateChecker.CurrentState.CurrentVersion ?? PackageVersionUtility.CurrentVersion}";
+                _versionLabel.text = $"v{UpdateChecker.CurrentState.CurrentVersion ?? PackageVersionUtility.CurrentVersion}";
         }
 
         public void RefreshStatus()

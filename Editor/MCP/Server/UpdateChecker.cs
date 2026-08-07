@@ -16,7 +16,7 @@ using UnityEngine.Networking;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal static class GameWrightMCPUpdateChecker
+    internal static class UpdateChecker
     {
         private const string PackageName = "com.gamewright.unity.mcp";
         private const string PackageRoot = "Packages/com.gamewright.unity.mcp";

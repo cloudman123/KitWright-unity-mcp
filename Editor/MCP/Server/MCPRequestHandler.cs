@@ -89,7 +89,7 @@ namespace GameWright.Editor.MCP.Server
                 ["gamewright"] = new Dictionary<string, object>
                 {
                     ["projectIdentity"] = _projectIdentity,
-                    ["projectIdentityVersion"] = GameWrightProjectIdentity.IdentityVersion
+                    ["projectIdentityVersion"] = ProjectIdentity.IdentityVersion
                 },
                 ["capabilities"] = new Dictionary<string, object>
                 {

@@ -9,7 +9,7 @@ using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightIntegrationsPanel : IMCPWindowPanel
+    internal sealed class IntegrationsPanel : IMCPWindowPanel
     {
         private struct Integration
         {

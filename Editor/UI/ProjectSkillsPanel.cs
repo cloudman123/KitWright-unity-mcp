@@ -11,7 +11,7 @@ using GameWright.Editor.Settings;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightProjectSkillsPanel : IMCPWindowPanel
+    internal sealed class ProjectSkillsPanel : IMCPWindowPanel
     {
         private readonly Dictionary<string, MCPSwitchToggle> _optionalSkillToggles = new Dictionary<string, MCPSwitchToggle>(StringComparer.OrdinalIgnoreCase);
         private readonly ISettingsController _settingsController;
@@ -24,7 +24,7 @@ namespace GameWright.Editor.MCP.Server
         private string[] _platformTargets;
         private int _selectedTargetIndex;
 
-        public GameWrightProjectSkillsPanel(ISettingsController settingsController)
+        public ProjectSkillsPanel(ISettingsController settingsController)
         {
             _settingsController = settingsController;
         }
@@ -70,7 +70,7 @@ namespace GameWright.Editor.MCP.Server
         {
             var (section, foldout) = MCPSection.Create("Current Platform", "CurrentPlatform");
 
-            _platformTargets = GameWrightMCPClientConfigPanel.GetAllTargetNames();
+            _platformTargets = ClientConfigPanel.GetAllTargetNames();
             _selectedTargetIndex = Mathf.Clamp(_selectedTargetIndex, 0, _platformTargets.Length - 1);
             var persistedTargetName = _settingsController.MCPSelectedConfigTarget;
             if (!string.IsNullOrWhiteSpace(persistedTargetName))

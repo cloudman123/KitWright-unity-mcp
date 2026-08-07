@@ -38,9 +38,9 @@ namespace GameWright.Editor
         [Test]
         public void RecentActivityBadge_InterruptedIsNotDisplayedAsOk()
         {
-            Assert.AreEqual("OK", GameWrightMCPRecentActivityPanel.GetBadgeText(MCPToolCallStatus.Success));
-            Assert.AreEqual("INT", GameWrightMCPRecentActivityPanel.GetBadgeText(MCPToolCallStatus.Interrupted));
-            Assert.AreEqual("ERR", GameWrightMCPRecentActivityPanel.GetBadgeText(MCPToolCallStatus.Error));
+            Assert.AreEqual("OK", RecentActivityPanel.GetBadgeText(MCPToolCallStatus.Success));
+            Assert.AreEqual("INT", RecentActivityPanel.GetBadgeText(MCPToolCallStatus.Interrupted));
+            Assert.AreEqual("ERR", RecentActivityPanel.GetBadgeText(MCPToolCallStatus.Error));
         }
 
         [Test]
@@ -310,7 +310,7 @@ namespace GameWright.Editor
                     ["gamewright"] = new Dictionary<string, object>
                     {
                         ["projectIdentity"] = projectIdentity,
-                        ["projectIdentityVersion"] = GameWrightProjectIdentity.IdentityVersion
+                        ["projectIdentityVersion"] = ProjectIdentity.IdentityVersion
                     }
                 }
             });

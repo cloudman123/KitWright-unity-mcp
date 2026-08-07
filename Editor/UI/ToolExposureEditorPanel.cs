@@ -12,7 +12,7 @@ using GameWright.Editor.Tools;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightToolExposureEditorPanel : IMCPWindowPanel
+    internal sealed class ToolExposureEditorPanel : IMCPWindowPanel
     {
         private static readonly List<string> ProfileChoices = new List<string>(MCPToolExportPolicy.AllProfiles);
 
@@ -42,7 +42,7 @@ namespace GameWright.Editor.MCP.Server
         private static readonly Color RowOnText = new Color(0.92f, 0.95f, 0.90f);
         private static readonly Color RowOffText = new Color(0.72f, 0.72f, 0.72f);
 
-        public GameWrightToolExposureEditorPanel(ISettingsController settingsController, MCPServerService mcpServer)
+        public ToolExposureEditorPanel(ISettingsController settingsController, MCPServerService mcpServer)
         {
             _settingsController = settingsController;
             _mcpServer = mcpServer;
@@ -352,7 +352,7 @@ namespace GameWright.Editor.MCP.Server
                 {
                     text = char.ToUpperInvariant(profile[0]) + profile.Substring(1)
                 };
-                button.AddToClassList(GameWrightMCPWindow.FlatButtonClass);
+                button.AddToClassList(MCPWindow.FlatButtonClass);
                 button.style.flexGrow = 1;
                 button.style.flexBasis = 0;
                 button.style.height = 20;

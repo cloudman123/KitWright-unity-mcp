@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal class GameWrightMCPWindow : EditorWindow
+    internal class MCPWindow : EditorWindow
     {
         private enum Tab
         {
@@ -42,14 +42,14 @@ namespace GameWright.Editor.MCP.Server
         [MenuItem("Window/GameWright/MCP Window", false, 0)]
         public static void ShowWindow()
         {
-            var window = GetWindow<GameWrightMCPWindow>("GameWright MCP");
+            var window = GetWindow<MCPWindow>("GameWright MCP");
             window.minSize = new Vector2(460, 560);
             window.Show();
         }
 
         public void CreateGUI()
         {
-            var icon = GameWrightIcon.TabTexture;
+            var icon = PluginIcon.TabTexture;
             if (icon != null)
                 titleContent = new GUIContent("GameWright MCP", icon);
 
@@ -88,7 +88,7 @@ namespace GameWright.Editor.MCP.Server
 
         private void OnDestroy()
         {
-            GameWrightMCPUpdateChecker.StateChanged -= RefreshUpdateButton;
+            UpdateChecker.StateChanged -= RefreshUpdateButton;
             _activePanel?.Dispose();
             _activePanel = null;
         }
@@ -136,7 +136,7 @@ namespace GameWright.Editor.MCP.Server
             _updateFooter.Padding(6, 8, 8, 8);
             _updateFooter.style.display = DisplayStyle.None;
 
-            _updateButton = new Button(GameWrightMCPUpdateChecker.UpdateToLatestFromWindow);
+            _updateButton = new Button(UpdateChecker.UpdateToLatestFromWindow);
             _updateButton.style.height = 28;
             _updateButton.style.marginTop = 0;
             _updateButton.style.marginBottom = 0;
@@ -155,10 +155,10 @@ namespace GameWright.Editor.MCP.Server
                 _updateButton.style.backgroundColor = new Color(0.30f, 0.66f, 0.36f));
             _updateFooter.Add(_updateButton);
 
-            GameWrightMCPUpdateChecker.StateChanged -= RefreshUpdateButton;
-            GameWrightMCPUpdateChecker.StateChanged += RefreshUpdateButton;
+            UpdateChecker.StateChanged -= RefreshUpdateButton;
+            UpdateChecker.StateChanged += RefreshUpdateButton;
             RefreshUpdateButton();
-            GameWrightMCPUpdateChecker.MaybeCheckForUpdatesInBackground();
+            UpdateChecker.MaybeCheckForUpdatesInBackground();
 
             return _updateFooter;
         }
@@ -168,7 +168,7 @@ namespace GameWright.Editor.MCP.Server
             if (_updateFooter == null || _updateButton == null)
                 return;
 
-            var state = GameWrightMCPUpdateChecker.CurrentState;
+            var state = UpdateChecker.CurrentState;
             var show = state.HasUpdateAvailable && !state.UpdateStarted;
             _updateFooter.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             if (show)
@@ -217,15 +217,15 @@ namespace GameWright.Editor.MCP.Server
             switch (tab)
             {
                 case Tab.Settings:
-                    return new GameWrightPluginSettingsPanel(_settingsController);
+                    return new PluginSettingsPanel(_settingsController);
                 case Tab.Skills:
-                    return new GameWrightProjectSkillsPanel(_settingsController);
+                    return new ProjectSkillsPanel(_settingsController);
                 case Tab.ToolExposure:
-                    return new GameWrightToolExposureEditorPanel(_settingsController, _mcpServer);
+                    return new ToolExposureEditorPanel(_settingsController, _mcpServer);
                 case Tab.Integrations:
-                    return new GameWrightIntegrationsPanel();
+                    return new IntegrationsPanel();
                 default:
-                    return new GameWrightMCPServerPanel(_settingsController, _mcpServer);
+                    return new ServerPanel(_settingsController, _mcpServer);
             }
         }
     }

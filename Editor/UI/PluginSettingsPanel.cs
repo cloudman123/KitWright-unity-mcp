@@ -8,13 +8,13 @@ using GameWright.Editor.Settings;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightPluginSettingsPanel : IMCPWindowPanel
+    internal sealed class PluginSettingsPanel : IMCPWindowPanel
     {
         private readonly ISettingsController _settingsController;
         private VisualElement _container;
         private MCPSwitchToggle _debugLoggingToggle;
 
-        public GameWrightPluginSettingsPanel(ISettingsController settingsController)
+        public PluginSettingsPanel(ISettingsController settingsController)
         {
             _settingsController = settingsController;
         }
@@ -51,7 +51,7 @@ namespace GameWright.Editor.MCP.Server
             autostartSection.Add(autostartToggle);
             settingsFoldout.Add(autostartSection);
 
-            GameWrightMCPSafetyPanel.AddTo(settingsFoldout, _settingsController);
+            SafetyPanel.AddTo(settingsFoldout, _settingsController);
 
             var debugSection = new VisualElement().Card();
 

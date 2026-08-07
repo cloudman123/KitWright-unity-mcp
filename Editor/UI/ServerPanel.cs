@@ -7,17 +7,17 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightMCPServerPanel : IMCPWindowPanel
+    internal sealed class ServerPanel : IMCPWindowPanel
     {
         private readonly ISettingsController _settingsController;
         private readonly MCPServerService _mcpServer;
 
         private VisualElement _container;
-        private GameWrightMCPHeaderStatusPanel _headerStatusPanel;
-        private GameWrightMCPUpdatePanel _updatePanel;
-        private GameWrightMCPRecentActivityPanel _activityPanel;
+        private HeaderStatusPanel _headerStatusPanel;
+        private UpdatePanel _updatePanel;
+        private RecentActivityPanel _activityPanel;
 
-        public GameWrightMCPServerPanel(
+        public ServerPanel(
             ISettingsController settingsController,
             MCPServerService mcpServer)
         {
@@ -29,14 +29,14 @@ namespace GameWright.Editor.MCP.Server
         {
             _container = container;
 
-            GameWrightMCPUpdateChecker.StateChanged -= OnUpdateStateChanged;
-            GameWrightMCPUpdateChecker.StateChanged += OnUpdateStateChanged;
+            UpdateChecker.StateChanged -= OnUpdateStateChanged;
+            UpdateChecker.StateChanged += OnUpdateStateChanged;
 
             _mcpServer.InteractionLog.OnEntryAdded -= OnLogEntryAdded;
             _mcpServer.InteractionLog.OnEntryAdded += OnLogEntryAdded;
 
             BuildUI();
-            GameWrightMCPUpdateChecker.MaybeCheckForUpdatesInBackground();
+            UpdateChecker.MaybeCheckForUpdatesInBackground();
         }
 
         private void BuildUI()
@@ -57,14 +57,14 @@ namespace GameWright.Editor.MCP.Server
                 connToggleLabel.style.flexGrow = 1;
             }
 
-            _headerStatusPanel = new GameWrightMCPHeaderStatusPanel(_settingsController, _mcpServer);
+            _headerStatusPanel = new HeaderStatusPanel(_settingsController, _mcpServer);
             _headerStatusPanel.AddTo(_container, connToggle);
 
-            _updatePanel = new GameWrightMCPUpdatePanel();
+            _updatePanel = new UpdatePanel();
             _updatePanel.AddTo(_container);
 
             connectionSection.Add(connectionFoldout);
-            new GameWrightMCPServerControlsPanel(
+            new ServerControlsPanel(
                     _settingsController,
                     _mcpServer,
                     () => _headerStatusPanel?.RefreshStatus())
@@ -72,14 +72,14 @@ namespace GameWright.Editor.MCP.Server
             _container.Add(connectionSection);
 
             var clientSection = CreateSection();
-            new GameWrightMCPClientConfigPanel(
+            new ClientConfigPanel(
                     _settingsController,
                     _mcpServer,
                     BuildUI)
                 .AddTo(clientSection);
             _container.Add(clientSection);
 
-            _activityPanel = new GameWrightMCPRecentActivityPanel(_mcpServer);
+            _activityPanel = new RecentActivityPanel(_mcpServer);
             _activityPanel.AddTo(_container);
         }
 
@@ -96,7 +96,7 @@ namespace GameWright.Editor.MCP.Server
             if (_mcpServer?.InteractionLog != null)
                 _mcpServer.InteractionLog.OnEntryAdded -= OnLogEntryAdded;
 
-            GameWrightMCPUpdateChecker.StateChanged -= OnUpdateStateChanged;
+            UpdateChecker.StateChanged -= OnUpdateStateChanged;
             DisposePanels();
         }
 

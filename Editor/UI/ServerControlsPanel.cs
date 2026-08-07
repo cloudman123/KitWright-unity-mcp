@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal sealed class GameWrightMCPServerControlsPanel
+    internal sealed class ServerControlsPanel
     {
         private const float FieldLabelWidth = 100f;
         private const string DirectTransportChoice = "Direct HTTP (default)";
@@ -26,7 +26,7 @@ namespace GameWright.Editor.MCP.Server
         private Label _connectIcon;
         private Label _connectText;
 
-        public GameWrightMCPServerControlsPanel(
+        public ServerControlsPanel(
             ISettingsController settings,
             MCPServerService server,
             Action refreshStatus)

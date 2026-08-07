@@ -181,7 +181,7 @@ namespace GameWright.Editor.MCP.Server
                 PluginDebugLogger.Log("[GameWright MCP Server] Starting server...");
 
                 var serverName = "GameWright MCP Server - " + Application.productName;
-                var projectIdentity = GameWrightProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
+                var projectIdentity = ProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
                 transport = CreateTransport(startupPort, serverName, projectIdentity);
                 var toolExporter = new MCPToolExporter(_settings);
                 MCPToolListChangeNotifier.CheckForChanges(toolExporter);

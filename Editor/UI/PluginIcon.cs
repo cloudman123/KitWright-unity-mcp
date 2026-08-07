@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal static class GameWrightIcon
+    internal static class PluginIcon
     {
         private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _cache =
             new System.Collections.Generic.Dictionary<string, Texture2D>();

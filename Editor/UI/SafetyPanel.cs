@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace GameWright.Editor.MCP.Server
 {
-    internal static class GameWrightMCPSafetyPanel
+    internal static class SafetyPanel
     {
         public static void AddTo(VisualElement parent, ISettingsController settings)
         {

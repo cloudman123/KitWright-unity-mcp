@@ -27,10 +27,10 @@ namespace GameWright.Editor.MCP.Server
 
         public static void Run(string serverUrl)
         {
-            var serverName = GameWrightMCPClientConfigPanel.GetServerEntryName();
+            var serverName = ClientConfigPanel.GetServerEntryName();
             var rewritten = new List<string>();
 
-            foreach (var target in GameWrightMCPClientConfigPanel.GetAllTargets())
+            foreach (var target in ClientConfigPanel.GetAllTargets())
             {
                 try
                 {
@@ -55,7 +55,7 @@ namespace GameWright.Editor.MCP.Server
         }
 
         private static bool RewriteJson(
-            GameWrightMCPClientConfigPanel.MCPConfigTarget target, string serverName, string serverUrl)
+            ClientConfigPanel.MCPConfigTarget target, string serverName, string serverUrl)
         {
             var json = File.ReadAllText(target.ConfigPath);
             if (!(SimpleJsonHelper.Deserialize(json) is Dictionary<string, object> root))
