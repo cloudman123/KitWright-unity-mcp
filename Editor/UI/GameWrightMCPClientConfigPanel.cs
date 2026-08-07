@@ -36,6 +36,8 @@ namespace GameWright.Editor.MCP.Server
         public void AddTo(VisualElement parent)
         {
             var foldout = new Foldout { text = "Client Configuration", value = true }.Persist("ClientConfig");
+            foldout.style.minWidth = 0;
+            foldout.contentContainer.style.minWidth = 0;
 
             var toggle = foldout.Q<Toggle>();
             var toggleLabel = toggle?.Q<Label>();
@@ -69,14 +71,16 @@ namespace GameWright.Editor.MCP.Server
             label.style.fontSize = 13;
             label.style.unityFontStyleAndWeight = FontStyle.Bold;
             label.style.color = new Color(0.75f, 0.75f, 0.75f);
-            label.style.flexGrow = 1;
+            label.style.flexShrink = 0;
             subHeaderRow.Add(label);
 
             _configPathLabel = new Label();
             _configPathLabel.style.fontSize = 11;
             _configPathLabel.style.color = new Color(0.5f, 0.5f, 0.5f);
             _configPathLabel.style.unityTextAlign = TextAnchor.MiddleRight;
-            _configPathLabel.style.flexShrink = 0;
+            _configPathLabel.style.flexGrow = 1;
+            _configPathLabel.Ellipsize();
+            _configPathLabel.style.marginLeft = 8;
             subHeaderRow.Add(_configPathLabel);
 
             body.Add(subHeaderRow);
@@ -155,6 +159,8 @@ namespace GameWright.Editor.MCP.Server
         {
             var foldout = new Foldout { text = "Manual Configuration", value = false }.Persist("ClientConfigManual");
             foldout.style.marginTop = -4;
+            foldout.style.minWidth = 0;
+            foldout.contentContainer.style.minWidth = 0;
 
             var toggleLabel = foldout.Q<Toggle>()?.Q<Label>();
             if (toggleLabel != null)
@@ -168,10 +174,13 @@ namespace GameWright.Editor.MCP.Server
             var pathRow = new VisualElement();
             pathRow.style.flexDirection = FlexDirection.Row;
             pathRow.style.alignItems = Align.Center;
+            pathRow.style.minWidth = 0;
             pathRow.style.marginBottom = 6;
 
             var pathField = new TextField { value = target.ConfigPath, isReadOnly = true };
             pathField.style.flexGrow = 1;
+            pathField.tooltip = target.ConfigPath;
+            MakeShrinkable(pathField);
             pathRow.Add(pathField);
 
             pathRow.Add(MakeCopyButton(() => target.ConfigPath));
@@ -189,6 +198,7 @@ namespace GameWright.Editor.MCP.Server
             openButton.text = "Open";
             openButton.style.height = 22;
             openButton.style.width = 50;
+            openButton.style.flexShrink = 0;
             openButton.style.marginLeft = 4;
             pathRow.Add(openButton);
 
@@ -200,10 +210,12 @@ namespace GameWright.Editor.MCP.Server
             var snippetRow = new VisualElement();
             snippetRow.style.flexDirection = FlexDirection.Row;
             snippetRow.style.alignItems = Align.FlexStart;
+            snippetRow.style.minWidth = 0;
             snippetRow.style.marginBottom = 6;
 
             var snippetField = new TextField { value = snippet, isReadOnly = true, multiline = true };
             snippetField.style.flexGrow = 1;
+            MakeShrinkable(snippetField);
 #if UNITY_2023_2_OR_NEWER
             snippetField.style.whiteSpace = WhiteSpace.Pre;
 #else
@@ -230,6 +242,15 @@ namespace GameWright.Editor.MCP.Server
             parent.Add(foldout);
         }
 
+        // The TextField's inner elements carry the same flex-shrink:0 default, so shrinking
+        // only the field itself is not enough.
+        private static void MakeShrinkable(TextField field)
+        {
+            field.Shrinkable();
+            foreach (var element in field.Query<VisualElement>().Build())
+                element.Shrinkable();
+        }
+
         private static Label MakeSectionLabel(string text)
         {
             var label = new Label(text);
@@ -245,6 +266,7 @@ namespace GameWright.Editor.MCP.Server
             button.text = "Copy";
             button.style.height = 22;
             button.style.width = 60;
+            button.style.flexShrink = 0;
             button.style.marginLeft = 4;
             button.clicked += () =>
             {
@@ -290,6 +312,7 @@ namespace GameWright.Editor.MCP.Server
                 ? new Color(0.4f, 1f, 0.4f)
                 : new Color(1f, 0.6f, 0.4f);
             _configPathLabel.text = target.ConfigPath;
+            _configPathLabel.tooltip = target.ConfigPath;
         }
 
         public static string[] GetAllTargetNames()
@@ -389,8 +412,8 @@ namespace GameWright.Editor.MCP.Server
                 },
                 new MCPConfigTarget
                 {
-                    // Antigravity 2.0 đọc ~/.gemini/config/; Antigravity IDE (app riêng, cùng
-                    // tồn tại trên một máy) đọc ~/.gemini/antigravity-ide/ — hai client tách biệt.
+                    // Antigravity 2.0 reads ~/.gemini/config/; Antigravity IDE (separate app,
+                    // coexists on the same machine) reads ~/.gemini/antigravity-ide/ — two distinct clients.
                     Name = "Antigravity 2.0",
                     ConfigPath = Path.Combine(homePath, ".gemini", "config", "mcp_config.json"),
                     IncludeTypeField = true,
@@ -461,10 +484,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                EditorUtility.DisplayDialog(
-                    "MCP Configuration Error",
-                    $"Configuration failed:\n{ex.Message}",
-                    "OK");
+                ShowConfigError(ex);
             }
         }
 
@@ -505,10 +525,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                EditorUtility.DisplayDialog(
-                    "MCP Configuration Error",
-                    $"Configuration failed:\n{ex.Message}",
-                    "OK");
+                ShowConfigError(ex);
             }
         }
 
@@ -533,20 +550,8 @@ namespace GameWright.Editor.MCP.Server
                 platformId
             };
 
-            var conflictPaths = ProjectSkillsManager.GetPlatformConflictPaths(projectRoot, selectedPlatforms);
-            if (conflictPaths.Length > 0)
-            {
-                var overwrite = EditorUtility.DisplayDialog(
-                    "Project Skills Configuration",
-                    "Existing non-managed project instruction files were found:\n\n" +
-                    string.Join("\n", conflictPaths) +
-                    "\n\nOverwrite them with GameWright-managed files?",
-                    "Overwrite",
-                    "Cancel");
-
-                if (!overwrite)
-                    return false;
-            }
+            if (!ProjectSkillsManager.ConfirmOverwriteConflicts(projectRoot, selectedPlatforms))
+                return false;
 
             ProjectSkillsManager.ApplyConfiguration(projectRoot, selectedPlatforms, manifest.optionalSkills);
             return true;
@@ -708,7 +713,7 @@ namespace GameWright.Editor.MCP.Server
                 case "Cursor":
                     return "cursor";
                 default:
-                    // Mọi IDE/agent khác đọc chuẩn mở .agents/skills/ (Antigravity, Windsurf, Gemini CLI...)
+                    // Every other IDE/agent reads the open .agents/skills/ standard (Antigravity, Windsurf, Gemini CLI...)
                     return "agents";
             }
         }
@@ -727,117 +732,63 @@ namespace GameWright.Editor.MCP.Server
             return Environment.GetFolderPath(Environment.SpecialFolder.Personal);
         }
 
-        private static string GetTraeConfigPath(string homePath)
+        private static void ShowConfigError(Exception ex)
         {
-            switch (Application.platform)
+            EditorUtility.DisplayDialog(
+                "MCP Configuration Error",
+                $"Configuration failed:\n{ex.Message}",
+                "OK");
+        }
+
+        // Where a desktop client keeps its per-user config: %APPDATA% (or %LOCALAPPDATA%) on Windows,
+        // ~/Library/Application Support on macOS, ~/.config on Linux. An empty Windows folder path
+        // also falls through to ~/.config rather than producing a rooted-nowhere path.
+        private static string AppConfigRoot(string homePath, bool localAppData = false)
+        {
+            if (Application.platform == RuntimePlatform.WindowsEditor)
             {
-                case RuntimePlatform.WindowsEditor:
-                    var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    if (!string.IsNullOrEmpty(appData))
-                        return Path.Combine(appData, "Trae", "mcp.json");
-                    break;
-
-                case RuntimePlatform.OSXEditor:
-                    return Path.Combine(homePath, "Library", "Application Support", "Trae", "mcp.json");
-
-                case RuntimePlatform.LinuxEditor:
-                    return Path.Combine(homePath, ".config", "Trae", "mcp.json");
+                var root = Environment.GetFolderPath(localAppData
+                    ? Environment.SpecialFolder.LocalApplicationData
+                    : Environment.SpecialFolder.ApplicationData);
+                if (!string.IsNullOrEmpty(root))
+                    return root;
             }
 
-            return Path.Combine(homePath, ".config", "Trae", "mcp.json");
+            if (Application.platform == RuntimePlatform.OSXEditor)
+                return Path.Combine(homePath, "Library", "Application Support");
+
+            return Path.Combine(homePath, ".config");
+        }
+
+        private static string GetTraeConfigPath(string homePath)
+        {
+            return Path.Combine(AppConfigRoot(homePath), "Trae", "mcp.json");
         }
 
         private static string GetVSCodeInsidersConfigPath(string homePath)
         {
-            switch (Application.platform)
-            {
-                case RuntimePlatform.WindowsEditor:
-                    var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    if (!string.IsNullOrEmpty(appData))
-                        return Path.Combine(appData, "Code - Insiders", "User", "mcp.json");
-                    break;
-
-                case RuntimePlatform.OSXEditor:
-                    return Path.Combine(homePath, "Library", "Application Support", "Code - Insiders", "User", "mcp.json");
-
-                case RuntimePlatform.LinuxEditor:
-                    return Path.Combine(homePath, ".config", "Code - Insiders", "User", "mcp.json");
-            }
-
-            return Path.Combine(homePath, ".config", "Code - Insiders", "User", "mcp.json");
+            return Path.Combine(AppConfigRoot(homePath), "Code - Insiders", "User", "mcp.json");
         }
 
         private static string GetRiderConfigPath(string homePath)
         {
-            switch (Application.platform)
-            {
-                case RuntimePlatform.WindowsEditor:
-                    var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    if (!string.IsNullOrEmpty(localAppData))
-                        return Path.Combine(localAppData, "github-copilot", "intellij", "mcp.json");
-                    break;
-
-                case RuntimePlatform.OSXEditor:
-                    return Path.Combine(homePath, "Library", "Application Support", "github-copilot", "intellij", "mcp.json");
-
-                case RuntimePlatform.LinuxEditor:
-                    return Path.Combine(homePath, ".config", "github-copilot", "intellij", "mcp.json");
-            }
-
-            return Path.Combine(homePath, ".config", "github-copilot", "intellij", "mcp.json");
+            return Path.Combine(AppConfigRoot(homePath, localAppData: true), "github-copilot", "intellij", "mcp.json");
         }
 
         private static string GetClineConfigPath(string homePath)
         {
-            const string tail = "globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json";
-            var segments = tail.Split('/');
-
-            switch (Application.platform)
-            {
-                case RuntimePlatform.WindowsEditor:
-                    var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    if (!string.IsNullOrEmpty(appData))
-                        return CombineAll(appData, "Code", "User", segments);
-                    break;
-
-                case RuntimePlatform.OSXEditor:
-                    return CombineAll(Path.Combine(homePath, "Library", "Application Support"), "Code", "User", segments);
-
-                case RuntimePlatform.LinuxEditor:
-                    return CombineAll(Path.Combine(homePath, ".config"), "Code", "User", segments);
-            }
-
-            return CombineAll(Path.Combine(homePath, ".config"), "Code", "User", segments);
+            return VSCodeExtensionSettingsPath(homePath, "saoudrizwan.claude-dev");
         }
 
         private static string GetRooCodeConfigPath(string homePath)
         {
-            const string tail = "globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json";
-            var segments = tail.Split('/');
-
-            switch (Application.platform)
-            {
-                case RuntimePlatform.WindowsEditor:
-                    var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    if (!string.IsNullOrEmpty(appData))
-                        return CombineAll(appData, "Code", "User", segments);
-                    break;
-
-                case RuntimePlatform.OSXEditor:
-                    return CombineAll(Path.Combine(homePath, "Library", "Application Support"), "Code", "User", segments);
-
-                case RuntimePlatform.LinuxEditor:
-                    return CombineAll(Path.Combine(homePath, ".config"), "Code", "User", segments);
-            }
-
-            return CombineAll(Path.Combine(homePath, ".config"), "Code", "User", segments);
+            return VSCodeExtensionSettingsPath(homePath, "rooveterinaryinc.roo-cline");
         }
 
-        private static string CombineAll(string root, string app, string user, string[] tail)
+        private static string VSCodeExtensionSettingsPath(string homePath, string extensionId)
         {
-            var parts = new List<string> { root, app, user };
-            parts.AddRange(tail);
-            return Path.Combine(parts.ToArray());
+            return Path.Combine(AppConfigRoot(homePath), "Code", "User",
+                "globalStorage", extensionId, "settings", "cline_mcp_settings.json");
         }
 
         private static string GetVSCodeConfigPath(string homePath)

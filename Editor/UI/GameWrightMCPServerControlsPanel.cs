@@ -57,8 +57,7 @@ namespace GameWright.Editor.MCP.Server
                     EditorApplication.delayCall += () => { UpdateBrokerStatus(); InvokeRefreshStatus(); };
             });
             portField.style.flexGrow = 1;
-            portField.style.flexShrink = 1;
-            portField.style.minWidth = 0;
+            portField.Shrinkable();
             portField.style.marginBottom = 0;
             LockLabelWidth(portField);
             portRow.Add(portField);
@@ -132,6 +131,7 @@ namespace GameWright.Editor.MCP.Server
                 EditorApplication.delayCall += UpdateBrokerStatus;
             });
             _brokerMonoPathField.style.marginBottom = 4;
+            _brokerMonoPathField.tooltip = "Mono runtime used to run the broker process.";
             LockLabelWidth(_brokerMonoPathField);
             parent.Add(_brokerMonoPathField);
 

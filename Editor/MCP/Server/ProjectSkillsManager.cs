@@ -178,6 +178,22 @@ namespace GameWright.Editor.MCP.Server
             return Path.Combine(projectRoot, ".agents", "skills");
         }
 
+        // False only when non-managed instruction files exist and the user declines to overwrite.
+        internal static bool ConfirmOverwriteConflicts(string projectRoot, IEnumerable<string> platforms)
+        {
+            var conflictPaths = GetPlatformConflictPaths(projectRoot, platforms);
+            if (conflictPaths.Length == 0)
+                return true;
+
+            return EditorUtility.DisplayDialog(
+                "Project Skills Configuration",
+                "Existing non-managed project instruction files were found:\n\n" +
+                string.Join("\n", conflictPaths) +
+                "\n\nOverwrite them with GameWright-managed files?",
+                "Overwrite",
+                "Cancel");
+        }
+
         internal static void ApplyConfiguration(string projectRoot, IEnumerable<string> selectedPlatforms, IEnumerable<string> selectedOptionalSkills)
         {
             var manifest = new ProjectSkillsManifest

@@ -6,6 +6,14 @@
 - Autostart-on-Unity-open toggle for the MCP server, exposed at the top of the Settings tab.
 
 ### Removed
+- Settings tab `Requirements` checklist (`Run In Background`, `Recompile after finished playing`).
+  Nothing read either value. The recompile one warned about a failure `DomainReloadHandler` already
+  recovers from and reports back to the client, and the `Run In Background` fix wrote a shipped
+  `PlayerSettings` value into `ProjectSettings.asset` for an editor-only convenience.
+- Project Skills `Upgrade Skills` and `Refresh` buttons. `Upgrade Skills` called the same
+  `ApplyConfiguration` as `Apply Skills` (which always rewrites managed files at the bundled
+  versions), and could silently drop pending toggle changes; `Refresh` duplicated the rebuild that
+  already happens on tab switch and after every action. `Apply Skills` is now the only action.
 - FlowWright (flow record/replay, atom graph), UI reconstruct (`match_sprites_to_image`,
   `capture_match_compare`), and the `match` / `playtest` / `agentplay` skills. These move to a
   separate commercial package; the free package keeps the full MCP server and editor tool surface.

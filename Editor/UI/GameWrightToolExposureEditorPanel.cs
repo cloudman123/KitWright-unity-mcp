@@ -22,10 +22,14 @@ namespace GameWright.Editor.MCP.Server
         private VisualElement _root;
         private Label _statusLabel;
         private Label _descriptionLabel;
+        private Label _unsavedLabel;
+        private Button _saveButton;
         private ScrollView _toolScrollView;
         private List<string> _allToolNames = new List<string>();
         private readonly Dictionary<string, string> _toolCategories = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _toolDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<Foldout> _categoryFoldouts = new List<Foldout>();
+        private string _searchFilter = string.Empty;
         private HashSet<string> _editingTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private string _editingProfile = "core";
 
@@ -61,19 +65,8 @@ namespace GameWright.Editor.MCP.Server
         {
             _root.Clear();
 
-            var title = new Label("Tool Exposure");
-            title.style.fontSize = 18;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.color = Color.white;
-            title.style.marginBottom = 4;
-            _root.Add(title);
-
-            var hint = new Label("Edit exactly which tools each MCP profile exposes. Choose the active profile from the Server tab. Saving changes restarts the running server automatically.");
-            hint.style.fontSize = 13;
-            hint.style.color = new Color(0.65f, 0.65f, 0.65f);
-            hint.style.whiteSpace = WhiteSpace.Normal;
-            hint.style.marginBottom = 10;
-            _root.Add(hint);
+            _root.Add(MCPSection.PanelTitle("Tool Exposure"));
+            _root.Add(MCPSection.PanelHint("Edit exactly which tools each MCP profile exposes. Choose the active profile from the Server tab. Saving changes restarts the running server automatically."));
 
             LoadAllTools();
 
@@ -93,34 +86,9 @@ namespace GameWright.Editor.MCP.Server
             headerRow.style.alignItems = Align.Center;
             headerRow.style.flexGrow = 1;
 
-            var profileLabel = new Label("Edit Tool List");
-            profileLabel.style.fontSize = 13;
-            profileLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            profileLabel.style.color = new Color(0.88f, 0.88f, 0.9f);
-            profileLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
-            headerRow.Add(profileLabel);
+            headerRow.Add(SectionTitle("Edit Tool List"));
 
-            var foldoutToggle = foldout.Q<Toggle>();
-            if (foldoutToggle != null)
-            {
-                var toggleLabel = foldoutToggle.Q<Label>();
-                if (toggleLabel != null)
-                    toggleLabel.style.display = DisplayStyle.None;
-
-                var toggleInput = foldoutToggle.Q(className: "unity-toggle__input");
-                if (toggleInput != null)
-                {
-                    toggleInput.style.flexGrow = 0;
-                    toggleInput.style.flexShrink = 0;
-                }
-
-                foldoutToggle.style.marginBottom = 2;
-                foldoutToggle.Add(headerRow);
-            }
-            else
-            {
-                foldout.Add(headerRow);
-            }
+            AttachHeader(foldout, headerRow);
 
             var body = new VisualElement();
             body.style.marginTop = 4;
@@ -142,20 +110,27 @@ namespace GameWright.Editor.MCP.Server
             clearButton.style.marginLeft = 6;
             buttonRow.Add(clearButton);
 
-            var defaultButton = CreateActionButton("Use Default", UseDefaultTools, 92, new Color(0.34f, 0.34f, 0.34f));
+            var defaultButton = CreateActionButton("Restore Default", UseDefaultTools, 106, new Color(0.34f, 0.34f, 0.34f));
             defaultButton.style.marginLeft = 6;
             buttonRow.Add(defaultButton);
 
-            var saveButton = CreateActionButton("Save", SaveEditingTools, 64, new Color(0.2f, 0.5f, 0.3f));
-            saveButton.style.marginLeft = 6;
-            buttonRow.Add(saveButton);
+            _saveButton = CreateActionButton("Save", SaveEditingTools, 64, new Color(0.2f, 0.5f, 0.3f));
+            _saveButton.style.marginLeft = 6;
+            buttonRow.Add(_saveButton);
 
             body.Add(buttonRow);
 
             _statusLabel = new Label();
             _statusLabel.style.fontSize = 13;
-            _statusLabel.style.marginBottom = 6;
+            _statusLabel.style.marginBottom = 4;
             body.Add(_statusLabel);
+
+            _unsavedLabel = new Label();
+            _unsavedLabel.style.fontSize = 12;
+            _unsavedLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _unsavedLabel.style.marginBottom = 6;
+            _unsavedLabel.style.display = DisplayStyle.None;
+            body.Add(_unsavedLabel);
 
             _descriptionLabel = new Label();
             _descriptionLabel.style.fontSize = 13;
@@ -168,15 +143,179 @@ namespace GameWright.Editor.MCP.Server
             controlsSection.Add(foldout);
             _root.Add(controlsSection);
 
+
+            var toolsSection = new VisualElement().Card();
+            toolsSection.style.flexGrow = 1;
+
+            var toolsFoldout = new Foldout { value = true }.Persist("AvailableTools");
+            toolsFoldout.style.marginBottom = 0;
+            toolsFoldout.style.flexGrow = 1;
+
+            var toolsHeaderRow = new VisualElement();
+            toolsHeaderRow.style.flexDirection = FlexDirection.Row;
+            toolsHeaderRow.style.alignItems = Align.Center;
+            toolsHeaderRow.style.flexGrow = 1;
+
+            toolsHeaderRow.Add(SectionTitle("Available Tools"));
+
+            AttachHeader(toolsFoldout, toolsHeaderRow);
+
+            var toolsBody = new VisualElement();
+            toolsBody.style.marginTop = 4;
+            toolsBody.style.flexGrow = 1;
+
+            var searchContainer = new VisualElement();
+            searchContainer.style.flexDirection = FlexDirection.Row;
+            searchContainer.style.alignItems = Align.Center;
+            searchContainer.style.backgroundColor = new Color(0.11f, 0.11f, 0.12f);
+            searchContainer.Rounded(6);
+            searchContainer.Border(1, new Color(0.20f, 0.20f, 0.22f));
+            searchContainer.Padding(0, 8, 0, 8);
+            searchContainer.style.height = 28;
+            searchContainer.style.marginTop = 4;
+            searchContainer.style.marginBottom = 6;
+            searchContainer.style.transitionProperty = new System.Collections.Generic.List<StylePropertyName> { "border-color" };
+            searchContainer.style.transitionDuration = new System.Collections.Generic.List<TimeValue> { new TimeValue(0.15f, TimeUnit.Second) };
+
+            var searchIcon = new Image();
+            var searchTex = EditorGUIUtility.IconContent("d_Search Icon")?.image as Texture2D;
+            if (searchTex != null)
+            {
+                searchIcon.image = searchTex;
+                searchIcon.scaleMode = ScaleMode.ScaleToFit;
+            }
+            searchIcon.style.width = 14;
+            searchIcon.style.height = 14;
+            searchIcon.style.marginRight = 4;
+            searchIcon.style.flexShrink = 0;
+            searchIcon.style.opacity = 0.5f;
+            searchContainer.Add(searchIcon);
+
+            var searchField = new TextField();
+            searchField.value = _searchFilter;
+            searchField.style.flexGrow = 1;
+            searchField.style.fontSize = 12;
+            searchField.style.color = new Color(0.85f, 0.85f, 0.88f);
+            searchField.style.marginTop = 0;
+            searchField.style.marginBottom = 0;
+            var searchInput = searchField.Q<VisualElement>(className: "unity-text-field__input");
+            if (searchInput != null)
+            {
+                searchInput.style.backgroundColor = Color.clear;
+                searchInput.style.borderTopWidth = searchInput.style.borderBottomWidth =
+                    searchInput.style.borderLeftWidth = searchInput.style.borderRightWidth = 0;
+                searchInput.style.paddingLeft = 0;
+                searchInput.style.paddingTop = 0;
+                searchInput.style.paddingBottom = 0;
+            }
+            searchContainer.Add(searchField);
+
+            var placeholder = new Label("Search tools or categories...");
+            placeholder.style.position = Position.Absolute;
+            placeholder.style.left = 30;
+            placeholder.style.top = 0;
+            placeholder.style.bottom = 0;
+            placeholder.style.unityTextAlign = TextAnchor.MiddleLeft;
+            placeholder.style.fontSize = 12;
+            placeholder.style.color = new Color(0.40f, 0.40f, 0.43f);
+            placeholder.style.unityFontStyleAndWeight = FontStyle.Italic;
+            placeholder.pickingMode = PickingMode.Ignore;
+            placeholder.style.display = string.IsNullOrEmpty(_searchFilter) ? DisplayStyle.Flex : DisplayStyle.None;
+            searchContainer.Add(placeholder);
+
+            var clearBtn = new Label("✕");
+            clearBtn.style.fontSize = 12;
+            clearBtn.style.color = new Color(0.50f, 0.50f, 0.52f);
+            clearBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+            clearBtn.style.flexShrink = 0;
+            clearBtn.style.width = 18;
+            clearBtn.style.height = 18;
+            clearBtn.Rounded(9);
+            clearBtn.style.display = string.IsNullOrEmpty(_searchFilter) ? DisplayStyle.None : DisplayStyle.Flex;
+            clearBtn.RegisterCallback<ClickEvent>(_ =>
+            {
+                searchField.value = string.Empty;
+            });
+            clearBtn.RegisterCallback<MouseEnterEvent>(_ => clearBtn.style.color = new Color(0.85f, 0.85f, 0.88f));
+            clearBtn.RegisterCallback<MouseLeaveEvent>(_ => clearBtn.style.color = new Color(0.50f, 0.50f, 0.52f));
+            searchContainer.Add(clearBtn);
+
+            var focusBorder = new Color(0.30f, 0.55f, 0.85f);
+            var normalBorder = new Color(0.20f, 0.20f, 0.22f);
+            searchField.RegisterCallback<FocusInEvent>(_ =>
+            {
+                searchContainer.style.borderTopColor = searchContainer.style.borderBottomColor =
+                    searchContainer.style.borderLeftColor = searchContainer.style.borderRightColor = focusBorder;
+                searchIcon.style.opacity = 0.85f;
+            });
+            searchField.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                searchContainer.style.borderTopColor = searchContainer.style.borderBottomColor =
+                    searchContainer.style.borderLeftColor = searchContainer.style.borderRightColor = normalBorder;
+                searchIcon.style.opacity = 0.5f;
+            });
+
+            searchField.RegisterValueChangedCallback(evt =>
+            {
+                _searchFilter = evt.newValue ?? string.Empty;
+                placeholder.style.display = string.IsNullOrEmpty(_searchFilter) ? DisplayStyle.Flex : DisplayStyle.None;
+                clearBtn.style.display = string.IsNullOrEmpty(_searchFilter) ? DisplayStyle.None : DisplayStyle.Flex;
+                RebuildToolList();
+            });
+            toolsBody.Add(searchContainer);
+
             _toolScrollView = new ScrollView(ScrollViewMode.Vertical);
             _toolScrollView.style.flexGrow = 1;
             _toolScrollView.style.backgroundColor = new Color(0.14f, 0.14f, 0.14f);
             _toolScrollView.Rounded(4).Padding(5, 6, 5, 6);
-            _root.Add(_toolScrollView);
+            toolsBody.Add(_toolScrollView);
+
+            toolsFoldout.Add(toolsBody);
+            toolsFoldout.contentContainer.style.marginRight = 11;
+            toolsFoldout.contentContainer.style.flexGrow = 1;
+            toolsSection.Add(toolsFoldout);
+            _root.Add(toolsSection);
 
             LoadEditingTools();
             RebuildToolList();
             RefreshStatus();
+        }
+
+        private static Label SectionTitle(string text)
+        {
+            var label = new Label(text);
+            label.style.fontSize = 13;
+            label.style.unityFontStyleAndWeight = FontStyle.Bold;
+            label.style.color = new Color(0.88f, 0.88f, 0.9f);
+            label.style.unityTextAlign = TextAnchor.MiddleLeft;
+            return label;
+        }
+
+        // Moves headerRow onto the foldout's own toggle row so it reads as a header. The toggle's
+        // input holds the fold arrow and defaults to flexGrow:1, which would push the header into
+        // the right half — pin it so the arrow hugs the left and the header fills the rest.
+        private static void AttachHeader(Foldout foldout, VisualElement headerRow)
+        {
+            var toggle = foldout.Q<Toggle>();
+            if (toggle == null)
+            {
+                foldout.Add(headerRow);
+                return;
+            }
+
+            var toggleLabel = toggle.Q<Label>();
+            if (toggleLabel != null)
+                toggleLabel.style.display = DisplayStyle.None;
+
+            var toggleInput = toggle.Q(className: "unity-toggle__input");
+            if (toggleInput != null)
+            {
+                toggleInput.style.flexGrow = 0;
+                toggleInput.style.flexShrink = 0;
+            }
+
+            toggle.style.marginBottom = 2;
+            toggle.Add(headerRow);
         }
 
         private Button CreateActionButton(string text, Action action, int width, Color color)
@@ -252,10 +391,21 @@ namespace GameWright.Editor.MCP.Server
         {
             foreach (var entry in _segmentButtons)
             {
-                var isActive = string.Equals(entry.Key, activeProfile, StringComparison.OrdinalIgnoreCase);
+                var profile = entry.Key;
+                var isActive = string.Equals(profile, activeProfile, StringComparison.OrdinalIgnoreCase);
+                var isCustom = _settingsController != null && _settingsController.IsProfileConfigured(profile);
+
+                var labelName = char.ToUpperInvariant(profile[0]) + profile.Substring(1);
+                entry.Value.text = isCustom ? $"{labelName} •" : labelName;
+
                 entry.Value.style.backgroundColor = isActive ? SegmentActive : SegmentInactive;
-                entry.Value.style.color = isActive ? Color.white : new Color(0.7f, 0.7f, 0.7f);
+                entry.Value.style.color = isActive
+                    ? (isCustom ? new Color(1f, 0.9f, 0.55f) : Color.white)
+                    : (isCustom ? new Color(0.95f, 0.8f, 0.45f) : new Color(0.7f, 0.7f, 0.7f));
                 entry.Value.style.unityFontStyleAndWeight = isActive ? FontStyle.Bold : FontStyle.Normal;
+                entry.Value.tooltip = isCustom
+                    ? $"{labelName} profile (customized list)"
+                    : $"{labelName} profile (default list)";
             }
         }
 
@@ -317,6 +467,10 @@ namespace GameWright.Editor.MCP.Server
                 return;
 
             _toolScrollView.contentContainer.Clear();
+            _categoryFoldouts.Clear();
+
+            var filter = (_searchFilter ?? string.Empty).Trim();
+            var hasFilter = filter.Length > 0;
 
             var groupedTools = _allToolNames
                 .GroupBy(GetCachedToolCategory)
@@ -324,10 +478,19 @@ namespace GameWright.Editor.MCP.Server
 
             foreach (var group in groupedTools)
             {
+                var categoryMatch = hasFilter && group.Key.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
                 var categoryTools = group
+                    .Where(name => !hasFilter || categoryMatch || name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
-                _toolScrollView.Add(CreateCategorySection(group.Key, categoryTools));
+                if (categoryTools.Count == 0) continue;
+                var section = CreateCategorySection(group.Key, categoryTools);
+                if (hasFilter)
+                {
+                    var sectionFoldout = section.Q<Foldout>();
+                    if (sectionFoldout != null) sectionFoldout.value = true;
+                }
+                _toolScrollView.Add(section);
             }
         }
 
@@ -344,20 +507,17 @@ namespace GameWright.Editor.MCP.Server
 
             var foldout = new Foldout { value = true }.Persist("Category." + category);
             foldout.style.marginBottom = 0;
+            _categoryFoldouts.Add(foldout);
 
             // Style the foldout toggle row: category name on the left, a count badge and quick
             // Select/Clear actions on the right, all on the toggle's own row so it reads as a header.
-            var toggle = foldout.Q<Toggle>();
             var headerRow = new VisualElement();
             headerRow.style.flexDirection = FlexDirection.Row;
             headerRow.style.alignItems = Align.Center;
             headerRow.style.flexGrow = 1;
 
-            var nameLabel = new Label(category);
-            nameLabel.style.fontSize = 13;
-            nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            nameLabel.style.color = new Color(0.88f, 0.88f, 0.9f);
-            nameLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+            var nameLabel = SectionTitle(HighlightMatch(category, _searchFilter));
+            nameLabel.enableRichText = true;
             nameLabel.style.flexShrink = 0;
             headerRow.Add(nameLabel);
 
@@ -381,28 +541,7 @@ namespace GameWright.Editor.MCP.Server
             clearButton.style.marginLeft = 4;
             headerRow.Add(clearButton);
 
-            if (toggle != null)
-            {
-                var toggleLabel = toggle.Q<Label>();
-                if (toggleLabel != null)
-                    toggleLabel.style.display = DisplayStyle.None;
-
-                // The toggle's input holds the fold arrow and defaults to flexGrow:1, which pushes
-                // the header to the right half. Pin it so the arrow hugs the left, header fills rest.
-                var toggleInput = toggle.Q(className: "unity-toggle__input");
-                if (toggleInput != null)
-                {
-                    toggleInput.style.flexGrow = 0;
-                    toggleInput.style.flexShrink = 0;
-                }
-
-                toggle.style.marginBottom = 2;
-                toggle.Add(headerRow);
-            }
-            else
-            {
-                foldout.Add(headerRow);
-            }
+            AttachHeader(foldout, headerRow);
 
             var body = new VisualElement();
             body.style.marginTop = 4;
@@ -436,7 +575,8 @@ namespace GameWright.Editor.MCP.Server
             var hasDescription = _toolDescriptions.TryGetValue(toolName, out var description)
                                  && !string.IsNullOrWhiteSpace(description);
 
-            var label = new Label(toolName);
+            var label = new Label(HighlightMatch(toolName, _searchFilter));
+            label.enableRichText = true;
             label.style.flexShrink = 0;
             label.style.fontSize = 13;
             label.style.color = isOn ? RowOnText : RowOffText;
@@ -447,15 +587,12 @@ namespace GameWright.Editor.MCP.Server
             if (hasDescription)
             {
                 var descLabel = new Label(description);
+                descLabel.Ellipsize();
                 descLabel.style.flexGrow = 1;
-                descLabel.style.flexShrink = 1;
-                descLabel.style.minWidth = 0;
                 descLabel.style.marginLeft = 10;
                 descLabel.style.fontSize = 11;
                 descLabel.style.color = new Color(0.55f, 0.55f, 0.58f);
                 descLabel.style.whiteSpace = WhiteSpace.NoWrap;
-                descLabel.style.overflow = Overflow.Hidden;
-                descLabel.style.textOverflow = TextOverflow.Ellipsis;
                 descLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
                 row.Add(descLabel);
             }
@@ -476,6 +613,21 @@ namespace GameWright.Editor.MCP.Server
             });
 
             return row;
+        }
+
+        private static string HighlightMatch(string text, string filter)
+        {
+            if (string.IsNullOrEmpty(filter) || string.IsNullOrEmpty(text))
+                return text;
+
+            int idx = text.IndexOf(filter, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                return text;
+
+            var before = text.Substring(0, idx);
+            var match = text.Substring(idx, filter.Length);
+            var after = text.Substring(idx + filter.Length);
+            return $"{before}<color=#FFD54F><b>{match}</b></color>{after}";
         }
 
         private static VisualElement CreateSwitch(bool isOn)
@@ -592,21 +744,52 @@ namespace GameWright.Editor.MCP.Server
 
             var selectedCount = _editingTools?.Count ?? 0;
             var totalCount = _allToolNames?.Count ?? 0;
-            var source = IsEditingProfileConfigured() ? "custom" : "default";
+            var source = IsEditingProfileConfigured() ? "Custom" : "Default";
+            var dirty = HasUnsavedChanges();
 
             if (_statusLabel != null)
             {
-                var serverState = _mcpServer != null && _mcpServer.IsRunning
-                    ? $"Server running on http://127.0.0.1:{_mcpServer.Port}/"
-                    : "Server stopped";
-                _statusLabel.text = $"Active: {activeProfile} | Editing {_editingProfile}: {selectedCount}/{totalCount} tools ({source}) | {serverState}";
+                var displayProfile = char.ToUpperInvariant(_editingProfile[0]) + _editingProfile.Substring(1);
+                var displayActive = char.ToUpperInvariant(activeProfile[0]) + activeProfile.Substring(1);
+                _statusLabel.text = $"Active: {displayActive} | Editing {displayProfile}: {selectedCount}/{totalCount} tools ({source})";
                 _statusLabel.style.color = string.Equals(activeProfile, "full", StringComparison.OrdinalIgnoreCase)
                     ? new Color(0.55f, 0.75f, 1f)
                     : new Color(0.55f, 0.85f, 0.55f);
             }
 
+            if (_unsavedLabel != null)
+            {
+                if (dirty)
+                {
+                    _unsavedLabel.text = "⚠ You have unsaved changes. Click Save to apply.";
+                    _unsavedLabel.style.color = new Color(1f, 0.75f, 0.3f);
+                    _unsavedLabel.style.display = DisplayStyle.Flex;
+                }
+                else
+                {
+                    _unsavedLabel.style.display = DisplayStyle.None;
+                }
+            }
+
+            if (_saveButton != null)
+            {
+                _saveButton.SetEnabled(dirty);
+                _saveButton.style.backgroundColor = dirty
+                    ? new Color(0.2f, 0.55f, 0.3f)
+                    : new Color(0.25f, 0.25f, 0.27f);
+                _saveButton.style.color = dirty ? Color.white : new Color(0.55f, 0.55f, 0.55f);
+            }
+
             if (_descriptionLabel != null)
                 _descriptionLabel.text = DescribeProfile(_editingProfile);
+        }
+
+        private bool HasUnsavedChanges()
+        {
+            var saved = new HashSet<string>(GetEffectiveTools(_editingProfile), StringComparer.OrdinalIgnoreCase);
+            if (_editingTools.Count != saved.Count)
+                return true;
+            return !_editingTools.SetEquals(saved);
         }
 
         private static string DescribeProfile(string profile)
@@ -614,13 +797,13 @@ namespace GameWright.Editor.MCP.Server
             switch (profile?.ToLowerInvariant())
             {
                 case "minimal":
-                    return "minimal defaults to a tiny essential set (execute_code + a few reads). Select tools below and click Save to override that list.";
+                    return "Minimal defaults to a tiny essential set (execute_code + a few reads). Select tools below and click Save to override that list.";
                 case "extended":
-                    return "extended defaults to every tool except niche families (addressables, terrain, docs, reflection, assembly, snapshots). Select tools below and click Save to override.";
+                    return "Extended defaults to every tool except niche families (addressables, terrain, docs, reflection, assembly, snapshots). Select tools below and click Save to override.";
                 case "full":
-                    return "full defaults to every registered MCP tool. Select tools below and click Save to make full expose only that custom list.";
+                    return "Full defaults to every registered MCP tool. Select tools below and click Save to make full expose only that custom list.";
                 default:
-                    return "core defaults to the focused Unity workflow tool set. Select tools below and click Save to override that list.";
+                    return "Core defaults to the focused Unity workflow tool set. Select tools below and click Save to override that list.";
             }
         }
 

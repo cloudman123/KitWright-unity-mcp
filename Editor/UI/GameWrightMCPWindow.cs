@@ -102,10 +102,23 @@ namespace GameWright.Editor.MCP.Server
             _tabBar = new MCPTabBar<Tab>(Tabs, SelectTab);
             rootVisualElement.Add(_tabBar.Root);
 
+            // Without a scroll area, a short window makes Unity compress content to fit
+            // and text in input fields gets clipped top/bottom.
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+            scroll.style.minWidth = 0;
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.contentContainer.style.minWidth = 0;
+            scroll.contentContainer.style.flexGrow = 0;
+            rootVisualElement.Add(scroll);
+
             _contentContainer = new VisualElement();
-            _contentContainer.style.flexGrow = 1;
+            _contentContainer.style.flexGrow = 0;
+            _contentContainer.style.flexShrink = 0;
+            // min-width:auto would let a long config path stretch the container past the window.
+            _contentContainer.style.minWidth = 0;
             _contentContainer.Padding(10, 10, 10, 10);
-            rootVisualElement.Add(_contentContainer);
+            scroll.Add(_contentContainer);
 
             rootVisualElement.Add(CreateFooter());
         }

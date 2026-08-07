@@ -1,8 +1,6 @@
 // Copyright (C) GameWright. Licensed under MIT.
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -38,34 +36,14 @@ namespace GameWright.Editor.MCP.Server
         {
             _container.Clear();
 
-            var title = new Label("MCP Settings");
-            title.style.fontSize = 18;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.color = Color.white;
-            title.style.marginBottom = 4;
-            _container.Add(title);
+            _container.Add(MCPSection.PanelTitle("MCP Settings"));
+            _container.Add(MCPSection.PanelHint("Project-level settings for the GameWright MCP for Unity plugin. Safety checks and debug logging are stored per project."));
 
-            var hint = new Label("Project-level settings for the GameWright MCP for Unity plugin. Safety checks and debug logging are stored per project.");
-            hint.style.fontSize = 13;
-            hint.style.color = new Color(0.65f, 0.65f, 0.65f);
-            hint.style.whiteSpace = WhiteSpace.Normal;
-            hint.style.marginBottom = 10;
-            _container.Add(hint);
-
-            var settingsSection = CreateSection();
-            var settingsFoldout = new Foldout { text = "Settings", value = true }.Persist("Settings");
-            var foldoutLabel = settingsFoldout.Q<Toggle>()?.Q<Label>();
-            if (foldoutLabel != null)
-            {
-                foldoutLabel.style.fontSize = 12;
-                foldoutLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                foldoutLabel.style.color = new Color(0.55f, 0.7f, 0.9f);
-                foldoutLabel.style.flexGrow = 1;
-            }
-            settingsSection.Add(settingsFoldout);
+            var (settingsSection, settingsFoldout) = MCPSection.Create(
+                "Settings", "Settings", labelColor: new Color(0.55f, 0.7f, 0.9f));
             _container.Add(settingsSection);
 
-            var autostartSection = CreateSection();
+            var autostartSection = new VisualElement().Card();
             var autostartToggle = new MCPSwitchToggle("Autostart on Unity open");
             autostartToggle.tooltip = "When enabled, the MCP server starts automatically the next time you open this Unity project (if it was connected).";
             autostartToggle.SetValueWithoutNotify(_settingsController.MCPAutostartEnabled);
@@ -73,9 +51,9 @@ namespace GameWright.Editor.MCP.Server
             autostartSection.Add(autostartToggle);
             settingsFoldout.Add(autostartSection);
 
-            GameWrightMCPSafetyPanel.AddTo(settingsFoldout, _settingsController, CreateSection);
+            GameWrightMCPSafetyPanel.AddTo(settingsFoldout, _settingsController);
 
-            var debugSection = CreateSection();
+            var debugSection = new VisualElement().Card();
 
             _debugLoggingToggle = new MCPSwitchToggle("Enable debug logging");
             _debugLoggingToggle.tooltip = "When enabled, plugin lifecycle, MCP request, transport, and tool execution traces are written to the Unity Console. Warnings and errors are always written.";
@@ -89,7 +67,7 @@ namespace GameWright.Editor.MCP.Server
 
             settingsFoldout.Add(debugSection);
 
-            var compactSection = CreateSection();
+            var compactSection = new VisualElement().Card();
             var compactToggle = new MCPSwitchToggle("Compact tool schema");
             compactToggle.tooltip = "Strip parameter descriptions and trim each tool description to its first sentence when exporting the schema. Saves ~8-13k tokens per session at the cost of terser tool docs.";
             compactToggle.SetValueWithoutNotify(_settingsController.MCPCompactSchemaEnabled);
@@ -97,7 +75,7 @@ namespace GameWright.Editor.MCP.Server
             compactSection.Add(compactToggle);
             settingsFoldout.Add(compactSection);
 
-            var logCapacitySection = CreateSection();
+            var logCapacitySection = new VisualElement().Card();
             logCapacitySection.Add(BuildSizeSlider("Recent activity log limit",
                 "Maximum number of tool call entries kept in the Recent Activity log buffer (circular buffer).",
                 () => _settingsController.ActivityLogCapacity,
@@ -105,7 +83,7 @@ namespace GameWright.Editor.MCP.Server
                 50, 1000));
             settingsFoldout.Add(logCapacitySection);
 
-            var screenshotSection = CreateSection();
+            var screenshotSection = new VisualElement().Card();
             screenshotSection.Add(BuildSizeSlider("Game/Scene screenshot size",
                 "Longest side of capture_game_view/scene_view when no width/height is passed. Smaller = fewer tokens.",
                 () => _settingsController.ScreenshotDefaultSize,
@@ -117,8 +95,6 @@ namespace GameWright.Editor.MCP.Server
             wndSlider.style.marginTop = 8;
             screenshotSection.Add(wndSlider);
             settingsFoldout.Add(screenshotSection);
-
-            GameWrightMCPRequirementsPanel.AddTo(_container, CreateSection);
 
             RefreshStatus();
         }
@@ -141,6 +117,7 @@ namespace GameWright.Editor.MCP.Server
             var root = new VisualElement();
             root.style.flexDirection = FlexDirection.Row;
             root.style.alignItems = Align.Center;
+            root.style.flexShrink = 0;
 
             var title = new Label(labelText);
             title.style.fontSize = 13;
@@ -177,6 +154,7 @@ namespace GameWright.Editor.MCP.Server
 
             var valueBox = new IntegerField();
             valueBox.style.width = 60;
+            valueBox.style.height = 18;
             valueBox.style.flexGrow = 0;
             valueBox.style.flexShrink = 0;
             valueBox.style.marginLeft = 10;
@@ -185,6 +163,8 @@ namespace GameWright.Editor.MCP.Server
             {
                 vbInput.style.backgroundColor = new Color(0.12f, 0.14f, 0.12f);
                 vbInput.style.unityTextAlign = TextAnchor.MiddleCenter;
+                vbInput.style.flexShrink = 0;
+                vbInput.style.height = 18;
             }
             var vbText = valueBox.Q<Label>();
             if (vbText != null) vbText.style.color = accent;
@@ -228,123 +208,5 @@ namespace GameWright.Editor.MCP.Server
             return root;
         }
 
-        private static VisualElement CreateSection()
-        {
-            var section = new VisualElement();
-            section.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
-            section.Rounded(6);
-            section.Border(1, new Color(0.09f, 0.09f, 0.09f));
-            section.Padding(8, 10, 8, 10);
-            section.style.marginBottom = 8;
-            return section;
-        }
-    }
-
-    // Project-settings checklist for tools that need the game to keep running while
-    // Unity is unfocused (input simulation). Each row shows a
-    // pass/warn icon and a Fix button that flips the setting.
-    internal static class GameWrightMCPRequirementsPanel
-    {
-        private sealed class Requirement
-        {
-            public string Label;
-            public Func<bool> IsMet;
-            public Action Fix;
-            public string Hint;
-        }
-
-        private static readonly Requirement[] Requirements =
-        {
-            new Requirement
-            {
-                Label = "Run In Background enabled",
-                Hint = "Lets Play Mode keep ticking while Unity is unfocused, so input simulation runs when you're in another window.",
-                IsMet = () => PlayerSettings.runInBackground,
-                Fix = () => PlayerSettings.runInBackground = true
-            },
-            new Requirement
-            {
-                Label = "Recompile after finished playing",
-                Hint = "Set Script Changes While Playing to 'Recompile After Finished Playing' so entering Play Mode with dirty scripts doesn't recompile mid-request and drop MCP tool calls.",
-                IsMet = () => EditorPrefs.GetInt("ScriptCompilationDuringPlay", 0) == 1,
-                Fix = () => EditorPrefs.SetInt("ScriptCompilationDuringPlay", 1)
-            }
-        };
-
-        public static void AddTo(VisualElement parent, Func<VisualElement> sectionFactory)
-        {
-            var section = sectionFactory();
-
-            var foldout = new Foldout { text = "Requirements", value = true }.Persist("Requirements");
-            var foldoutLabel = foldout.Q<Toggle>()?.Q<Label>();
-            if (foldoutLabel != null)
-            {
-                foldoutLabel.style.fontSize = 12;
-                foldoutLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                foldoutLabel.style.color = new Color(0.55f, 0.7f, 0.9f);
-                foldoutLabel.style.flexGrow = 1;
-            }
-            section.Add(foldout);
-            parent.Add(section);
-
-            var rows = new List<Action>();
-            var fixAllButton = new Button { text = "Fix All" };
-            fixAllButton.style.height = 20;
-            fixAllButton.style.marginRight = 0;
-            fixAllButton.clicked += () =>
-            {
-                foreach (var req in Requirements)
-                    if (!req.IsMet()) req.Fix();
-                foreach (var r in rows) r();
-            };
-            foldout.Q<Toggle>()?.Add(fixAllButton);
-
-            void RefreshFixAll()
-            {
-                var unmet = Requirements.Count(req => !req.IsMet());
-                fixAllButton.style.display = unmet >= 2 ? DisplayStyle.Flex : DisplayStyle.None;
-            }
-
-            foreach (var req in Requirements)
-                rows.Add(BuildRow(foldout, req, RefreshFixAll));
-
-            foreach (var r in rows) r();
-            RefreshFixAll();
-        }
-
-        private static Action BuildRow(VisualElement container, Requirement req, Action onChanged)
-        {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.marginBottom = 4;
-
-            var icon = new Image { scaleMode = ScaleMode.ScaleToFit };
-            icon.style.width = 16;
-            icon.style.height = 16;
-            icon.style.marginRight = 6;
-            row.Add(icon);
-
-            var label = new Label(req.Label);
-            label.style.flexGrow = 1;
-            label.tooltip = req.Hint;
-            row.Add(label);
-
-            var fixButton = new Button { text = "Fix" };
-            fixButton.style.height = 20;
-            row.Add(fixButton);
-
-            container.Add(row);
-
-            void Refresh()
-            {
-                var met = req.IsMet();
-                icon.image = EditorGUIUtility.IconContent(met ? "TestPassed" : "console.warnicon.sml").image;
-                fixButton.style.display = met ? DisplayStyle.None : DisplayStyle.Flex;
-            }
-
-            fixButton.clicked += () => { req.Fix(); Refresh(); onChanged?.Invoke(); };
-            return Refresh;
-        }
     }
 }

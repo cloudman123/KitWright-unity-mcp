@@ -14,7 +14,7 @@ namespace GameWright.Editor.Tools.Builtins
     [ToolProvider("Profiler")]
     internal static class ProfilerFunctions
     {
-        // 高信号计数器默认列表：(category, statName) —— 已用 execute_code 在 Unity 6000.3.13f1 上核实存在。
+        // High-signal counters default list: (category, statName) - verified on Unity 6000.3.13f1.
         private static readonly (string Category, string Name)[] DefaultCounters =
         {
             ("Render", "Draw Calls Count"),

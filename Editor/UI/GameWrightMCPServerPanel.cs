@@ -45,7 +45,7 @@ namespace GameWright.Editor.MCP.Server
 
             _container.Clear();
 
-            var connectionSection = CreateSection(null);
+            var connectionSection = CreateSection();
             var connectionFoldout = new Foldout { text = "Connection", value = true }.Persist("Connection");
             var connToggle = connectionFoldout.Q<Toggle>();
             var connToggleLabel = connToggle?.Q<Label>();
@@ -71,7 +71,7 @@ namespace GameWright.Editor.MCP.Server
                 .AddTo(connectionFoldout);
             _container.Add(connectionSection);
 
-            var clientSection = CreateSection(null);
+            var clientSection = CreateSection();
             new GameWrightMCPClientConfigPanel(
                     _settingsController,
                     _mcpServer,
@@ -83,25 +83,11 @@ namespace GameWright.Editor.MCP.Server
             _activityPanel.AddTo(_container);
         }
 
-        private static VisualElement CreateSection(string header)
+        private static VisualElement CreateSection()
         {
-            var section = new VisualElement();
-            section.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
-            section.Rounded(6);
-            section.Border(1, new Color(0.09f, 0.09f, 0.09f));
-            section.Padding(8, 10, 10, 10);
+            var section = new VisualElement().Card().Padding(8, 10, 10, 10);
+            section.style.minWidth = 0;
             section.style.marginBottom = 10;
-
-            if (!string.IsNullOrEmpty(header))
-            {
-                var label = new Label(header);
-                label.style.fontSize = 12;
-                label.style.unityFontStyleAndWeight = FontStyle.Bold;
-                label.style.color = new Color(0.55f, 0.7f, 0.9f);
-                label.style.marginBottom = 8;
-                section.Add(label);
-            }
-
             return section;
         }
 

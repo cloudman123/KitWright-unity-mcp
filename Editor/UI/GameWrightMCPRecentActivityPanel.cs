@@ -42,14 +42,7 @@ namespace GameWright.Editor.MCP.Server
         {
             ClearPreviewTextures();
 
-            var section = new VisualElement();
-            section.style.flexGrow = 1;
-            section.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
-            section.Rounded(6);
-            section.Border(1, new Color(0.09f, 0.09f, 0.09f));
-            section.Padding(8, 10, 8, 10);
-
-            var foldout = new Foldout { text = "Recent Activity", value = true }.Persist("RecentActivity");
+            var (section, foldout) = MCPSection.Create("Recent Activity", "RecentActivity", labelColor: new Color(0.75f, 0.75f, 0.75f));
             section.style.flexGrow = foldout.value ? 1 : 0;
             foldout.style.flexGrow = foldout.value ? 1 : 0;
 
@@ -60,17 +53,6 @@ namespace GameWright.Editor.MCP.Server
                 foldout.style.flexGrow = evt.newValue ? 1 : 0;
             });
 
-            var toggle = foldout.Q<Toggle>();
-            var toggleLabel = toggle?.Q<Label>();
-            if (toggleLabel != null)
-            {
-                toggleLabel.style.fontSize = 13;
-                toggleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                toggleLabel.style.color = new Color(0.75f, 0.75f, 0.75f);
-                toggleLabel.style.flexGrow = 1;
-            }
-
-            section.Add(foldout);
             parent.Add(section);
 
             foldout.Add(BuildFilterBar());

@@ -14,7 +14,9 @@ namespace GameWright.Editor.Tools.Builtins
         [Description("Bake the NavMesh for the current scene using the legacy scene NavMesh settings. Objects must be flagged Navigation Static for surfaces to be included.")]
         public static object BakeNavMesh()
         {
+#pragma warning disable CS0618 // No drop-in replacement for editor NavMesh baking
             UnityEditor.AI.NavMeshBuilder.BuildNavMesh();
+#pragma warning restore CS0618
             var triangulation = NavMesh.CalculateTriangulation();
             return Response.Success("NavMesh baked for the current scene.", new
             {
@@ -26,7 +28,9 @@ namespace GameWright.Editor.Tools.Builtins
         [Description("Clear all baked NavMesh data from the current scene.")]
         public static object ClearNavMesh()
         {
+#pragma warning disable CS0618 // No drop-in replacement for editor NavMesh clearing
             UnityEditor.AI.NavMeshBuilder.ClearAllNavMeshes();
+#pragma warning restore CS0618
             return Response.Success("Cleared all NavMesh data from the current scene.");
         }
 

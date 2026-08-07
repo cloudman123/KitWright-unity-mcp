@@ -8,24 +8,24 @@ namespace GameWright.Editor.MCP.Server
 {
     internal static class GameWrightMCPSafetyPanel
     {
-        public static void AddTo(VisualElement parent, ISettingsController settings, System.Func<VisualElement> sectionFactory)
+        public static void AddTo(VisualElement parent, ISettingsController settings)
         {
-            if (parent == null || settings == null || sectionFactory == null)
+            if (parent == null || settings == null)
                 return;
 
-            AddSafetyBox(parent, sectionFactory(),
+            AddSafetyBox(parent, new VisualElement().Card(),
                 "Default execute_code safety checks",
                 "Default for execute_code calls when safety_checks is omitted. Explicit safety_checks=false can still bypass this for trusted local calls.",
                 settings.ExecuteCodeSafetyChecksEnabled,
                 value => settings.ExecuteCodeSafetyChecksEnabled = value);
 
-            AddSafetyBox(parent, sectionFactory(),
+            AddSafetyBox(parent, new VisualElement().Card(),
                 "Strict filesystem guard",
                 "Adds checks for broad System.IO file writes, raw file streams, and absolute/user/system/traversal paths. This is a defensive guard, not a complete sandbox.",
                 settings.ExecuteCodeStrictFilesystemSafetyEnabled,
                 value => settings.ExecuteCodeStrictFilesystemSafetyEnabled = value);
 
-            AddSafetyBox(parent, sectionFactory(),
+            AddSafetyBox(parent, new VisualElement().Card(),
                 "Auto-inject project namespaces",
                 "Off by default. When enabled, only namespaces from loaded Library/ScriptAssemblies assemblies are injected; explicit using directives remain the least ambiguous option.",
                 settings.ExecuteCodeProjectNamespaceInjectionEnabled,

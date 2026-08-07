@@ -17,12 +17,10 @@ namespace GameWright.Editor.MCP.Server
         private readonly ISettingsController _settingsController;
         private VisualElement _root;
         private VisualElement _mainContainer;
-        private Label _statusLabel;
+        private Label _statusSummaryText;
         private Label _manifestPathLabel;
         private VisualElement _generatedFilesContainer;
         private MCPSwitchToggle _enableCurrentPlatformToggle;
-        private PopupField<string> _platformDropdown;
-        private Button _upgradeButton;
         private string[] _platformTargets;
         private int _selectedTargetIndex;
 
@@ -45,43 +43,32 @@ namespace GameWright.Editor.MCP.Server
         {
             _root.Clear();
 
-            _mainContainer = new VisualElement();
-            _mainContainer.style.flexGrow = 1;
-            _root.Add(_mainContainer);
-
-            var title = new Label("Project Skills");
-            title.style.fontSize = 18;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.color = Color.white;
-            title.style.marginBottom = 4;
-            _mainContainer.Add(title);
-
-            var hintLabel = new Label("Configure project-level skills for supported AI clients. Built-in skills are always installed. Optional skills will be added after verification.");
-            hintLabel.style.fontSize = 13;
-            hintLabel.style.color = new Color(0.65f, 0.65f, 0.65f);
-            hintLabel.style.whiteSpace = WhiteSpace.Normal;
-            hintLabel.style.marginBottom = 10;
-            _mainContainer.Add(hintLabel);
+            var outerLayout = new VisualElement();
+            outerLayout.style.flexGrow = 1;
+            outerLayout.style.flexDirection = FlexDirection.Column;
+            _root.Add(outerLayout);
 
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
             scrollView.style.marginBottom = 8;
-            _mainContainer.Add(scrollView);
+            outerLayout.Add(scrollView);
 
             _mainContainer = scrollView.contentContainer;
+
+            _mainContainer.Add(MCPSection.PanelTitle("Project Skills"));
+            _mainContainer.Add(MCPSection.PanelHint("Configure project-level skills for supported AI clients. Built-in skills are always installed. Optional skills will be added after verification."));
 
             BuildPlatformSection();
             BuildSkillsSection();
             BuildStatusSection();
-            BuildActionsSection(_root);
+            BuildActionsSection(outerLayout);
 
             RefreshStatus();
         }
 
         private void BuildPlatformSection()
         {
-            var section = CreateSection();
-            section.Add(CreateSectionHeader("Current Platform"));
+            var (section, foldout) = MCPSection.Create("Current Platform", "CurrentPlatform");
 
             _platformTargets = GameWrightMCPClientConfigPanel.GetAllTargetNames();
             _selectedTargetIndex = Mathf.Clamp(_selectedTargetIndex, 0, _platformTargets.Length - 1);
@@ -93,16 +80,16 @@ namespace GameWright.Editor.MCP.Server
                     _selectedTargetIndex = persistedIndex;
             }
 
-            _platformDropdown = new PopupField<string>(new List<string>(_platformTargets), _selectedTargetIndex);
-            _platformDropdown.style.marginBottom = 6;
-            _platformDropdown.RegisterValueChangedCallback(evt =>
+            var platformDropdown = new PopupField<string>(new List<string>(_platformTargets), _selectedTargetIndex);
+            platformDropdown.style.marginBottom = 6;
+            platformDropdown.RegisterValueChangedCallback(evt =>
             {
                 _selectedTargetIndex = Array.IndexOf(_platformTargets, evt.newValue);
                 _settingsController.MCPSelectedConfigTarget = evt.newValue;
                 BuildUI();
             });
-            MCPDropdownStyle.Apply(_platformDropdown);
-            section.Add(_platformDropdown);
+            MCPDropdownStyle.Apply(platformDropdown);
+            foldout.Add(platformDropdown);
 
             var currentPlatformId = GetCurrentSkillsPlatformId();
             var currentPlatformSupported = !string.IsNullOrEmpty(currentPlatformId);
@@ -114,11 +101,11 @@ namespace GameWright.Editor.MCP.Server
                 manifest.platforms.Contains(currentPlatformId, StringComparer.OrdinalIgnoreCase));
             _enableCurrentPlatformToggle.SetEnabled(currentPlatformSupported);
             _enableCurrentPlatformToggle.style.marginBottom = 4;
-            section.Add(_enableCurrentPlatformToggle);
+            foldout.Add(_enableCurrentPlatformToggle);
 
             if (!currentPlatformSupported)
             {
-                section.Add(CreateHint("Project skills integration is not available for this platform.", new Color(1f, 0.75f, 0.45f)));
+                foldout.Add(CreateHint("Project skills integration is not available for this platform.", new Color(1f, 0.75f, 0.45f)));
             }
 
             _mainContainer.Add(section);
@@ -129,102 +116,47 @@ namespace GameWright.Editor.MCP.Server
             var manifest = ProjectSkillsManager.LoadManifest(GetProjectRootPath());
             _optionalSkillToggles.Clear();
 
-            var builtInSection = CreateSection();
-            builtInSection.Add(CreateSectionHeader("Built-in Skills"));
+            var (builtInSection, builtInFoldout) = MCPSection.Create("Built-in Skills", "BuiltInSkills");
 
             foreach (var skill in ProjectSkillsManager.GetBuiltInSkills())
             {
-                builtInSection.Add(CreateSkillRow(skill.Title, skill.Description, $"v{skill.Version} Required"));
+                builtInFoldout.Add(CreateSkillRow(skill.Title, skill.Description, $"v{skill.Version} Required"));
             }
             _mainContainer.Add(builtInSection);
 
-            var optionalSection = CreateSection();
-            optionalSection.Add(CreateSectionHeader("Optional Skills"));
+            var (optionalSection, optionalFoldout) = MCPSection.Create("Optional Skills", "OptionalSkills");
 
             var optionalSkills = ProjectSkillsManager.GetOptionalSkills();
-            foreach (var skill in optionalSkills)
+
+            if (optionalSkills.Count == 0)
             {
-                var toggle = new MCPSwitchToggle(skill.Title);
-                toggle.SetValueWithoutNotify(manifest.optionalSkills.Contains(skill.Id, StringComparer.OrdinalIgnoreCase));
-                toggle.style.marginBottom = 0;
-                optionalSection.Add(toggle);
+                var optionalHint = "No optional skills are available yet. Additional skills will be added after verification.";
+                optionalFoldout.Add(CreateHint(optionalHint, new Color(0.65f, 0.65f, 0.65f)));
+            }
+            else
+            {
+                foreach (var skill in optionalSkills)
+                {
+                    var isEnabled = manifest.optionalSkills.Contains(skill.Id, StringComparer.OrdinalIgnoreCase);
+                    var card = CreateOptionalSkillCard(skill, isEnabled);
+                    optionalFoldout.Add(card);
+                }
 
-                var description = CreateHint($"v{skill.Version} - {skill.Description}", new Color(0.58f, 0.58f, 0.58f));
-                description.style.marginBottom = 6;
-                optionalSection.Add(description);
-
-                _optionalSkillToggles[skill.Id] = toggle;
+                var optionalHint = "Uncheck optional skills and click Apply Skills to remove them. Built-in skills cannot be removed.";
+                optionalFoldout.Add(CreateHint(optionalHint, new Color(0.65f, 0.65f, 0.65f)));
             }
 
-            var optionalHint = optionalSkills.Count > 0
-                ? "Uncheck optional skills and click Apply Skills to remove them. Built-in skills cannot be removed."
-                : "No optional skills are available yet. Additional skills will be added after verification.";
-            optionalSection.Add(CreateHint(optionalHint, new Color(0.65f, 0.65f, 0.65f)));
             _mainContainer.Add(optionalSection);
-        }
-
-        private void BuildActionsSection(VisualElement root)
-        {
-            var actionRow = new VisualElement();
-            actionRow.style.flexDirection = FlexDirection.Row;
-            actionRow.style.alignItems = Align.Center;
-            actionRow.Padding(8, 10, 8, 10);
-            actionRow.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f);
-
-            var applyButton = new Button(() =>
-            {
-                ApplyProjectSkillsConfiguration();
-                RefreshStatus();
-            });
-            applyButton.text = "Apply Skills";
-            applyButton.style.height = 26;
-            applyButton.style.width = 100;
-            applyButton.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
-            applyButton.style.color = Color.white;
-            actionRow.Add(applyButton);
-
-            _upgradeButton = new Button(() =>
-            {
-                UpgradeProjectSkills();
-                RefreshStatus();
-            });
-            _upgradeButton.text = "Upgrade Skills";
-            _upgradeButton.style.height = 26;
-            _upgradeButton.style.width = 110;
-            _upgradeButton.style.marginLeft = 6;
-            _upgradeButton.style.backgroundColor = new Color(0.55f, 0.42f, 0.18f);
-            _upgradeButton.style.color = Color.white;
-            _upgradeButton.SetEnabled(false);
-            actionRow.Add(_upgradeButton);
-
-            var refreshButton = new Button(RefreshStatus);
-            refreshButton.text = "Refresh";
-            refreshButton.style.height = 26;
-            refreshButton.style.width = 80;
-            refreshButton.style.marginLeft = 6;
-            actionRow.Add(refreshButton);
-
-            root.Add(actionRow);
         }
 
         private void BuildStatusSection()
         {
-            var section = CreateSection();
-            var foldout = new Foldout { text = "Installed Files", value = true }.Persist("InstalledFiles");
-            var foldoutLabel = foldout.Q<Toggle>()?.Q<Label>();
-            if (foldoutLabel != null)
-            {
-                foldoutLabel.style.fontSize = 13;
-                foldoutLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                foldoutLabel.style.color = new Color(0.82f, 0.82f, 0.82f);
-                foldoutLabel.style.flexGrow = 1;
-            }
-            section.Add(foldout);
+            var (section, foldout) = MCPSection.Create("Installed Files", "InstalledFiles");
 
-            _statusLabel = new Label();
-            _statusLabel.style.fontSize = 13;
-            _statusLabel.style.marginBottom = 4;
-            foldout.Add(_statusLabel);
+            _statusSummaryText = new Label();
+            _statusSummaryText.style.fontSize = 13;
+            _statusSummaryText.style.marginBottom = 4;
+            foldout.Add(_statusSummaryText);
 
             _manifestPathLabel = new Label();
             _manifestPathLabel.style.fontSize = 11;
@@ -238,9 +170,29 @@ namespace GameWright.Editor.MCP.Server
             _mainContainer.Add(section);
         }
 
+        private void BuildActionsSection(VisualElement root)
+        {
+            var actionRow = new VisualElement();
+            actionRow.style.flexDirection = FlexDirection.Row;
+            actionRow.style.alignItems = Align.Center;
+            actionRow.Padding(8, 10, 8, 10);
+            actionRow.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f);
+
+            var applyButton = new Button(ApplyProjectSkillsConfiguration);
+            applyButton.text = "Apply Skills";
+            applyButton.style.height = 26;
+            applyButton.style.width = 100;
+            applyButton.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
+            applyButton.style.color = Color.white;
+            applyButton.tooltip = "Write GameWright-managed skill files for the selected platform using the versions bundled in this package.";
+            actionRow.Add(applyButton);
+
+            root.Add(actionRow);
+        }
+
         private void RefreshStatus()
         {
-            if (_statusLabel == null || _manifestPathLabel == null || _generatedFilesContainer == null)
+            if (_statusSummaryText == null || _manifestPathLabel == null || _generatedFilesContainer == null)
                 return;
 
             var projectRoot = GetProjectRootPath();
@@ -263,42 +215,34 @@ namespace GameWright.Editor.MCP.Server
                 _enableCurrentPlatformToggle.SetValueWithoutNotify(currentPlatformConfigured);
             }
 
-            if (_upgradeButton != null)
-            {
-                _upgradeButton.style.display = currentPlatformConfigured ? DisplayStyle.Flex : DisplayStyle.None;
-                _upgradeButton.SetEnabled(upgradeStatus != null && upgradeStatus.HasUpdates);
-                _upgradeButton.tooltip = upgradeStatus != null && upgradeStatus.HasUpdates
-                    ? "Regenerate GameWright-managed project skills with the versions bundled in this package."
-                    : "Installed GameWright-managed project skills are already up to date for the selected platform.";
-            }
-
             if (!currentPlatformSupported)
             {
-                _statusLabel.text = $"Status: Unsupported current platform | Built-in: {ProjectSkillsManager.GetBuiltInSkills().Count} | Optional installed: {manifest.optionalSkills.Count}";
-                _statusLabel.style.color = new Color(1f, 0.6f, 0.4f);
+                _statusSummaryText.text = $"Status: Unsupported current platform | Built-in: {ProjectSkillsManager.GetBuiltInSkills().Count} | Optional installed: {manifest.optionalSkills.Count}";
+                _statusSummaryText.style.color = new Color(1f, 0.6f, 0.4f);
             }
             else if (!currentPlatformConfigured)
             {
-                _statusLabel.text = $"Status: Not configured for {currentPlatformDisplayName} | Built-in: {ProjectSkillsManager.GetBuiltInSkills().Count} | Optional installed: {manifest.optionalSkills.Count}";
-                _statusLabel.style.color = new Color(1f, 0.6f, 0.4f);
+                _statusSummaryText.text = $"Status: Not configured for {currentPlatformDisplayName} | Built-in: {ProjectSkillsManager.GetBuiltInSkills().Count} | Optional installed: {manifest.optionalSkills.Count}";
+                _statusSummaryText.style.color = new Color(1f, 0.6f, 0.4f);
             }
             else
             {
                 if (upgradeStatus != null && upgradeStatus.HasUpdates)
                 {
-                    _statusLabel.text = $"Status: Configured for {currentPlatformDisplayName} | Skills: {installedSkills.Count} | Updates available";
-                    _statusLabel.style.color = new Color(1f, 0.72f, 0.32f);
+                    _statusSummaryText.text = $"Status: Configured for {currentPlatformDisplayName} | Skills: {installedSkills.Count} | Updates available - click Apply Skills";
+                    _statusSummaryText.style.color = new Color(1f, 0.72f, 0.32f);
                 }
                 else
                 {
-                    _statusLabel.text = $"Status: Configured for {currentPlatformDisplayName} | Skills: {installedSkills.Count} | Up to date";
-                    _statusLabel.style.color = new Color(0.4f, 1f, 0.4f);
+                    _statusSummaryText.text = $"Status: Configured for {currentPlatformDisplayName} | Skills: {installedSkills.Count} | Up to date";
+                    _statusSummaryText.style.color = new Color(0.4f, 1f, 0.4f);
                 }
             }
 
             _manifestPathLabel.text = manifestExists
                 ? $"Manifest: {manifestPath}"
                 : $"Manifest will be created at: {manifestPath}";
+
             RefreshGeneratedFiles(projectRoot, manifest, currentPlatformId, currentPlatformDisplayName, currentPlatformConfigured);
         }
 
@@ -329,20 +273,8 @@ namespace GameWright.Editor.MCP.Server
                 else
                     selectedPlatforms.Remove(currentPlatformId);
 
-                var conflictPaths = ProjectSkillsManager.GetPlatformConflictPaths(projectRoot, selectedPlatforms);
-                if (conflictPaths.Length > 0)
-                {
-                    var overwrite = EditorUtility.DisplayDialog(
-                        "Project Skills Configuration",
-                        "Existing non-managed project instruction files were found:\n\n" +
-                        string.Join("\n", conflictPaths) +
-                        "\n\nOverwrite them with GameWright-managed files?",
-                        "Overwrite",
-                        "Cancel");
-
-                    if (!overwrite)
-                        return;
-                }
+                if (!ProjectSkillsManager.ConfirmOverwriteConflicts(projectRoot, selectedPlatforms))
+                    return;
 
                 ProjectSkillsManager.ApplyConfiguration(projectRoot, selectedPlatforms, selectedOptionalSkills);
 
@@ -359,76 +291,6 @@ namespace GameWright.Editor.MCP.Server
                 EditorUtility.DisplayDialog(
                     "Project Skills Configuration Error",
                     $"Configuration failed:\n{ex.Message}",
-                    "OK");
-            }
-        }
-
-        private void UpgradeProjectSkills()
-        {
-            var projectRoot = GetProjectRootPath();
-            var currentPlatformId = GetCurrentSkillsPlatformId();
-
-            try
-            {
-                if (string.IsNullOrEmpty(currentPlatformId))
-                {
-                    EditorUtility.DisplayDialog(
-                        "Project Skills Upgrade",
-                        "Project skills are not supported for the currently selected platform.",
-                        "OK");
-                    return;
-                }
-
-                var manifest = ProjectSkillsManager.LoadManifest(projectRoot);
-                if (!manifest.platforms.Contains(currentPlatformId, StringComparer.OrdinalIgnoreCase))
-                {
-                    EditorUtility.DisplayDialog(
-                        "Project Skills Upgrade",
-                        "Skills are not configured for the currently selected platform yet.\n\nEnable skills and click Apply Skills first.",
-                        "OK");
-                    return;
-                }
-
-                var status = ProjectSkillsManager.GetUpgradeStatus(projectRoot, manifest, currentPlatformId);
-                if (!status.HasUpdates)
-                {
-                    EditorUtility.DisplayDialog(
-                        "Project Skills Upgrade",
-                        "Project skills are already up to date for the selected platform.",
-                        "OK");
-                    return;
-                }
-
-                var conflictPaths = ProjectSkillsManager.GetPlatformConflictPaths(projectRoot, manifest.platforms);
-                if (conflictPaths.Length > 0)
-                {
-                    var overwrite = EditorUtility.DisplayDialog(
-                        "Project Skills Upgrade",
-                        "Existing non-managed project instruction files were found:\n\n" +
-                        string.Join("\n", conflictPaths) +
-                        "\n\nOverwrite them with GameWright-managed files?",
-                        "Overwrite",
-                        "Cancel");
-
-                    if (!overwrite)
-                        return;
-                }
-
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, manifest.platforms, manifest.optionalSkills);
-
-                EditorUtility.DisplayDialog(
-                    "Project Skills Upgrade",
-                    "Project skills upgraded successfully.\n\n" +
-                    $"Manifest:\n{ProjectSkillsManager.GetManifestPath(projectRoot)}",
-                    "OK");
-
-                BuildUI();
-            }
-            catch (Exception ex)
-            {
-                EditorUtility.DisplayDialog(
-                    "Project Skills Upgrade Error",
-                    $"Upgrade failed:\n{ex.Message}",
                     "OK");
             }
         }
@@ -462,7 +324,6 @@ namespace GameWright.Editor.MCP.Server
                 case "Cursor":
                     return "cursor";
                 default:
-                    // Mọi IDE/agent khác đọc chuẩn mở .agents/skills/ (Antigravity, Windsurf, Gemini CLI...)
                     return "agents";
             }
         }
@@ -494,14 +355,8 @@ namespace GameWright.Editor.MCP.Server
                 _generatedFilesContainer.Add(CreateHint($"Versioned files for {currentPlatformDisplayName}:", new Color(0.7f, 0.7f, 0.7f)));
                 foreach (var file in upgradeStatus.Files)
                 {
-                    var row = new Label(FormatVersionStatus(file));
-                    row.style.fontSize = 11;
-                    row.style.color = file.RequiresUpgrade
-                        ? new Color(1f, 0.72f, 0.32f)
-                        : new Color(0.55f, 0.85f, 0.55f);
-                    row.style.marginLeft = 8;
-                    row.style.marginBottom = 2;
-                    row.style.whiteSpace = WhiteSpace.Normal;
+                    var upToDate = !file.Missing && !file.Unmanaged && !file.RequiresUpgrade;
+                    var row = CreateStatusRow(FormatVersionStatus(file), upToDate, upToDate ? new Color(0.55f, 0.85f, 0.55f) : new Color(1f, 0.72f, 0.32f));
                     _generatedFilesContainer.Add(row);
                 }
             }
@@ -517,12 +372,7 @@ namespace GameWright.Editor.MCP.Server
             foreach (var path in paths)
             {
                 var exists = File.Exists(path) || Directory.Exists(path);
-                var row = new Label($"{(exists ? "OK" : "Missing")}  {path}");
-                row.style.fontSize = 11;
-                row.style.color = exists ? new Color(0.55f, 0.85f, 0.55f) : new Color(1f, 0.65f, 0.45f);
-                row.style.marginLeft = 8;
-                row.style.marginBottom = 2;
-                row.style.whiteSpace = WhiteSpace.Normal;
+                var row = CreateStatusRow(exists ? path : $"Missing  {path}", exists, exists ? new Color(0.55f, 0.85f, 0.55f) : new Color(1f, 0.65f, 0.45f));
                 _generatedFilesContainer.Add(row);
             }
         }
@@ -546,28 +396,34 @@ namespace GameWright.Editor.MCP.Server
             if (status.RequiresUpgrade)
                 return $"Update  {status.Path}  ({status.InstalledVersion} -> {status.ExpectedVersion})";
 
-            return $"OK  {status.Path}  ({status.ExpectedVersion})";
+            return $"{status.Path}  ({status.ExpectedVersion})";
         }
 
-        private static VisualElement CreateSection()
+        private static VisualElement CreateStatusRow(string text, bool ok, Color color)
         {
-            var section = new VisualElement();
-            section.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
-            section.Rounded(6);
-            section.Border(1, new Color(0.09f, 0.09f, 0.09f));
-            section.Padding(8, 10, 8, 10);
-            section.style.marginBottom = 8;
-            return section;
-        }
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.marginLeft = 8;
+            row.style.marginBottom = 2;
 
-        private static Label CreateSectionHeader(string text)
-        {
             var label = new Label(text);
-            label.style.fontSize = 13;
-            label.style.unityFontStyleAndWeight = FontStyle.Bold;
-            label.style.color = new Color(0.82f, 0.82f, 0.82f);
-            label.style.marginBottom = 5;
-            return label;
+            label.style.fontSize = 11;
+            label.style.color = color;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.flexGrow = 1;
+            row.Add(label);
+
+            if (ok)
+            {
+                var check = new Label("✓");
+                check.style.fontSize = 11;
+                check.style.color = color;
+                check.style.marginLeft = 8;
+                row.Add(check);
+            }
+
+            return row;
         }
 
         private static Label CreateHint(string text, Color color)
@@ -585,6 +441,7 @@ namespace GameWright.Editor.MCP.Server
             var row = new VisualElement();
             row.style.backgroundColor = new Color(0.17f, 0.17f, 0.17f);
             row.Rounded(4);
+            row.Border(1, new Color(0.09f, 0.09f, 0.09f));
             row.Padding(5, 7, 5, 7);
             row.style.marginBottom = 4;
 
@@ -602,7 +459,7 @@ namespace GameWright.Editor.MCP.Server
             var badge = new Label(badgeText);
             badge.style.fontSize = 11;
             badge.style.color = Color.white;
-            badge.style.backgroundColor = new Color(0.32f, 0.48f, 0.7f);
+            badge.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
             badge.Rounded(3);
             badge.Padding(1, 5, 1, 5);
             titleRow.Add(badge);
@@ -616,6 +473,31 @@ namespace GameWright.Editor.MCP.Server
             descriptionLabel.style.whiteSpace = WhiteSpace.Normal;
             row.Add(descriptionLabel);
 
+            return row;
+        }
+
+        private VisualElement CreateOptionalSkillCard(ProjectSkillsManager.SkillDefinition skill, bool isEnabled)
+        {
+            var row = new VisualElement();
+            row.style.backgroundColor = new Color(0.17f, 0.17f, 0.17f);
+            row.Rounded(4);
+            row.Border(1, new Color(0.09f, 0.09f, 0.09f));
+            row.Padding(5, 7, 5, 7);
+            row.style.marginBottom = 4;
+
+            var toggle = new MCPSwitchToggle(skill.Title);
+            toggle.SetValueWithoutNotify(isEnabled);
+            toggle.style.marginBottom = 0;
+            row.Add(toggle);
+
+            var descriptionLabel = new Label($"v{skill.Version} - {skill.Description}");
+            descriptionLabel.style.fontSize = 11;
+            descriptionLabel.style.color = new Color(0.58f, 0.58f, 0.58f);
+            descriptionLabel.style.marginTop = 2;
+            descriptionLabel.style.whiteSpace = WhiteSpace.Normal;
+            row.Add(descriptionLabel);
+
+            _optionalSkillToggles[skill.Id] = toggle;
             return row;
         }
     }

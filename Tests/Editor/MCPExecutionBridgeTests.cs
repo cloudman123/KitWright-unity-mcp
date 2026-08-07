@@ -167,7 +167,7 @@ namespace GameWright.Editor.Tests
             {
                 var invoker = new FunctionInvokerController();
 
-                // Gửi chỉ alpha, thiếu beta
+                // Send only alpha, missing beta
                 var result = invoker.Invoke(new FunctionCall
                 {
                     FunctionName = toolName,

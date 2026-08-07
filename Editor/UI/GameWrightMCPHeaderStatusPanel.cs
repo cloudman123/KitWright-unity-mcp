@@ -22,14 +22,9 @@ namespace GameWright.Editor.MCP.Server
 
         public void AddTo(VisualElement parent, VisualElement statusHost = null)
         {
-            var titleRow = new VisualElement();
+            var titleRow = new VisualElement().Card().Padding(6, 10, 6, 10);
             titleRow.style.flexDirection = FlexDirection.Row;
             titleRow.style.alignItems = Align.Center;
-            titleRow.style.marginBottom = 8;
-            titleRow.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
-            titleRow.Rounded(6);
-            titleRow.Border(1, new Color(0.09f, 0.09f, 0.09f));
-            titleRow.Padding(6, 10, 6, 10);
             parent.Add(titleRow);
 
             var icon = GameWrightIcon.LogoTextTexture;
@@ -58,6 +53,7 @@ namespace GameWright.Editor.MCP.Server
                 _statusLabel.style.fontSize = 13;
                 _statusLabel.style.unityTextAlign = TextAnchor.MiddleRight;
                 _statusLabel.style.marginRight = 0;
+                _statusLabel.Ellipsize();
                 statusHost.style.marginRight = 0;
                 statusHost.Add(_statusLabel);
 
@@ -101,20 +97,26 @@ namespace GameWright.Editor.MCP.Server
 
             if (_server?.IsRunning == true)
             {
-                if (_server.IsAttachedToExistingTransport)
-                {
-                    _statusLabel.text = $"Attached to existing server on http://127.0.0.1:{_server.Port}/ ({_settings.MCPToolExportProfile ?? "core"})";
-                    _statusLabel.style.color = new Color(0.4f, 1f, 0.4f);
-                }
-                else
-                {
-                    _statusLabel.text = $"Running on http://127.0.0.1:{_server.Port}/ ({_settings.MCPToolExportProfile ?? "core"})";
-                    _statusLabel.style.color = new Color(0.4f, 1f, 0.4f);
-                }
+                var attached = _server.IsAttachedToExistingTransport;
+                var url = $"http://127.0.0.1:{_server.Port}/";
+
+                var rawProfile = _settings?.MCPToolExportProfile ?? "core";
+                var profileDisplay = string.IsNullOrEmpty(rawProfile) ? "Core" : char.ToUpperInvariant(rawProfile[0]) + rawProfile.Substring(1);
+                var isCustom = _settings != null && _settings.IsProfileConfigured(rawProfile);
+                var customTag = isCustom ? " (Custom)" : "";
+
+                // Port already has its own field right below and 127.0.0.1 is fixed, so the
+                // URL in status would just repeat it — keep it in the tooltip so this line doesn't get cut.
+                _statusLabel.text = $"{(attached ? "Attached" : "Running")} · {profileDisplay}{customTag}";
+                _statusLabel.tooltip = attached
+                    ? $"Attached to an existing listener on {url}"
+                    : $"Running on {url}";
+                _statusLabel.style.color = new Color(0.4f, 1f, 0.4f);
             }
             else
             {
                 _statusLabel.text = "Stopped";
+                _statusLabel.tooltip = null;
                 _statusLabel.style.color = new Color(0.9f, 0.35f, 0.35f);
             }
         }
