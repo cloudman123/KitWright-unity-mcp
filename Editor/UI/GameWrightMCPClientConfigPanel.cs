@@ -293,7 +293,10 @@ namespace GameWright.Editor.MCP.Server
         }
 
         public static string[] GetAllTargetNames()
-            => CreateTargets(GetUserHomePath()).Select(t => t.Name).ToArray();
+            => GetAllTargets().Select(t => t.Name).ToArray();
+
+        internal static MCPConfigTarget[] GetAllTargets()
+            => CreateTargets(GetUserHomePath());
 
         private static MCPConfigTarget[] CreateTargets(string homePath)
         {
@@ -386,6 +389,8 @@ namespace GameWright.Editor.MCP.Server
                 },
                 new MCPConfigTarget
                 {
+                    // Antigravity 2.0 đọc ~/.gemini/config/; Antigravity IDE (app riêng, cùng
+                    // tồn tại trên một máy) đọc ~/.gemini/antigravity-ide/ — hai client tách biệt.
                     Name = "Antigravity 2.0",
                     ConfigPath = Path.Combine(homePath, ".gemini", "config", "mcp_config.json"),
                     IncludeTypeField = true,
@@ -863,7 +868,7 @@ namespace GameWright.Editor.MCP.Server
             return Path.Combine(homePath, ".vscode", "mcp.json");
         }
 
-        private struct MCPConfigTarget
+        internal struct MCPConfigTarget
         {
             public string Name;
             public string ConfigPath;

@@ -245,6 +245,7 @@ namespace GameWright.Editor.MCP.Server
                     {
                         PluginDebugLogger.Log($"[GameWright] MCP Server started on http://127.0.0.1:{Port}/ If this tool saves you time, please consider giving it a Star on GitHub: https://github.com/gamewrightdev/gamewright-unity-mcp");
                     }
+                    MCPClientConfigAutoRewrite.Schedule(Port);
                     ExternalSyncRecoveryTracker.TryCompletePendingRecovery();
                     CheckForInterruptedExecution();
                     return true;
