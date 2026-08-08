@@ -14,7 +14,7 @@ namespace GameWright.Editor.Tests
             Path.GetDirectoryName(Application.dataPath) ?? Application.dataPath;
 
         [Test]
-        public void ProjectScopedTargetsWriteInsideTheProjectAndUseThePlainName()
+        public void ProjectScopedTargetsWriteInsideTheProject()
         {
             var scoped = ClientConfigPanel.GetAllTargets().Where(t => t.ProjectScoped).ToArray();
 
@@ -22,26 +22,22 @@ namespace GameWright.Editor.Tests
 
             foreach (var target in scoped)
             {
-                Assert.AreEqual("gamewright", ClientConfigPanel.GetServerEntryName(target),
-                    $"{target.Name} owns its config file, so the entry needs no pin suffix.");
                 Assert.IsTrue(
                     target.ConfigPath.Replace('\\', '/').StartsWith(ProjectRoot.Replace('\\', '/')),
                     $"{target.Name} must write inside the project, got {target.ConfigPath}.");
             }
         }
 
+        // Scope selection is a display-time choice, so a target must resolve to a real path in
+        // whichever scope it is asked for, and fall back when it only supports one.
         [Test]
-        public void GlobalTargetsKeepThePinSoSiblingProjectsDoNotCollide()
+        public void EveryTargetResolvesAPathInBothScopes()
         {
-            var global = ClientConfigPanel.GetAllTargets().Where(t => !t.ProjectScoped).ToArray();
-
-            Assert.IsNotEmpty(global);
-
-            var pin = ProjectIdentity.PinFromProjectPath(ProjectRoot);
-            foreach (var target in global)
+            foreach (var target in ClientConfigPanel.GetAllTargets())
             {
-                StringAssert.EndsWith(pin, ClientConfigPanel.GetServerEntryName(target),
-                    $"{target.Name} shares one file with every other project, so it needs the pin.");
+                Assert.IsTrue(target.Supports(true) || target.Supports(false),
+                    $"{target.Name} has no config path at all.");
+                Assert.IsNotEmpty(target.ConfigPath, $"{target.Name} resolved to an empty path.");
             }
         }
 

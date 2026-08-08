@@ -77,11 +77,6 @@ namespace GameWright.Editor.MCP.Server
             _ = CheckForUpdatesAsync(false);
         }
 
-        public static async void CheckForUpdates()
-        {
-            await CheckForUpdatesAsync(true);
-        }
-
         public static async void UpdateToLatestFromWindow()
         {
             await UpdateLatestKnownAsync();

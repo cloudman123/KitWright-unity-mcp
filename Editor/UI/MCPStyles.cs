@@ -39,6 +39,15 @@ namespace GameWright.Editor.MCP.Server
             return e;
         }
 
+        public static VisualElement Margin(this VisualElement e, float t, float r, float b, float l)
+        {
+            e.style.marginTop = t;
+            e.style.marginRight = r;
+            e.style.marginBottom = b;
+            e.style.marginLeft = l;
+            return e;
+        }
+
         public static Foldout Persist(this Foldout f, string key)
         {
             f.value = SessionState.GetBool("GameWright.MCP.Foldout." + key, f.value);

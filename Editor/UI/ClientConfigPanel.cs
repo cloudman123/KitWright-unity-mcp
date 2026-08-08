@@ -22,6 +22,7 @@ namespace GameWright.Editor.MCP.Server
         private int _selectedTargetIndex;
         private Label _configStatusLabel;
         private Label _configPathLabel;
+        private const string ScopeGlobalKey = "GameWright.MCP.ConfigScopeGlobal";
 
         public ClientConfigPanel(
             ISettingsController settings,
@@ -86,7 +87,7 @@ namespace GameWright.Editor.MCP.Server
             body.Add(subHeaderRow);
 
             var homePath = GetUserHomePath();
-            _targets = CreateTargets(homePath);
+            _targets = CreateTargets(homePath, EditorPrefs.GetBool(ScopeGlobalKey, false));
             var names = _targets.Select(target => target.Name).ToList();
 
             _selectedTargetIndex = Mathf.Clamp(_selectedTargetIndex, 0, _targets.Length - 1);
@@ -204,7 +205,13 @@ namespace GameWright.Editor.MCP.Server
 
             foldout.Add(pathRow);
 
-            foldout.Add(MakeSectionLabel("Configuration:"));
+            var configRow = new VisualElement();
+            configRow.style.flexDirection = FlexDirection.Row;
+            configRow.style.alignItems = Align.Center;
+            configRow.Add(MakeSectionLabel("Configuration:"));
+            configRow.Add(MakeScopeButton(target, "Project", false));
+            configRow.Add(MakeScopeButton(target, "Global", true));
+            foldout.Add(configRow);
 
             var snippet = BuildManualConfigSnippet(target);
             var snippetRow = new VisualElement();
@@ -240,6 +247,37 @@ namespace GameWright.Editor.MCP.Server
             foldout.Add(steps);
 
             parent.Add(foldout);
+        }
+
+        // A client can expose a project config, a global one, or both; the button for a scope the
+        // selected client has no config file for stays disabled rather than writing a guessed path.
+        private Button MakeScopeButton(MCPConfigTarget target, string text, bool global)
+        {
+            var isActive = target.ProjectScoped != global;
+            var supported = target.Supports(global);
+
+            var button = new Button(() =>
+            {
+                EditorPrefs.SetBool(ScopeGlobalKey, global);
+                _rebuildWindow?.Invoke();
+            });
+            button.text = text;
+            button.style.height = 20;
+            button.style.width = 62;
+            button.style.flexShrink = 0;
+            button.style.fontSize = 11;
+            button.Margin(0, 0, 2, global ? 3 : 8);
+            button.Rounded(3);
+            button.style.backgroundColor = isActive
+                ? new Color(0.25f, 0.45f, 0.65f)
+                : new Color(0.20f, 0.20f, 0.21f);
+            button.style.color = isActive ? Color.white : new Color(0.7f, 0.7f, 0.7f);
+            button.style.unityFontStyleAndWeight = isActive ? FontStyle.Bold : FontStyle.Normal;
+            button.SetEnabled(supported && !isActive);
+            button.tooltip = supported
+                ? (global ? target.GlobalConfigPath : target.ProjectConfigPath)
+                : $"{target.Name} has no {text.ToLowerInvariant()} MCP config file.";
+            return button;
         }
 
         // The TextField's inner elements carry the same flex-shrink:0 default, so shrinking
@@ -290,7 +328,7 @@ namespace GameWright.Editor.MCP.Server
             var rootKey = string.IsNullOrEmpty(target.RootKey) ? "mcpServers" : target.RootKey;
             var root = new Dictionary<string, object>
             {
-                [rootKey] = new Dictionary<string, object> { [GetServerEntryName(target)] = CreateHttpEntry(target) }
+                [rootKey] = new Dictionary<string, object> { [ServerEntryName] = CreateHttpEntry(target) }
             };
             if (!string.IsNullOrEmpty(target.SchemaUrl))
                 root["$schema"] = target.SchemaUrl;
@@ -321,126 +359,118 @@ namespace GameWright.Editor.MCP.Server
         internal static MCPConfigTarget[] GetAllTargets()
             => CreateTargets(GetUserHomePath());
 
-        private static MCPConfigTarget[] CreateTargets(string homePath)
+        private static MCPConfigTarget[] CreateTargets(string homePath, bool useGlobal = false)
         {
-            return new[]
+            var project = GetProjectRootPath();
+            var targets = new[]
             {
+                // A project-scoped file holds entries for this project alone, so the entry keeps the
+                // plain "gamewright" name and no suffix is needed to separate sibling projects.
                 new MCPConfigTarget
                 {
                     Name = "Claude Code",
-                    ConfigPath = Path.Combine(homePath, ".claude.json"),
+                    ProjectConfigPath = Path.Combine(project, ".mcp.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".claude.json"),
                     IncludeTypeField = true
-                },
-                // Project-scoped variants: the file sits in this Unity project, so the entry keeps
-                // the plain "gamewright" name and travels with the project instead of piling
-                // suffixed entries into one shared file in the home directory.
-                new MCPConfigTarget
-                {
-                    Name = "Claude Code (project)",
-                    ConfigPath = Path.Combine(GetProjectRootPath(), ".mcp.json"),
-                    IncludeTypeField = true,
-                    ProjectScoped = true
                 },
                 new MCPConfigTarget
                 {
                     Name = "Cursor",
-                    ConfigPath = Path.Combine(homePath, ".cursor", "mcp.json"),
+                    ProjectConfigPath = Path.Combine(project, ".cursor", "mcp.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".cursor", "mcp.json"),
                     IncludeTypeField = true
                 },
                 new MCPConfigTarget
                 {
-                    Name = "Cursor (project)",
-                    ConfigPath = Path.Combine(GetProjectRootPath(), ".cursor", "mcp.json"),
-                    IncludeTypeField = true,
-                    ProjectScoped = true
-                },
-                new MCPConfigTarget
-                {
                     Name = "VS Code",
-                    ConfigPath = GetVSCodeConfigPath(homePath),
+                    ProjectConfigPath = Path.Combine(project, ".vscode", "mcp.json"),
+                    GlobalConfigPath = Path.Combine(AppConfigRoot(homePath), "Code", "User", "mcp.json"),
                     IncludeTypeField = true,
                     RootKey = "servers"
                 },
                 new MCPConfigTarget
                 {
                     Name = "Trae",
-                    ConfigPath = GetTraeConfigPath(homePath),
+                    ProjectConfigPath = Path.Combine(project, ".trae", "mcp.json"),
                     IncludeTypeField = true
                 },
                 new MCPConfigTarget
                 {
                     Name = "Kiro",
-                    ConfigPath = Path.Combine(homePath, ".kiro", "settings", "mcp.json"),
+                    ProjectConfigPath = Path.Combine(project, ".kiro", "settings", "mcp.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".kiro", "settings", "mcp.json"),
                     IncludeTypeField = true,
                     RootKey = "mcpServers"
                 },
                 new MCPConfigTarget
                 {
                     Name = "Codex",
-                    ConfigPath = Path.Combine(homePath, ".codex", "config.toml"),
-                    IsToml = true,
+                    ProjectConfigPath = Path.Combine(project, ".codex", "config.toml"),
+                    GlobalConfigPath = Path.Combine(homePath, ".codex", "config.toml"),
+                    IsToml = true
                 },
                 new MCPConfigTarget
                 {
                     Name = "Windsurf",
-                    ConfigPath = Path.Combine(homePath, ".codeium", "windsurf", "mcp_config.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".codeium", "windsurf", "mcp_config.json"),
                     IncludeTypeField = true,
                     HttpUrlProperty = "serverUrl"
                 },
                 new MCPConfigTarget
                 {
                     Name = "Cline",
-                    ConfigPath = GetClineConfigPath(homePath),
+                    GlobalConfigPath = GetClineConfigPath(homePath),
                     IncludeTypeField = true,
                     HttpTypeValue = "streamableHttp"
                 },
                 new MCPConfigTarget
                 {
                     Name = "VS Code Insiders",
-                    ConfigPath = GetVSCodeInsidersConfigPath(homePath),
+                    ProjectConfigPath = Path.Combine(project, ".vscode", "mcp.json"),
+                    GlobalConfigPath = Path.Combine(AppConfigRoot(homePath), "Code - Insiders", "User", "mcp.json"),
                     IncludeTypeField = true,
                     RootKey = "servers"
                 },
                 new MCPConfigTarget
                 {
                     Name = "Rider",
-                    ConfigPath = GetRiderConfigPath(homePath),
+                    GlobalConfigPath = GetRiderConfigPath(homePath),
                     IncludeTypeField = true,
                     RootKey = "servers"
                 },
                 new MCPConfigTarget
                 {
+                    // Rider hosts two separate assistants: Copilot (above, IDE-level config) and
+                    // JetBrains Junie, which reads a workspace file instead.
+                    Name = "Rider (Junie)",
+                    ProjectConfigPath = Path.Combine(project, ".junie", "mcp", "mcp.json"),
+                    IncludeTypeField = true,
+                    DefaultFields = new Dictionary<string, object> { ["enabled"] = true }
+                },
+                new MCPConfigTarget
+                {
                     Name = "Kimi Code",
-                    ConfigPath = Path.Combine(homePath, ".kimi", "mcp.json"),
+                    ProjectConfigPath = Path.Combine(project, ".kimi-code", "mcp.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".kimi-code", "mcp.json"),
                     IncludeTypeField = true
                 },
                 new MCPConfigTarget
                 {
                     Name = "Qwen Code",
-                    ConfigPath = Path.Combine(homePath, ".qwen", "settings.json"),
+                    ProjectConfigPath = Path.Combine(project, ".qwen", "settings.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".qwen", "settings.json"),
                     IncludeTypeField = true
                 },
                 new MCPConfigTarget
                 {
-                    Name = "Gemini CLI",
-                    ConfigPath = Path.Combine(homePath, ".gemini", "settings.json"),
-                    IncludeTypeField = true,
-                    HttpUrlProperty = "httpUrl"
-                },
-                new MCPConfigTarget
-                {
-                    // Antigravity 2.0 reads ~/.gemini/config/; Antigravity IDE (separate app,
-                    // coexists on the same machine) reads ~/.gemini/antigravity-ide/ — two distinct clients.
-                    Name = "Antigravity 2.0",
-                    ConfigPath = Path.Combine(homePath, ".gemini", "config", "mcp_config.json"),
-                    IncludeTypeField = true,
-                    HttpUrlProperty = "serverUrl",
-                    DefaultFields = new Dictionary<string, object> { ["disabled"] = false }
-                },
-                new MCPConfigTarget
-                {
-                    Name = "Antigravity IDE",
-                    ConfigPath = Path.Combine(homePath, ".gemini", "antigravity-ide", "mcp_config.json"),
+                    // Antigravity 2.0 and Antigravity IDE are separate apps that coexist on one
+                    // machine and share these files, so one entry configures either. Verified by
+                    // probe: a uniquely named server placed in .agents/ shows up in the IDE, while
+                    // the same probe under <project>/.gemini/ never does — that directory only
+                    // works as the global location.
+                    Name = "Antigravity",
+                    ProjectConfigPath = Path.Combine(project, ".agents", "mcp_config.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".gemini", "config", "mcp_config.json"),
                     IncludeTypeField = true,
                     HttpUrlProperty = "serverUrl",
                     DefaultFields = new Dictionary<string, object> { ["disabled"] = false }
@@ -448,7 +478,7 @@ namespace GameWright.Editor.MCP.Server
                 new MCPConfigTarget
                 {
                     Name = "Kilo Code",
-                    ConfigPath = Path.Combine(homePath, ".config", "kilo", "kilo.jsonc"),
+                    ProjectConfigPath = Path.Combine(project, ".kilocode", "mcp.json"),
                     IncludeTypeField = true,
                     RootKey = "mcp",
                     HttpTypeValue = "remote",
@@ -458,7 +488,8 @@ namespace GameWright.Editor.MCP.Server
                 new MCPConfigTarget
                 {
                     Name = "OpenCode",
-                    ConfigPath = Path.Combine(homePath, ".config", "opencode", "opencode.json"),
+                    ProjectConfigPath = Path.Combine(project, "opencode.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".config", "opencode", "opencode.json"),
                     IncludeTypeField = true,
                     RootKey = "mcp",
                     HttpTypeValue = "remote",
@@ -467,24 +498,31 @@ namespace GameWright.Editor.MCP.Server
                 },
                 new MCPConfigTarget
                 {
+                    // A workspace config needs trust prompts or an env flag to be picked up, so the
+                    // home file is the one that works unattended.
                     Name = "GitHub Copilot CLI",
-                    ConfigPath = Path.Combine(homePath, ".copilot", "mcp-config.json"),
+                    GlobalConfigPath = Path.Combine(homePath, ".copilot", "mcp-config.json"),
                     IncludeTypeField = true
                 },
                 new MCPConfigTarget
                 {
                     Name = "CodeBuddy CLI",
-                    ConfigPath = Path.Combine(homePath, ".codebuddy.json"),
+                    ProjectConfigPath = Path.Combine(project, ".codebuddy", "settings.json"),
                     IncludeTypeField = true
                 },
                 new MCPConfigTarget
                 {
                     Name = "Roo Code",
-                    ConfigPath = GetRooCodeConfigPath(homePath),
+                    ProjectConfigPath = Path.Combine(project, ".roo", "mcp.json"),
                     IncludeTypeField = true,
                     HttpTypeValue = "streamableHttp"
                 },
             };
+
+            for (var i = 0; i < targets.Length; i++)
+                targets[i].UseGlobal = useGlobal;
+
+            return targets;
         }
 
         private void ConfigureMCPForTarget(MCPConfigTarget target)
@@ -579,7 +617,7 @@ namespace GameWright.Editor.MCP.Server
         private void ConfigureJsonTarget(MCPConfigTarget target)
         {
             var rootKey = string.IsNullOrEmpty(target.RootKey) ? "mcpServers" : target.RootKey;
-            var serverName = GetServerEntryName(target);
+            var serverName = ServerEntryName;
             var entry = CreateHttpEntry(target);
             Dictionary<string, object> root;
 
@@ -594,7 +632,8 @@ namespace GameWright.Editor.MCP.Server
                     var servers = root[rootKey] as Dictionary<string, object>;
                     if (servers != null)
                     {
-                        servers.Remove(LegacyServerEntryName());
+                        servers.Remove(PinnedServerEntryName());
+                        servers.Remove(ProductServerEntryName());
                         servers[serverName] = entry;
                     }
                     else
@@ -622,28 +661,27 @@ namespace GameWright.Editor.MCP.Server
 
         private void ConfigureTomlTarget(MCPConfigTarget target)
         {
-            var sectionHeader = "[mcp_servers." + GetServerEntryName(target) + "]";
-            var tomlSection = CreateTomlSection(target);
             var content = File.Exists(target.ConfigPath) ? File.ReadAllText(target.ConfigPath) : string.Empty;
+            content = RemoveTomlSection(content, "[mcp_servers." + PinnedServerEntryName() + "]");
+            content = RemoveTomlSection(content, "[mcp_servers." + ServerEntryName + "]");
 
-            if (content.Contains(sectionHeader))
-            {
-                var startIdx = content.IndexOf(sectionHeader, StringComparison.Ordinal);
-                var afterHeader = startIdx + sectionHeader.Length;
-                var nextSection = content.IndexOf("\n[", afterHeader, StringComparison.Ordinal);
-                var endIdx = nextSection >= 0 ? nextSection : content.Length;
-                content = content.Substring(0, startIdx) + tomlSection + content.Substring(endIdx);
-            }
-            else
-            {
-                if (content.Length > 0 && !content.EndsWith("\n"))
-                    content += "\n";
-                content += "\n" + tomlSection;
-            }
+            if (content.Length > 0 && !content.EndsWith("\n"))
+                content += "\n";
 
-            content = EnsureCodexRmcpFeature(content);
+            content = EnsureCodexRmcpFeature(content + "\n" + CreateTomlSection(target));
 
             File.WriteAllText(target.ConfigPath, content);
+        }
+
+        private static string RemoveTomlSection(string content, string sectionHeader)
+        {
+            var startIdx = content.IndexOf(sectionHeader, StringComparison.Ordinal);
+            if (startIdx < 0)
+                return content;
+
+            var nextSection = content.IndexOf("\n[", startIdx + sectionHeader.Length, StringComparison.Ordinal);
+            var endIdx = nextSection >= 0 ? nextSection + 1 : content.Length;
+            return content.Substring(0, startIdx) + content.Substring(endIdx);
         }
 
         private static string EnsureCodexRmcpFeature(string content)
@@ -691,7 +729,7 @@ namespace GameWright.Editor.MCP.Server
             if (!target.IsToml)
                 return string.Empty;
 
-            return $"[mcp_servers.{GetServerEntryName(target)}]\nurl = \"{GetServerUrl()}\"\n";
+            return $"[mcp_servers.{ServerEntryName}]\nurl = \"{GetServerUrl()}\"\n";
         }
 
         // Per-project entry name so configuring from two Unity editors does not overwrite each
@@ -708,25 +746,27 @@ namespace GameWright.Editor.MCP.Server
             if (!target.ProjectScoped)
                 return string.Empty;
 
-            return "\n\nThis file is machine-specific (it holds this machine's port and this " +
-                   "folder's project pin). Add it to .gitignore rather than committing it; " +
-                   "teammates run Configure to generate their own.";
+            return "\n\nThis file lives in the project and is machine-specific (it holds this " +
+                   "machine's port and this folder's project pin). Add it to .gitignore rather " +
+                   "than committing it; teammates run Configure to generate their own.\n\n" +
+                   "If you configured this client before, its old entry in your home directory " +
+                   "is now unused and can be deleted.";
         }
 
-        internal static string GetServerEntryName(MCPConfigTarget target)
-        {
-            return target.ProjectScoped ? "gamewright" : GetServerEntryName();
-        }
+        // One name for both scopes. A global config is shared by every project, so the entry there
+        // is rewritten by whichever project configures last — which is what a dev working on one
+        // project at a time wants.
+        internal const string ServerEntryName = "gamewright";
 
-        internal static string GetServerEntryName()
+        // The pinned name written by 0.6.x, kept so configuring can drop the stale entry left
+        // behind instead of leaving it pointed at a port nobody answers on.
+        private static string PinnedServerEntryName()
         {
-            return LegacyServerEntryName() + "-" +
+            return ProductServerEntryName() + "-" +
                    ProjectIdentity.PinFromProjectPath(GetProjectRootPath());
         }
 
-        // The productName-only name written by packages up to 0.6.0, kept so configuring can drop
-        // the stale entry left behind instead of leaving it pointed at a port nobody answers on.
-        private static string LegacyServerEntryName()
+        private static string ProductServerEntryName()
         {
             var name = Application.productName ?? string.Empty;
             var sb = new StringBuilder("gamewright-");
@@ -749,11 +789,9 @@ namespace GameWright.Editor.MCP.Server
             return BuildServerUrl(port);
         }
 
-        // The /p/<pin> segment lets the server refuse a request that reached it because this
-        // project's port moved and a sibling editor took the old one. See HttpMCPTransport.
         internal static string BuildServerUrl(int port)
         {
-            return $"http://127.0.0.1:{port}/p/{ProjectIdentity.PinFromProjectPath(GetProjectRootPath())}/";
+            return $"http://127.0.0.1:{port}/";
         }
 
         private static string GetProjectRootPath()
@@ -768,10 +806,8 @@ namespace GameWright.Editor.MCP.Server
                 case "Codex":
                     return "codex";
                 case "Claude Code":
-                case "Claude Code (project)":
                     return "claude";
                 case "Cursor":
-                case "Cursor (project)":
                     return "cursor";
                 default:
                     // Every other IDE/agent reads the open .agents/skills/ standard (Antigravity, Windsurf, Gemini CLI...)
@@ -821,69 +857,21 @@ namespace GameWright.Editor.MCP.Server
             return Path.Combine(homePath, ".config");
         }
 
-        private static string GetTraeConfigPath(string homePath)
-        {
-            return Path.Combine(AppConfigRoot(homePath), "Trae", "mcp.json");
-        }
-
-        private static string GetVSCodeInsidersConfigPath(string homePath)
-        {
-            return Path.Combine(AppConfigRoot(homePath), "Code - Insiders", "User", "mcp.json");
-        }
-
         private static string GetRiderConfigPath(string homePath)
         {
             return Path.Combine(AppConfigRoot(homePath, localAppData: true), "github-copilot", "intellij", "mcp.json");
         }
 
+        // Cline reads only its VS Code extension globalStorage file; it has no workspace config.
         private static string GetClineConfigPath(string homePath)
         {
-            return VSCodeExtensionSettingsPath(homePath, "saoudrizwan.claude-dev");
-        }
-
-        private static string GetRooCodeConfigPath(string homePath)
-        {
-            return VSCodeExtensionSettingsPath(homePath, "rooveterinaryinc.roo-cline");
-        }
-
-        private static string VSCodeExtensionSettingsPath(string homePath, string extensionId)
-        {
-            return Path.Combine(AppConfigRoot(homePath), "Code", "User",
-                "globalStorage", extensionId, "settings", "cline_mcp_settings.json");
-        }
-
-        private static string GetVSCodeConfigPath(string homePath)
-        {
-            switch (Application.platform)
-            {
-                case RuntimePlatform.WindowsEditor:
-                    var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    if (!string.IsNullOrEmpty(appData))
-                        return Path.Combine(appData, "Code", "User", "mcp.json");
-                    break;
-
-                case RuntimePlatform.OSXEditor:
-                    var macPrimaryPath = Path.Combine(homePath, "Library", "Application Support", "Code", "User", "mcp.json");
-                    var macPrimaryDirectory = Path.GetDirectoryName(macPrimaryPath);
-                    if (File.Exists(macPrimaryPath) ||
-                        (!string.IsNullOrEmpty(macPrimaryDirectory) && Directory.Exists(macPrimaryDirectory)))
-                    {
-                        return macPrimaryPath;
-                    }
-
-                    return Path.Combine(homePath, ".vscode", "mcp.json");
-
-                case RuntimePlatform.LinuxEditor:
-                    return Path.Combine(homePath, ".config", "Code", "User", "mcp.json");
-            }
-
-            return Path.Combine(homePath, ".vscode", "mcp.json");
+            return Path.Combine(AppConfigRoot(homePath), "Code", "User", "globalStorage",
+                "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json");
         }
 
         internal struct MCPConfigTarget
         {
             public string Name;
-            public string ConfigPath;
             public string RootKey;
             public bool IsToml;
             public bool IncludeTypeField;
@@ -892,9 +880,18 @@ namespace GameWright.Editor.MCP.Server
             public string SchemaUrl;
             public Dictionary<string, object> DefaultFields;
 
-            // The config file lives inside this Unity project, so it holds entries for this
-            // project only and the entry name needs no disambiguating suffix.
-            public bool ProjectScoped;
+            // A client may offer a config inside the workspace, one in the home directory, or both;
+            // an empty path means it has no config file for that scope (or none that works
+            // unattended), and the selected scope falls back to the one it does have.
+            public string ProjectConfigPath;
+            public string GlobalConfigPath;
+            public bool UseGlobal;
+
+            public bool Supports(bool global)
+                => !string.IsNullOrEmpty(global ? GlobalConfigPath : ProjectConfigPath);
+
+            public bool ProjectScoped => Supports(false) && !(UseGlobal && Supports(true));
+            public string ConfigPath => ProjectScoped ? ProjectConfigPath : GlobalConfigPath;
         }
     }
 }

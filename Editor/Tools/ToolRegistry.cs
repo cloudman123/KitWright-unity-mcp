@@ -210,13 +210,5 @@ namespace GameWright.Editor.Tools
             return new string(chars.ToArray());
         }
 
-        /// <summary>
-        /// Invalidate cache, forcing re-scan on next access.
-        /// </summary>
-        public static void InvalidateCache()
-        {
-            _providerTypes = null;
-            _methodCache = null;
-        }
     }
 }

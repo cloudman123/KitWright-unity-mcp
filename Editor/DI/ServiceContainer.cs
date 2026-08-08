@@ -6,14 +6,13 @@ using System.Linq;
 
 namespace GameWright.Editor.DI
 {
-    internal enum ServiceLifetime { Singleton, Scoped, Transient }
+    internal enum ServiceLifetime { Singleton, Scoped }
 
     internal class ServiceDescriptor
     {
         public Type ServiceType { get; set; }
         public Type ImplementationType { get; set; }
         public Func<IServiceProvider, object> Factory { get; set; }
-        public object Instance { get; set; }
         public ServiceLifetime Lifetime { get; set; }
     }
 
@@ -27,17 +26,6 @@ namespace GameWright.Editor.DI
             {
                 ServiceType = typeof(TService),
                 ImplementationType = typeof(TImplementation),
-                Lifetime = ServiceLifetime.Singleton
-            });
-            return this;
-        }
-
-        public ServiceCollection AddSingleton<TService>(TService instance)
-        {
-            _descriptors.Add(new ServiceDescriptor
-            {
-                ServiceType = typeof(TService),
-                Instance = instance,
                 Lifetime = ServiceLifetime.Singleton
             });
             return this;
@@ -65,39 +53,6 @@ namespace GameWright.Editor.DI
             return this;
         }
 
-        public ServiceCollection AddScoped<TService>(Func<IServiceProvider, TService> factory)
-        {
-            _descriptors.Add(new ServiceDescriptor
-            {
-                ServiceType = typeof(TService),
-                Factory = sp => factory(sp),
-                Lifetime = ServiceLifetime.Scoped
-            });
-            return this;
-        }
-
-        public ServiceCollection AddTransient<TService, TImplementation>() where TImplementation : TService
-        {
-            _descriptors.Add(new ServiceDescriptor
-            {
-                ServiceType = typeof(TService),
-                ImplementationType = typeof(TImplementation),
-                Lifetime = ServiceLifetime.Transient
-            });
-            return this;
-        }
-
-        public ServiceCollection AddTransient<TService>(Func<IServiceProvider, TService> factory)
-        {
-            _descriptors.Add(new ServiceDescriptor
-            {
-                ServiceType = typeof(TService),
-                Factory = sp => factory(sp),
-                Lifetime = ServiceLifetime.Transient
-            });
-            return this;
-        }
-
         public ServiceProvider BuildServiceProvider()
         {
             return new ServiceProvider(_descriptors.ToList());
@@ -121,17 +76,8 @@ namespace GameWright.Editor.DI
             var descriptor = _descriptors.LastOrDefault(d => d.ServiceType == serviceType);
             if (descriptor == null) return null;
 
-            switch (descriptor.Lifetime)
-            {
-                case ServiceLifetime.Singleton:
-                    return GetOrCreateSingleton(descriptor);
-                case ServiceLifetime.Scoped:
-                    return GetOrCreateSingleton(descriptor); // In root scope, scoped = singleton
-                case ServiceLifetime.Transient:
-                    return CreateInstance(descriptor);
-                default:
-                    return null;
-            }
+            // In the root scope, scoped resolves the same as singleton.
+            return GetOrCreateSingleton(descriptor);
         }
 
         public T GetService<T>() => (T)GetService(typeof(T));
@@ -169,9 +115,6 @@ namespace GameWright.Editor.DI
 
         private object CreateInstance(ServiceDescriptor descriptor)
         {
-            if (descriptor.Instance != null)
-                return descriptor.Instance;
-
             if (descriptor.Factory != null)
                 return descriptor.Factory(this);
 
@@ -238,17 +181,9 @@ namespace GameWright.Editor.DI
             var descriptor = _descriptors.LastOrDefault(d => d.ServiceType == serviceType);
             if (descriptor == null) return null;
 
-            switch (descriptor.Lifetime)
-            {
-                case ServiceLifetime.Singleton:
-                    return _rootProvider.GetService(serviceType);
-                case ServiceLifetime.Scoped:
-                    return GetOrCreateScoped(descriptor);
-                case ServiceLifetime.Transient:
-                    return CreateInstance(descriptor);
-                default:
-                    return null;
-            }
+            return descriptor.Lifetime == ServiceLifetime.Singleton
+                ? _rootProvider.GetService(serviceType)
+                : GetOrCreateScoped(descriptor);
         }
 
         public T GetService<T>() => (T)GetService(typeof(T));
@@ -281,9 +216,6 @@ namespace GameWright.Editor.DI
 
         private object CreateInstance(ServiceDescriptor descriptor)
         {
-            if (descriptor.Instance != null)
-                return descriptor.Instance;
-
             if (descriptor.Factory != null)
                 return descriptor.Factory(this);
 

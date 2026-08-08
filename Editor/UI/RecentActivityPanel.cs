@@ -45,28 +45,28 @@ namespace GameWright.Editor.MCP.Server
             ClearPreviewTextures();
 
             var (section, foldout) = MCPSection.Create("Recent Activity", "RecentActivity", labelColor: new Color(0.75f, 0.75f, 0.75f));
-            section.style.flexGrow = foldout.value ? 1 : 0;
-            foldout.style.flexGrow = foldout.value ? 1 : 0;
-
-            // Fill the remaining window height while expanded; collapse to the header when closed.
-            foldout.RegisterValueChangedCallback(evt =>
-            {
-                section.style.flexGrow = evt.newValue ? 1 : 0;
-                foldout.style.flexGrow = evt.newValue ? 1 : 0;
-            });
-
             parent.Add(section);
 
             foldout.Add(BuildFilterBar());
 
             _scrollView = new ScrollView(ScrollViewMode.Vertical);
-            _scrollView.style.flexGrow = 1;
             _scrollView.style.backgroundColor = new Color(0.14f, 0.14f, 0.14f);
             _scrollView.Rounded(4);
             _scrollView.Padding(4, 6, 4, 6);
             // Persist scroll position so it survives the panel rebuilds caused by domain
             // reload (play mode with reload enabled) and play-mode transitions.
             _scrollView.verticalScroller.valueChanged += v => SessionState.SetFloat(ScrollOffsetKey, v);
+
+            // The window wraps every panel in its own ScrollView whose content grows with its
+            // children, so there is no leftover height for flex-grow to claim: left alone this
+            // ScrollView stretches to fit every entry, never scrolls, and hands the scrolling to
+            // the window. A max height against the window is what makes it scroll internally.
+            _scrollView.RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                var outer = _scrollView.GetFirstAncestorOfType<ScrollView>();
+                if (outer != null)
+                    outer.contentViewport.RegisterCallback<GeometryChangedEvent>(evt => ApplyMaxHeight(evt.newRect.height));
+            });
 
             // Stick-to-bottom is re-evaluated only on user-driven scrolling, never on the
             // programmatic offset changes that adding a row or resizing the panel triggers.
@@ -79,6 +79,19 @@ namespace GameWright.Editor.MCP.Server
             // Deferred: building ~100 entry cards synchronously adds ~80ms to CreateGUI after
             // every domain reload, which the user sees as a blank-window flash on Play.
             _scrollView.schedule.Execute(RenderEntries);
+        }
+
+        // Measured off the window's own ScrollView viewport: that is the only element here whose
+        // height is the visible area rather than the content it holds.
+        private void ApplyMaxHeight(float viewportHeight = 0f)
+        {
+            if (viewportHeight <= 0)
+                viewportHeight = _scrollView?.GetFirstAncestorOfType<ScrollView>()?.contentViewport.layout.height ?? 0f;
+
+            if (_scrollView == null || viewportHeight <= 0)
+                return;
+
+            _scrollView.style.maxHeight = Mathf.Max(160f, viewportHeight - 260f);
         }
 
         private void UpdateStickToBottom()
@@ -124,10 +137,7 @@ namespace GameWright.Editor.MCP.Server
             clearButton.text = "Clear";
             clearButton.style.height = 22;
             clearButton.style.width = 50;
-            clearButton.style.marginLeft = 4;
-            clearButton.style.marginTop = 0;
-            clearButton.style.marginBottom = 0;
-            clearButton.style.marginRight = 0;
+            clearButton.Margin(0, 0, 0, 4);
             bar.Add(clearButton);
 
             RefreshFilterCounts();
@@ -146,10 +156,7 @@ namespace GameWright.Editor.MCP.Server
             button.style.flexDirection = FlexDirection.Row;
             button.style.alignItems = Align.Center;
             button.style.height = 22;
-            button.style.marginLeft = _filterButtons.Count == 0 ? 0 : 4;
-            button.style.marginTop = 0;
-            button.style.marginBottom = 0;
-            button.style.marginRight = 0;
+            button.Margin(0, 0, 0, _filterButtons.Count == 0 ? 0 : 4);
             button.style.paddingLeft = 8;
             button.style.paddingRight = 8;
             button.Rounded(4);
@@ -263,29 +270,27 @@ namespace GameWright.Editor.MCP.Server
             ClearPreviewTextures();
             _scrollView.contentContainer.Clear();
 
-            var entries = _server.InteractionLog.GetEntries();
-            for (int i = 0; i < entries.Count; i++)
+            foreach (var entry in _server.InteractionLog.GetEntries())
             {
-                if (PassesFilter(entries[i].Status))
-                    AddRow(entries[i]);
+                if (PassesFilter(entry.Status))
+                    AddRow(entry);
             }
 
             RefreshFilterCounts();
+            ApplyMaxHeight();
 
-            // Scroll to persisted position, or bottom if no saved position.
-            var content = _scrollView.contentContainer;
-            EventCallback<GeometryChangedEvent> restore = null;
-            restore = _ =>
+            // Deferred so the cards have a layout: restore the persisted position, or the bottom
+            // when there is none.
+            var scroll = _scrollView;
+            scroll.schedule.Execute(() =>
             {
-                content.UnregisterCallback(restore);
-                if (_scrollView != null)
-                {
-                    var saved = SessionState.GetFloat(ScrollOffsetKey, -1f);
-                    _scrollView.scrollOffset = new Vector2(0, saved >= 0 ? saved : float.MaxValue);
-                    UpdateStickToBottom();
-                }
-            };
-            content.RegisterCallback(restore);
+                if (_scrollView != scroll)
+                    return;
+
+                var saved = SessionState.GetFloat(ScrollOffsetKey, -1f);
+                scroll.scrollOffset = new Vector2(0, saved >= 0 ? saved : float.MaxValue);
+                UpdateStickToBottom();
+            }).ExecuteLater(32);
         }
 
         public void OnEntryAdded(MCPLogEntry entry)
@@ -304,14 +309,26 @@ namespace GameWright.Editor.MCP.Server
 
                 // Stick-to-bottom: only auto-scroll if user was already at the bottom.
                 if (_stickToBottom)
-                {
-                    EditorApplication.delayCall += () =>
-                    {
-                        if (_scrollView != null)
-                            _scrollView.scrollOffset = new Vector2(0, float.MaxValue);
-                    };
-                }
+                    ScrollToBottom();
             };
+        }
+
+        // Assigning float.MaxValue is clamped by the scroller's high value, which is still the
+        // pre-add maximum until the new card has a layout — and a card's height is not final on
+        // the next frame either: an image preview and a wrapped summary settle later. So scroll
+        // to the last card itself (ScrollTo measures the child) and repeat over a few frames.
+        private void ScrollToBottom()
+        {
+            var scroll = _scrollView;
+            for (var delay = 0; delay <= 64; delay += 32)
+            {
+                scroll.schedule.Execute(() =>
+                {
+                    var content = scroll.contentContainer;
+                    if (_scrollView == scroll && content.childCount > 0)
+                        scroll.ScrollTo(content[content.childCount - 1]);
+                }).ExecuteLater(delay);
+            }
         }
 
         public void Dispose()

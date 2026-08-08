@@ -78,21 +78,6 @@ namespace GameWright.Editor.MCP.Server
                 }),
         };
 
-        private static readonly HashSet<string> BodyFileSkillIds =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        internal static void RegisterSkill(SkillDefinition skill)
-        {
-            if (skill == null || string.IsNullOrEmpty(skill.Id))
-                return;
-
-            var existing = SkillCatalog.FindIndex(s => string.Equals(s.Id, skill.Id, StringComparison.OrdinalIgnoreCase));
-            if (existing >= 0)
-                SkillCatalog[existing] = skill;
-            else
-                SkillCatalog.Add(skill);
-        }
-
         internal static IReadOnlyList<SkillDefinition> GetBuiltInSkills()
         {
             return SkillCatalog.Where(skill => skill.IsBuiltIn).ToArray();
@@ -101,11 +86,6 @@ namespace GameWright.Editor.MCP.Server
         internal static IReadOnlyList<SkillDefinition> GetOptionalSkills()
         {
             return SkillCatalog.Where(skill => !skill.IsBuiltIn).ToArray();
-        }
-
-        internal static IReadOnlyList<string> GetSupportedPlatforms()
-        {
-            return SupportedPlatforms;
         }
 
         internal static ProjectSkillsManifest LoadManifest(string projectRoot)
@@ -209,12 +189,6 @@ namespace GameWright.Editor.MCP.Server
             SyncClaude(projectRoot, normalized);
             SyncCursor(projectRoot, normalized);
             SyncAgents(projectRoot, normalized);
-        }
-
-        internal static bool IsPlatformConfigured(string projectRoot, string platformId)
-        {
-            var manifest = LoadManifest(projectRoot);
-            return manifest.platforms.Contains(platformId, StringComparer.OrdinalIgnoreCase);
         }
 
         internal static IReadOnlyList<SkillDefinition> GetInstalledSkills(ProjectSkillsManifest manifest)
@@ -917,21 +891,6 @@ $@"{ManagedMarker}
         {
             var alwaysApply = skill.IsBuiltIn ? "true" : "false";
 
-            if (BodyFileSkillIds.Contains(skill.Id))
-            {
-                return
-$@"---
-description: {skill.Description}
-alwaysApply: {alwaysApply}
-version: {skill.Version}
----
-{ManagedMarker}
-{BuildSkillVersionMarker(skill)}
-
-{ReadSkillBody(skill.Id)}
-";
-            }
-
             return
 $@"---
 description: {skill.Description}
@@ -958,67 +917,6 @@ version: {skill.Version}
 ";
         }
 
-        private static string ReadSkillBody(string skillId)
-        {
-            var sourcePath = ResolveSkillSourcePath(skillId);
-            if (sourcePath == null)
-                throw new InvalidOperationException($"GameWright skill source 'Skills~/{skillId}/SKILL.md' was not found. Cannot generate the '{skillId}' skill.");
-
-            return StripFrontMatter(File.ReadAllText(sourcePath)).Trim();
-        }
-
-        // Skills~ has a trailing tilde so Unity never imports it; AssetDatabase can't see it.
-        // Resolve via the package install path (broker uses the same pattern) with disk fallbacks.
-        private static string ResolveSkillSourcePath(string skillId)
-        {
-            try
-            {
-                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(ProjectSkillsManager).Assembly);
-                if (package != null && !string.IsNullOrEmpty(package.resolvedPath))
-                {
-                    var path = Path.Combine(package.resolvedPath, "Skills~", skillId, "SKILL.md");
-                    if (File.Exists(path))
-                        return path;
-                }
-            }
-            catch
-            {
-            }
-
-            var projectRoot = Path.GetDirectoryName(Application.dataPath);
-            var candidates = new[]
-            {
-                Path.Combine(Application.dataPath, "unity-mcp", "Skills~", skillId, "SKILL.md"),
-                Path.Combine(projectRoot ?? string.Empty, "Packages", "com.gamewright.unity.mcp", "Skills~", skillId, "SKILL.md"),
-                Path.Combine(projectRoot ?? string.Empty, "Skills~", skillId, "SKILL.md")
-            };
-
-            foreach (var candidate in candidates)
-            {
-                if (File.Exists(candidate))
-                    return candidate;
-            }
-
-            return null;
-        }
-
-        private static string StripFrontMatter(string content)
-        {
-            if (string.IsNullOrEmpty(content))
-                return string.Empty;
-
-            var normalized = content.Replace("\r\n", "\n");
-            if (!normalized.StartsWith("---\n", StringComparison.Ordinal))
-                return normalized;
-
-            var end = normalized.IndexOf("\n---", 3, StringComparison.Ordinal);
-            if (end < 0)
-                return normalized;
-
-            var after = normalized.IndexOf('\n', end + 1);
-            return after < 0 ? string.Empty : normalized.Substring(after + 1);
-        }
-
         private static string BuildSkillDocument(SkillDefinition skill, SkillPlatform platform)
         {
             if (skill.ContentBuilder != null)
@@ -1026,22 +924,6 @@ version: {skill.Version}
 
             if (string.Equals(skill.Id, "unity-mcp-workflow", StringComparison.OrdinalIgnoreCase))
                 return BuildUnityMcpWorkflowSkillDocument(skill, platform);
-
-            if (BodyFileSkillIds.Contains(skill.Id))
-            {
-                return
-$@"---
-name: {skill.Id}
-description: {skill.Description}
-version: {skill.Version}
-platform: {platform.ToString().ToLowerInvariant()}
----
-{ManagedMarker}
-{BuildSkillVersionMarker(skill)}
-
-{ReadSkillBody(skill.Id)}
-";
-            }
 
             return
 $@"---

@@ -36,7 +36,7 @@ namespace GameWright.Editor.MCP.Server
                     if (!File.Exists(target.ConfigPath))
                         continue;
 
-                    var serverName = ClientConfigPanel.GetServerEntryName(target);
+                    var serverName = ClientConfigPanel.ServerEntryName;
                     var changed = target.IsToml
                         ? RewriteToml(target.ConfigPath, serverName, serverUrl)
                         : RewriteJson(target, serverName, serverUrl);
