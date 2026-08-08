@@ -21,13 +21,12 @@ namespace GameWright.Editor.MCP.Server
         /// <summary>Schedule a sweep on the editor thread. Safe to call from any thread.</summary>
         public static void Schedule(int port)
         {
-            var serverUrl = $"http://127.0.0.1:{port}/";
+            var serverUrl = ClientConfigPanel.BuildServerUrl(port);
             EditorApplication.delayCall += () => Run(serverUrl);
         }
 
         public static void Run(string serverUrl)
         {
-            var serverName = ClientConfigPanel.GetServerEntryName();
             var rewritten = new List<string>();
 
             foreach (var target in ClientConfigPanel.GetAllTargets())
@@ -37,6 +36,7 @@ namespace GameWright.Editor.MCP.Server
                     if (!File.Exists(target.ConfigPath))
                         continue;
 
+                    var serverName = ClientConfigPanel.GetServerEntryName(target);
                     var changed = target.IsToml
                         ? RewriteToml(target.ConfigPath, serverName, serverUrl)
                         : RewriteJson(target, serverName, serverUrl);

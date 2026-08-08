@@ -19,6 +19,8 @@ namespace GameWright.Editor.MCP.Server
         private Label _totalTokensLabel;
         private readonly HashSet<string> _enabled = new HashSet<string> { "Success", "Interrupted", "Error" };
         private const string ScrollOffsetKey = "GameWright.MCP.RecentActivity.ScrollY";
+        private const float BottomThreshold = 20f;
+        private bool _stickToBottom = true;
 
         public RecentActivityPanel(MCPServerService server)
         {
@@ -65,11 +67,27 @@ namespace GameWright.Editor.MCP.Server
             // Persist scroll position so it survives the panel rebuilds caused by domain
             // reload (play mode with reload enabled) and play-mode transitions.
             _scrollView.verticalScroller.valueChanged += v => SessionState.SetFloat(ScrollOffsetKey, v);
+
+            // Stick-to-bottom is re-evaluated only on user-driven scrolling, never on the
+            // programmatic offset changes that adding a row or resizing the panel triggers.
+            // Deferred one frame: wheel and drag events fire before the ScrollView applies
+            // the new offset, so measuring immediately reads the pre-scroll position.
+            _scrollView.RegisterCallback<WheelEvent>(_ => _scrollView.schedule.Execute(UpdateStickToBottom));
+            _scrollView.verticalScroller.RegisterCallback<PointerUpEvent>(_ => _scrollView.schedule.Execute(UpdateStickToBottom));
             foldout.Add(_scrollView);
 
             // Deferred: building ~100 entry cards synchronously adds ~80ms to CreateGUI after
             // every domain reload, which the user sees as a blank-window flash on Play.
             _scrollView.schedule.Execute(RenderEntries);
+        }
+
+        private void UpdateStickToBottom()
+        {
+            if (_scrollView == null)
+                return;
+
+            var maxScroll = _scrollView.contentContainer.layout.height - _scrollView.layout.height;
+            _stickToBottom = maxScroll <= 0 || _scrollView.scrollOffset.y >= maxScroll - BottomThreshold;
         }
 
         private VisualElement BuildFilterBar()
@@ -246,21 +264,26 @@ namespace GameWright.Editor.MCP.Server
             _scrollView.contentContainer.Clear();
 
             var entries = _server.InteractionLog.GetEntries();
-            for (int i = entries.Count - 1; i >= 0; i--)
+            for (int i = 0; i < entries.Count; i++)
             {
                 if (PassesFilter(entries[i].Status))
                     AddRow(entries[i]);
             }
 
-            // Restore the persisted offset once the new rows have real geometry; setting it
-            // immediately (or on a timer) gets clamped to 0 while content height is still 0.
+            RefreshFilterCounts();
+
+            // Scroll to persisted position, or bottom if no saved position.
             var content = _scrollView.contentContainer;
             EventCallback<GeometryChangedEvent> restore = null;
             restore = _ =>
             {
                 content.UnregisterCallback(restore);
                 if (_scrollView != null)
-                    _scrollView.scrollOffset = new Vector2(0, SessionState.GetFloat(ScrollOffsetKey, 0f));
+                {
+                    var saved = SessionState.GetFloat(ScrollOffsetKey, -1f);
+                    _scrollView.scrollOffset = new Vector2(0, saved >= 0 ? saved : float.MaxValue);
+                    UpdateStickToBottom();
+                }
             };
             content.RegisterCallback(restore);
         }
@@ -278,11 +301,16 @@ namespace GameWright.Editor.MCP.Server
                     return;
 
                 AddRow(entry);
-                EditorApplication.delayCall += () =>
+
+                // Stick-to-bottom: only auto-scroll if user was already at the bottom.
+                if (_stickToBottom)
                 {
-                    if (_scrollView != null)
-                        _scrollView.scrollOffset = new Vector2(0, float.MaxValue);
-                };
+                    EditorApplication.delayCall += () =>
+                    {
+                        if (_scrollView != null)
+                            _scrollView.scrollOffset = new Vector2(0, float.MaxValue);
+                    };
+                }
             };
         }
 

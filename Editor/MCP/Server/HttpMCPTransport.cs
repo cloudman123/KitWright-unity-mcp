@@ -49,6 +49,7 @@ namespace GameWright.Editor.MCP.Server
         private TcpListener _listener;
         private CancellationTokenSource _cts;
         private readonly int _port;
+        private readonly string _projectPin;
         private bool _isRunning;
         private const int StartRetryAttempts = 40;
         private const int StartRetryDelayMs = 250;
@@ -61,9 +62,49 @@ namespace GameWright.Editor.MCP.Server
         public bool IsAttachedToExistingServer => false;
         public event Action<MCPRequest, Action<MCPResponse>> OnRequestReceived;
 
-        public HttpMCPTransport(int port, string expectedServerName = null, string expectedProjectIdentity = null)
+        public HttpMCPTransport(int port, string expectedProjectIdentity = null)
         {
             _port = port;
+            _projectPin = string.IsNullOrEmpty(expectedProjectIdentity) ||
+                          expectedProjectIdentity.Length < ProjectIdentity.PinLength
+                ? string.Empty
+                : expectedProjectIdentity.Substring(0, ProjectIdentity.PinLength);
+        }
+
+        // A client configured for THIS project posts to /p/<pin>/. Ports are assigned by
+        // first-come scan, so a config written when this project held a different port would
+        // otherwise reach whichever sibling editor now owns it — and that editor would answer,
+        // applying the edits to the wrong project. Refusing a mismatched pin turns that silent
+        // wrong-project write into a visible 404.
+        //
+        // A path with no pin is accepted: configs written before pinning exist in the wild, and
+        // re-running Configure is what upgrades them.
+        internal bool PathTargetsAnotherProject(string path)
+        {
+            if (_projectPin.Length == 0)
+                return false;
+
+            var pin = ExtractPin(path);
+            return pin.Length > 0 && !string.Equals(pin, _projectPin, StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static string ExtractPin(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return string.Empty;
+
+            var query = path.IndexOf('?');
+            if (query >= 0)
+                path = path.Substring(0, query);
+
+            var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < segments.Length - 1; i++)
+            {
+                if (segments[i] == "p")
+                    return segments[i + 1];
+            }
+
+            return string.Empty;
         }
 
         public async Task<bool> StartAsync(CancellationToken ct = default)
@@ -277,6 +318,12 @@ namespace GameWright.Editor.MCP.Server
                         return;
                     }
 
+                    if (PathTargetsAnotherProject(httpRequest.Path))
+                    {
+                        await SendWrongProjectAsync(stream, httpRequest.Path, ct);
+                        return;
+                    }
+
                     if (httpRequest.Method == "GET")
                     {
                         await SendStatusPageAsync(stream, ct);
@@ -425,6 +472,7 @@ namespace GameWright.Editor.MCP.Server
             return new HttpRequestData
             {
                 Method = requestLineParts[0],
+                Path = requestLineParts.Length > 1 ? requestLineParts[1] : "/",
                 AcceptsEventStream = acceptsEventStream,
                 Body = Encoding.UTF8.GetString(bodyBytes, 0, copied)
             };
@@ -564,6 +612,17 @@ namespace GameWright.Editor.MCP.Server
             return SendRawResponseAsync(stream, (int)HttpStatusCode.MethodNotAllowed, "Method Not Allowed", "text/plain", string.Empty, ct, "Allow: " + allowHeader + "\r\n");
         }
 
+        private Task SendWrongProjectAsync(NetworkStream stream, string path, CancellationToken ct)
+        {
+            Debug.LogWarning(
+                $"[GameWright MCP Server] Refused a request for project pin '{ExtractPin(path)}' — this server " +
+                $"serves pin '{_projectPin}' on port {_port}. The client's MCP config points at the wrong port; " +
+                "re-run Configure in the GameWright MCP window for that project.");
+
+            return SendRawResponseAsync(stream, (int)HttpStatusCode.NotFound, "Not Found", "text/plain",
+                $"This GameWright MCP server serves project pin {_projectPin}, not {ExtractPin(path)}.", ct);
+        }
+
         private Task SendAcceptedAsync(NetworkStream stream, CancellationToken ct)
         {
             return SendRawResponseAsync(stream, (int)HttpStatusCode.Accepted, "Accepted", "text/plain", string.Empty, ct);
@@ -698,6 +757,7 @@ namespace GameWright.Editor.MCP.Server
         private sealed class HttpRequestData
         {
             public string Method { get; set; }
+            public string Path { get; set; }
             public bool AcceptsEventStream { get; set; }
             public string Body { get; set; }
         }

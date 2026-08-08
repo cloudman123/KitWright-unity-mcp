@@ -24,6 +24,42 @@ namespace GameWright.Editor
         private const string ServerName = "GameWright MCP Server - Test Project";
         private const string ProjectIdentityA = "project-a";
 
+        // A full 64-hex identity; only the first ProjectIdentity.PinLength chars form the pin.
+        private const string IdentityAaaa = "aaaa1111" + "00000000000000000000000000000000000000000000000000000000";
+
+        [Test]
+        public void ExtractPin_ReadsThePSegmentAndIgnoresTheQuery()
+        {
+            Assert.AreEqual("aaaa1111", HttpMCPTransport.ExtractPin("/p/aaaa1111/"));
+            Assert.AreEqual("aaaa1111", HttpMCPTransport.ExtractPin("/p/aaaa1111"));
+            Assert.AreEqual("aaaa1111", HttpMCPTransport.ExtractPin("/p/aaaa1111/?x=1"));
+            Assert.AreEqual(string.Empty, HttpMCPTransport.ExtractPin("/"));
+            Assert.AreEqual(string.Empty, HttpMCPTransport.ExtractPin("/p"));
+            Assert.AreEqual(string.Empty, HttpMCPTransport.ExtractPin(null));
+        }
+
+        [Test]
+        public void PinnedPathForAnotherProjectIsRefused()
+        {
+            var transport = new HttpMCPTransport(0, IdentityAaaa);
+
+            Assert.IsTrue(transport.PathTargetsAnotherProject("/p/bbbb2222/"),
+                "A request pinned to another project must be refused, not answered.");
+            Assert.IsFalse(transport.PathTargetsAnotherProject("/p/aaaa1111/"));
+            Assert.IsFalse(transport.PathTargetsAnotherProject("/p/AAAA1111/"), "Pin match is case-insensitive.");
+            Assert.IsFalse(transport.PathTargetsAnotherProject("/"),
+                "An unpinned path stays accepted so configs written before pinning keep working.");
+        }
+
+        [Test]
+        public void ServerWithoutAnIdentityAcceptsEveryPath()
+        {
+            var transport = new HttpMCPTransport(0, null);
+
+            Assert.IsFalse(transport.PathTargetsAnotherProject("/p/bbbb2222/"));
+            Assert.IsFalse(transport.PathTargetsAnotherProject("/"));
+        }
+
         [Test]
         public void ClientDisconnectDetection_CoversExpectedResponseWriteFailures()
         {
@@ -61,8 +97,8 @@ namespace GameWright.Editor
         public IEnumerator StartAsync_WhenPortIsAlreadyOwned_ReturnsFalseWithoutStoppingOwner()
         {
             var port = GetFreeTcpPort();
-            var firstTransport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
-            var secondTransport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
+            var firstTransport = new HttpMCPTransport(port, ProjectIdentityA);
+            var secondTransport = new HttpMCPTransport(port, ProjectIdentityA);
 
             firstTransport.OnRequestReceived += (request, sendResponse) =>
                 HandleInitializeRequest(request, sendResponse, ProjectIdentityA);
@@ -105,8 +141,8 @@ namespace GameWright.Editor
         public IEnumerator Stop_ReleasesOwnedPortForRestart()
         {
             var port = GetFreeTcpPort();
-            var firstTransport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
-            var secondTransport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
+            var firstTransport = new HttpMCPTransport(port, ProjectIdentityA);
+            var secondTransport = new HttpMCPTransport(port, ProjectIdentityA);
 
             firstTransport.OnRequestReceived += (request, sendResponse) =>
                 HandleInitializeRequest(request, sendResponse, ProjectIdentityA);
@@ -139,7 +175,7 @@ namespace GameWright.Editor
             {
                 listener.Start();
                 var serverTask = HoldRequestsOpenAsync(listener, listenerCts.Token);
-                var transport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
+                var transport = new HttpMCPTransport(port, ProjectIdentityA);
 
                 try
                 {
@@ -166,7 +202,7 @@ namespace GameWright.Editor
         public IEnumerator RequestWithoutSubscriber_ReturnsServerNotReadyErrorWithoutWaitingForTimeout()
         {
             var port = GetFreeTcpPort();
-            var transport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
 
             try
             {
@@ -192,7 +228,7 @@ namespace GameWright.Editor
         public IEnumerator SseAcceptingRequest_DeliversToolsListChangedOnce()
         {
             var port = GetFreeTcpPort();
-            var transport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
             transport.OnRequestReceived += (request, sendResponse) =>
             {
                 sendResponse(new MCPResponse
@@ -242,7 +278,7 @@ namespace GameWright.Editor
 
             for (var cycle = 1; cycle <= 5; cycle++)
             {
-                var transport = new HttpMCPTransport(port, ServerName, ProjectIdentityA);
+                var transport = new HttpMCPTransport(port, ProjectIdentityA);
                 transport.OnRequestReceived += (request, sendResponse) =>
                     HandleInitializeRequest(request, sendResponse, ProjectIdentityA);
 

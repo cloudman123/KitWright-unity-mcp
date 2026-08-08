@@ -146,11 +146,10 @@ namespace GameWright.Editor.MCP.Server
                         $"Install source: {installContext.Description}\n" +
                         $"{BuildUpdateActionMessage(installContext)}";
 
-                    var updateButtonLabel = GetPrimaryActionLabel(installContext);
                     var choice = EditorUtility.DisplayDialogComplex(
                         "Update Available",
                         message,
-                        updateButtonLabel,
+                        "Update Now",
                         "Close",
                         "View Release");
 
@@ -780,24 +779,8 @@ namespace GameWright.Editor.MCP.Server
             {
                 case InstallMode.GitPackage:
                     return "A newer version is available.\nChoosing Update Now will re-pull the package from Git through Unity Package Manager.";
-                case InstallMode.UnityPackageImport:
-                    return "A newer version is available.\nChoosing Update Now will download the latest unitypackage and import it automatically.";
-                case InstallMode.UnsupportedPackage:
-                    return "A newer version is available.\nThis install is managed by UPM but not from Git, so the update checker will open the release page instead.";
                 default:
-                    return "A newer version is available.\nThe install source could not be identified reliably, so the update checker will fall back to the release page.";
-            }
-        }
-
-        private static string GetPrimaryActionLabel(InstallContext installContext)
-        {
-            switch (installContext.Mode)
-            {
-                case InstallMode.GitPackage:
-                case InstallMode.UnityPackageImport:
-                    return "Update Now";
-                default:
-                    return "Open Release";
+                    return "A newer version is available.\nChoosing Update Now will download the latest unitypackage and open Unity's import window.";
             }
         }
 

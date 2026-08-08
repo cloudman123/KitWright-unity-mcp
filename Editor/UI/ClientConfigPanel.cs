@@ -290,7 +290,7 @@ namespace GameWright.Editor.MCP.Server
             var rootKey = string.IsNullOrEmpty(target.RootKey) ? "mcpServers" : target.RootKey;
             var root = new Dictionary<string, object>
             {
-                [rootKey] = new Dictionary<string, object> { [GetServerEntryName()] = CreateHttpEntry(target) }
+                [rootKey] = new Dictionary<string, object> { [GetServerEntryName(target)] = CreateHttpEntry(target) }
             };
             if (!string.IsNullOrEmpty(target.SchemaUrl))
                 root["$schema"] = target.SchemaUrl;
@@ -331,11 +331,28 @@ namespace GameWright.Editor.MCP.Server
                     ConfigPath = Path.Combine(homePath, ".claude.json"),
                     IncludeTypeField = true
                 },
+                // Project-scoped variants: the file sits in this Unity project, so the entry keeps
+                // the plain "gamewright" name and travels with the project instead of piling
+                // suffixed entries into one shared file in the home directory.
+                new MCPConfigTarget
+                {
+                    Name = "Claude Code (project)",
+                    ConfigPath = Path.Combine(GetProjectRootPath(), ".mcp.json"),
+                    IncludeTypeField = true,
+                    ProjectScoped = true
+                },
                 new MCPConfigTarget
                 {
                     Name = "Cursor",
                     ConfigPath = Path.Combine(homePath, ".cursor", "mcp.json"),
                     IncludeTypeField = true
+                },
+                new MCPConfigTarget
+                {
+                    Name = "Cursor (project)",
+                    ConfigPath = Path.Combine(GetProjectRootPath(), ".cursor", "mcp.json"),
+                    IncludeTypeField = true,
+                    ProjectScoped = true
                 },
                 new MCPConfigTarget
                 {
@@ -477,7 +494,8 @@ namespace GameWright.Editor.MCP.Server
                 WriteMCPConfigurationForTarget(target);
 
                 var message = $"MCP configuration written to:\n{target.ConfigPath}\n\n" +
-                              $"Please restart {target.Name} for it to take effect.";
+                              $"Please restart {target.Name} for it to take effect." +
+                              ProjectScopedNote(target);
 
                 EditorUtility.DisplayDialog("MCP Configuration", message, "OK");
                 _rebuildWindow?.Invoke();
@@ -518,7 +536,8 @@ namespace GameWright.Editor.MCP.Server
                     "MCP Configuration",
                     $"MCP configuration written to:\n{target.ConfigPath}\n\n" +
                     "Project MCP workflow skill installed:\n" +
-                    string.Join("\n", generatedPaths),
+                    string.Join("\n", generatedPaths) +
+                    ProjectScopedNote(target),
                     "OK");
 
                 _rebuildWindow?.Invoke();
@@ -560,7 +579,7 @@ namespace GameWright.Editor.MCP.Server
         private void ConfigureJsonTarget(MCPConfigTarget target)
         {
             var rootKey = string.IsNullOrEmpty(target.RootKey) ? "mcpServers" : target.RootKey;
-            var serverName = GetServerEntryName();
+            var serverName = GetServerEntryName(target);
             var entry = CreateHttpEntry(target);
             Dictionary<string, object> root;
 
@@ -574,7 +593,10 @@ namespace GameWright.Editor.MCP.Server
                     root = parsed;
                     var servers = root[rootKey] as Dictionary<string, object>;
                     if (servers != null)
+                    {
+                        servers.Remove(LegacyServerEntryName());
                         servers[serverName] = entry;
+                    }
                     else
                         root[rootKey] = new Dictionary<string, object> { [serverName] = entry };
                 }
@@ -600,7 +622,7 @@ namespace GameWright.Editor.MCP.Server
 
         private void ConfigureTomlTarget(MCPConfigTarget target)
         {
-            var sectionHeader = "[mcp_servers." + GetServerEntryName() + "]";
+            var sectionHeader = "[mcp_servers." + GetServerEntryName(target) + "]";
             var tomlSection = CreateTomlSection(target);
             var content = File.Exists(target.ConfigPath) ? File.ReadAllText(target.ConfigPath) : string.Empty;
 
@@ -669,12 +691,42 @@ namespace GameWright.Editor.MCP.Server
             if (!target.IsToml)
                 return string.Empty;
 
-            return $"[mcp_servers.{GetServerEntryName()}]\nurl = \"{GetServerUrl()}\"\n";
+            return $"[mcp_servers.{GetServerEntryName(target)}]\nurl = \"{GetServerUrl()}\"\n";
         }
 
-        // Per-project entry name so configuring from two Unity editors does not
-        // overwrite each other's entry in the client's MCP config.
+        // Per-project entry name so configuring from two Unity editors does not overwrite each
+        // other's entry in the client's MCP config. productName alone is not unique — a clone or a
+        // second checkout of the same project carries the same one — so the project-path pin is
+        // what actually keeps the entries apart.
+        // Both halves of the written URL are local to this machine and this folder: the port comes
+        // from UserSettings (per-machine) and the pin from the absolute project path. A teammate who
+        // commits and checks out this file gets a URL that resolves to nothing they own — the pin
+        // guard answers 404 rather than letting it reach a sibling project, but the config is still
+        // useless to them. Keep it out of version control.
+        private static string ProjectScopedNote(MCPConfigTarget target)
+        {
+            if (!target.ProjectScoped)
+                return string.Empty;
+
+            return "\n\nThis file is machine-specific (it holds this machine's port and this " +
+                   "folder's project pin). Add it to .gitignore rather than committing it; " +
+                   "teammates run Configure to generate their own.";
+        }
+
+        internal static string GetServerEntryName(MCPConfigTarget target)
+        {
+            return target.ProjectScoped ? "gamewright" : GetServerEntryName();
+        }
+
         internal static string GetServerEntryName()
+        {
+            return LegacyServerEntryName() + "-" +
+                   ProjectIdentity.PinFromProjectPath(GetProjectRootPath());
+        }
+
+        // The productName-only name written by packages up to 0.6.0, kept so configuring can drop
+        // the stale entry left behind instead of leaving it pointed at a port nobody answers on.
+        private static string LegacyServerEntryName()
         {
             var name = Application.productName ?? string.Empty;
             var sb = new StringBuilder("gamewright-");
@@ -686,7 +738,7 @@ namespace GameWright.Editor.MCP.Server
                     sb.Append('-');
             }
             var result = sb.ToString().TrimEnd('-');
-            return result == "gamewright" || result.Length <= "gamewright-".Length ? "gamewright" : result;
+            return result.Length <= "gamewright-".Length ? "gamewright" : result;
         }
 
         private string GetServerUrl()
@@ -694,7 +746,14 @@ namespace GameWright.Editor.MCP.Server
             var port = _server != null && _server.IsRunning
                 ? _server.Port
                 : _settings.MCPServerPort;
-            return $"http://127.0.0.1:{port}/";
+            return BuildServerUrl(port);
+        }
+
+        // The /p/<pin> segment lets the server refuse a request that reached it because this
+        // project's port moved and a sibling editor took the old one. See HttpMCPTransport.
+        internal static string BuildServerUrl(int port)
+        {
+            return $"http://127.0.0.1:{port}/p/{ProjectIdentity.PinFromProjectPath(GetProjectRootPath())}/";
         }
 
         private static string GetProjectRootPath()
@@ -709,8 +768,10 @@ namespace GameWright.Editor.MCP.Server
                 case "Codex":
                     return "codex";
                 case "Claude Code":
+                case "Claude Code (project)":
                     return "claude";
                 case "Cursor":
+                case "Cursor (project)":
                     return "cursor";
                 default:
                     // Every other IDE/agent reads the open .agents/skills/ standard (Antigravity, Windsurf, Gemini CLI...)
@@ -830,6 +891,10 @@ namespace GameWright.Editor.MCP.Server
             public string HttpUrlProperty;
             public string SchemaUrl;
             public Dictionary<string, object> DefaultFields;
+
+            // The config file lives inside this Unity project, so it holds entries for this
+            // project only and the entry name needs no disambiguating suffix.
+            public bool ProjectScoped;
         }
     }
 }

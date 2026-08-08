@@ -182,7 +182,7 @@ namespace GameWright.Editor.MCP.Server
 
                 var serverName = "GameWright MCP Server - " + Application.productName;
                 var projectIdentity = ProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
-                transport = CreateTransport(startupPort, serverName, projectIdentity);
+                transport = CreateTransport(startupPort, projectIdentity);
                 var toolExporter = new MCPToolExporter(_settings);
                 MCPToolListChangeNotifier.CheckForChanges(toolExporter);
                 var executionBridge = new MCPExecutionBridge(_threadHelper, _settings, _stateController, _invoker, InteractionLog);
@@ -511,7 +511,7 @@ namespace GameWright.Editor.MCP.Server
             }
         }
 
-        private IMCPTransport CreateTransport(int startupPort, string serverName, string projectIdentity)
+        private IMCPTransport CreateTransport(int startupPort, string projectIdentity)
         {
             if (_settings.MCPBrokerModeEnabled)
             {
@@ -531,7 +531,7 @@ namespace GameWright.Editor.MCP.Server
                 MCPBrokerProcessManager.Stop();
             }
 
-            return new HttpMCPTransport(startupPort, serverName, projectIdentity);
+            return new HttpMCPTransport(startupPort, projectIdentity);
         }
 
         private string BuildToolExposureSetting()
