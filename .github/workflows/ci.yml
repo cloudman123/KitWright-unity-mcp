@@ -80,6 +80,9 @@ jobs:
         name: Unity EditMode Tests
         runs-on: ubuntu-latest
         needs: validate
+        permissions:
+            contents: read
+            checks: write
 
         steps:
             - name: Checkout
