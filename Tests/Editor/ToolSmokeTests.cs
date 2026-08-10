@@ -188,6 +188,9 @@ namespace KitWright.Editor.Tests
             try
             {
                 AssetDatabase.CreateAsset(material, materialPath);
+                // Second scannable asset so max_assets_scanned:1 below is guaranteed to
+                // truncate even in a project whose Assets/ folder is otherwise empty (CI).
+                AssetDatabase.CreateAsset(new Material(shader), TempFolder + "/decoy.mat");
                 go.GetComponent<Renderer>().sharedMaterial = material;
                 PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
                 AssetDatabase.SaveAssets();
@@ -197,7 +200,8 @@ namespace KitWright.Editor.Tests
                     max_results: 20,
                     include_referenced_by: true,
                     max_assets_scanned: 5000,
-                    max_scan_seconds: 10);
+                    max_scan_seconds: 10,
+                    prefer_manual_scan: true);
                 while (!task.IsCompleted)
                     yield return null;
                 if (task.Exception != null)
