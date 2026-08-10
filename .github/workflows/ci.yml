@@ -101,14 +101,15 @@ jobs:
                   echo "m_EditorVersion: ${UNITY_VER}.0f1" > UnityProject/ProjectSettings/ProjectVersion.txt
                   echo "Unity version detected: ${UNITY_VER}.0f1"
 
-                  # Manifest – declare empty dependencies (package is linked separately)
-                  echo '{ "dependencies": {} }' > UnityProject/Packages/manifest.json
-
                   # Copy the package into Packages/ (a symlink breaks inside the game-ci
                   # docker container: the absolute host path does not exist there).
                   PKG_NAME=$(python3 -c "import json; print(json.load(open('package.json'))['name'])")
                   rsync -a --exclude UnityProject --exclude .git --exclude .github ./ "UnityProject/Packages/${PKG_NAME}/"
                   echo "Package '${PKG_NAME}' copied into UnityProject/Packages/"
+
+                  # Manifest – package deps resolve automatically; testables makes the
+                  # test runner pick up the package's tests.
+                  echo "{ \"dependencies\": {}, \"testables\": [\"${PKG_NAME}\"] }" > UnityProject/Packages/manifest.json
 
             - name: Run EditMode tests
               uses: game-ci/unity-test-runner@v4
