@@ -1,9 +1,16 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0] - 2026-08-11
+
+First Unity Asset Store release.
 
 ### Changed
 - **Renamed the project from GameWright to KitWright.** The package id is now `com.kitwright.unity.mcp`, the menu lives under `Window > KitWright`, and the MCP server entry written into client configs is `kitwright`.
+
+### Fixed
+- Broker mode, the reported package version and icon loading now work when the package is installed under `Assets/` instead of `Packages/`, at any folder name. `PackageInfo` returns null for an `Assets/` install and the previous hardcoded `Assets/unity-mcp` / `Packages/com.kitwright.unity.mcp` roots never matched, so broker mode silently fell back to in-process HTTP and the window reported `v0.0.0`. Paths now come from the asset database.
+- The broker source path was resolved in a static constructor, before the asset database is queryable, and the resulting null was cached for the whole session. It is resolved lazily and cached only once found.
+- The six-hourly background update check no longer logs a warning when it fails. An offline machine, a rate-limited GitHub API or a repository with no published release dropped warnings into the console of users who never asked for a check; failures are only reported for checks the user started.
 
 ### Upgrading from 0.6.x
 - Remove the old `com.gamewright.unity.mcp` package before installing this one; Unity treats them as two separate packages.
