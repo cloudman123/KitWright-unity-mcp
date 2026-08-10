@@ -212,7 +212,9 @@ namespace KitWright.Editor.Tests
                     if (string.Equals(item as string, prefabPath, StringComparison.Ordinal))
                         foundPrefab = true;
                 }
-                Assert.IsTrue(foundPrefab, "Expected reverse dependency scan to find the generated prefab.");
+                Assert.IsTrue(foundPrefab,
+                    "Expected reverse dependency scan to find the generated prefab. Result: " +
+                    Newtonsoft.Json.JsonConvert.SerializeObject(data));
                 AssertSuccess(ReferenceFunctions.FindBrokenReferences("assets", prefabPath));
 
                 var limitedTask = ReferenceFunctions.FindReferences(

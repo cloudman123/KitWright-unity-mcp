@@ -41,8 +41,8 @@ namespace KitWright.Editor.MCP.Server
                 return string.Empty;
 
             var fullPath = Path.GetFullPath(projectPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Replace('\\', '/');
+                .Replace('\\', '/')
+                .TrimEnd('/');
 
             return fullPath.ToLowerInvariant();
         }
