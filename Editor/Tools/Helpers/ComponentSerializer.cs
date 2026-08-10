@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     /// <summary>
     /// Read and write component properties through Unity's SerializedObject API.

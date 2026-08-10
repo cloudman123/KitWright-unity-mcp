@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal enum MCPToolCallStatus
     {
@@ -29,9 +29,9 @@ namespace GameWright.Editor.MCP.Server
     {
         private const string ImageDataUriPrefix = "data:image/png;base64,";
 
-        private const string SessionStateKey = "GameWright.MCP.InteractionLog";
+        private const string SessionStateKey = "KitWright.MCP.InteractionLog";
         private static readonly string ImageDir =
-            Path.Combine("Library", "GameWrightMcp", "ActivityImages");
+            Path.Combine("Library", "KitWrightMcp", "ActivityImages");
 
         private MCPLogEntry[] _buffer;
         private int _head;
@@ -195,7 +195,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright MCP] Failed to clear activity images: {ex.Message}");
+                Debug.LogWarning($"[KitWright MCP] Failed to clear activity images: {ex.Message}");
             }
         }
 
@@ -231,7 +231,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright MCP] Failed to save activity image: {ex.Message}");
+                Debug.LogWarning($"[KitWright MCP] Failed to save activity image: {ex.Message}");
                 return null;
             }
         }

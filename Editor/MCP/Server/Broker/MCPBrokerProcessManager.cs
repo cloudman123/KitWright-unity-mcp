@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     [InitializeOnLoad]
     internal static class MCPBrokerProcessManager
@@ -25,7 +25,7 @@ namespace GameWright.Editor.MCP.Server
         static MCPBrokerProcessManager()
         {
             var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
-            var runtimeDir = Path.Combine(projectRoot, "Library", "GameWrightMcp", "Broker");
+            var runtimeDir = Path.Combine(projectRoot, "Library", "KitWrightMcp", "Broker");
             DefaultPaths = new MCPBrokerRuntimePaths(
                 Path.Combine(runtimeDir, "broker.pid"),
                 runtimeDir,
@@ -74,7 +74,7 @@ namespace GameWright.Editor.MCP.Server
                 if (IsTcpPortOpen(port))
                 {
                     LastError = existing != null && existing.Port == port
-                        ? "Port is already in use, but it is not a verified GameWright broker."
+                        ? "Port is already in use, but it is not a verified KitWright broker."
                         : "Port is already in use by another process.";
                     return false;
                 }
@@ -83,7 +83,7 @@ namespace GameWright.Editor.MCP.Server
                 if (string.IsNullOrEmpty(mono))
                 {
                     LastError = "Unity-bundled Mono runtime was not found.";
-                    Debug.LogWarning("[GameWright MCP Server] " + LastError);
+                    Debug.LogWarning("[KitWright MCP Server] " + LastError);
                     return false;
                 }
 
@@ -91,7 +91,7 @@ namespace GameWright.Editor.MCP.Server
                 if (string.IsNullOrEmpty(brokerExe))
                 {
                     LastError = LastError ?? "Broker executable could not be prepared.";
-                    Debug.LogWarning("[GameWright MCP Server] " + LastError);
+                    Debug.LogWarning("[KitWright MCP Server] " + LastError);
                     return false;
                 }
 
@@ -117,7 +117,7 @@ namespace GameWright.Editor.MCP.Server
                 catch (Exception ex)
                 {
                     LastError = "Failed to start broker process: " + ex.Message;
-                    Debug.LogError("[GameWright MCP Server] " + LastError);
+                    Debug.LogError("[KitWright MCP Server] " + LastError);
                     return false;
                 }
 
@@ -134,7 +134,7 @@ namespace GameWright.Editor.MCP.Server
                 {
                     if (TryProbeBroker(port, token, out var health) && health.Pid == process.Id)
                     {
-                        Debug.Log("[GameWright MCP Server] Broker started (pid=" + process.Id + ", port=" + port + ").");
+                        Debug.Log("[KitWright MCP Server] Broker started (pid=" + process.Id + ", port=" + port + ").");
                         return true;
                     }
 
@@ -142,7 +142,7 @@ namespace GameWright.Editor.MCP.Server
                 }
 
                 LastError = "Broker process started but did not pass health checks.";
-                Debug.LogWarning("[GameWright MCP Server] " + LastError);
+                Debug.LogWarning("[KitWright MCP Server] " + LastError);
                 KillVerifiedProcess(process.Id);
                 DeletePidFile(paths.PidFilePath);
                 return false;
@@ -420,7 +420,7 @@ namespace GameWright.Editor.MCP.Server
             var candidates = new[]
             {
                 Path.Combine(Application.dataPath, "unity-mcp", "Editor", "MCP", "Server", "Broker", "keepalive-broker.cs.txt"),
-                Path.Combine(projectRoot, "Packages", "com.gamewright.unity.mcp", "Editor", "MCP", "Server", "Broker", "keepalive-broker.cs.txt")
+                Path.Combine(projectRoot, "Packages", "com.kitwright.unity.mcp", "Editor", "MCP", "Server", "Broker", "keepalive-broker.cs.txt")
             };
 
             foreach (var candidate in candidates)

@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Interop;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Interop;
+using KitWright.Editor.Tools.Helpers;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Interop")]
     internal static class InteropFunctions

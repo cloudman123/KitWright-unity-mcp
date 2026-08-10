@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using GameWright.Editor.Api.Models;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Api.Models;
+using KitWright.Editor.Settings;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools
+namespace KitWright.Editor.Tools
 {
     /// <summary>
     /// Scans assemblies for classes marked with [ToolProvider]
@@ -98,7 +98,7 @@ namespace GameWright.Editor.Tools
                                 }
                                 else
                                 {
-                                    Debug.LogWarning($"[GameWright] Duplicate tool function name: {snakeName}");
+                                    Debug.LogWarning($"[KitWright] Duplicate tool function name: {snakeName}");
                                 }
                             }
                         }
@@ -111,7 +111,7 @@ namespace GameWright.Editor.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Error scanning assemblies for tool functions: {ex.Message}");
+                Debug.LogError($"[KitWright] Error scanning assemblies for tool functions: {ex.Message}");
             }
         }
 
@@ -148,7 +148,7 @@ namespace GameWright.Editor.Tools
 
             if (BlockedTools.Contains(name))
             {
-                Debug.LogWarning($"[GameWright] Cannot register blocked tool: {name}");
+                Debug.LogWarning($"[KitWright] Cannot register blocked tool: {name}");
                 return;
             }
 
@@ -162,7 +162,7 @@ namespace GameWright.Editor.Tools
                 };
             }
 
-            PluginDebugLogger.Log($"[GameWright] Registered manual tool: {name}");
+            PluginDebugLogger.Log($"[KitWright] Registered manual tool: {name}");
         }
 
         /// <summary>

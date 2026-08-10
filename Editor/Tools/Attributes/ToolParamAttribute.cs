@@ -1,7 +1,7 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 
-namespace GameWright.Editor.Tools
+namespace KitWright.Editor.Tools
 {
     [AttributeUsage(AttributeTargets.Parameter)]
     internal class ToolParamAttribute : Attribute

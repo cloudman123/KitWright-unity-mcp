@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// Simple JSON serializer/deserializer for MCP server.

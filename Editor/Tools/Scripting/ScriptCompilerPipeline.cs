@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
@@ -10,11 +10,11 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Scripting
+namespace KitWright.Editor.Tools.Scripting
 {
     internal enum ScriptCompilationStatus
     {
@@ -135,18 +135,18 @@ namespace GameWright.Editor.Tools.Scripting
 
                 if (result.Status == ScriptCompilationStatus.Success)
                 {
-                    PluginDebugLogger.Log($"[GameWright MCP Server] execute_code compiled with {compiler.Name}.");
+                    PluginDebugLogger.Log($"[KitWright MCP Server] execute_code compiled with {compiler.Name}.");
                     return result.WithAttempts(attempts);
                 }
 
                 if (result.Status == ScriptCompilationStatus.CompilationFailed)
                 {
-                    PluginDebugLogger.Log($"[GameWright MCP Server] execute_code compilation failed with {compiler.Name}.");
+                    PluginDebugLogger.Log($"[KitWright MCP Server] execute_code compilation failed with {compiler.Name}.");
                     return result.WithAttempts(attempts);
                 }
 
                 lastUnavailable = result;
-                PluginDebugLogger.Log($"[GameWright MCP Server] {compiler.Name} unavailable for execute_code: {result.Message}");
+                PluginDebugLogger.Log($"[KitWright MCP Server] {compiler.Name} unavailable for execute_code: {result.Message}");
             }
 
             return (lastUnavailable ?? ScriptCompilationResult.Unavailable("none", "No script compiler was configured."))
@@ -182,7 +182,7 @@ namespace GameWright.Editor.Tools.Scripting
             if (!TryResolveToolchain(out var compilerHostPath, out var cscPath, out var monoLibRoot, out var toolchainError))
                 return ScriptCompilationResult.Unavailable(Name, toolchainError);
 
-            var tempRoot = Path.Combine(Path.GetTempPath(), "GameWrightExecuteCode", Guid.NewGuid().ToString("N"));
+            var tempRoot = Path.Combine(Path.GetTempPath(), "KitWrightExecuteCode", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempRoot);
 
             try
@@ -276,7 +276,7 @@ namespace GameWright.Editor.Tools.Scripting
             finally
             {
                 try { Directory.Delete(tempRoot, true); }
-                catch (Exception ex) { UnityEngine.Debug.LogWarning($"[GameWright] Failed to clean up temp compile dir '{tempRoot}': {ex.Message}"); }
+                catch (Exception ex) { UnityEngine.Debug.LogWarning($"[KitWright] Failed to clean up temp compile dir '{tempRoot}': {ex.Message}"); }
             }
         }
 

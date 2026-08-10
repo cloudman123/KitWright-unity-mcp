@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal static class MCPStyleExt
     {
@@ -50,8 +50,8 @@ namespace GameWright.Editor.MCP.Server
 
         public static Foldout Persist(this Foldout f, string key)
         {
-            f.value = SessionState.GetBool("GameWright.MCP.Foldout." + key, f.value);
-            f.RegisterValueChangedCallback(evt => SessionState.SetBool("GameWright.MCP.Foldout." + key, evt.newValue));
+            f.value = SessionState.GetBool("KitWright.MCP.Foldout." + key, f.value);
+            f.RegisterValueChangedCallback(evt => SessionState.SetBool("KitWright.MCP.Foldout." + key, evt.newValue));
             return f;
         }
 

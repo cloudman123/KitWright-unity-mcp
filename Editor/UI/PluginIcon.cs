@@ -1,18 +1,18 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal static class PluginIcon
     {
         private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _cache =
             new System.Collections.Generic.Dictionary<string, Texture2D>();
 
-        public static Texture2D TabTexture => Load("gamewright_icon_tab");
+        public static Texture2D TabTexture => Load("kitwright_icon_tab");
 
-        public static Texture2D LogoTextTexture => Load("gamewright_logo_text");
+        public static Texture2D LogoTextTexture => Load("kitwright_logo_text");
 
         private static Texture2D Load(string assetName)
         {
@@ -22,8 +22,8 @@ namespace GameWright.Editor.MCP.Server
             // Direct path first: FindAssets scans the whole project (~60ms in big projects),
             // which is paid during CreateGUI after every domain reload.
             Texture2D found =
-                AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.gamewright.unity.mcp/Editor/Icons/{assetName}.png")
-                ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/GameWright/Editor/Icons/{assetName}.png");
+                AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.kitwright.unity.mcp/Editor/Icons/{assetName}.png")
+                ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/KitWright/Editor/Icons/{assetName}.png");
             if (found != null)
             {
                 _cache[assetName] = found;

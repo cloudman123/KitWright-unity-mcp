@@ -1,9 +1,9 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using UnityEngine.UIElements;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal interface IMCPWindowPanel : IDisposable
     {

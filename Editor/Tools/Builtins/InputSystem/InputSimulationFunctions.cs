@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 #if ENABLE_INPUT_SYSTEM
 using System;
 using System.ComponentModel;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("InputSimulation")]
     internal static class InputSimulationFunctions

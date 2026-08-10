@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using System.Reflection;
-using GameWright.Editor.Api.Models;
+using KitWright.Editor.Api.Models;
 
-namespace GameWright.Editor.Tools
+namespace KitWright.Editor.Tools
 {
     /// <summary>
     /// Builds LLM tool definitions from reflected method metadata.

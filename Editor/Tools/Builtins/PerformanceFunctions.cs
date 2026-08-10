@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using System.Text;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Performance")]
     internal static class PerformanceFunctions

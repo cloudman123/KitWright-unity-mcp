@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,10 +7,10 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class MCPBrokerClientTransport : IMCPTransport
     {
@@ -47,20 +47,20 @@ namespace GameWright.Editor.MCP.Server
 
             if (string.IsNullOrEmpty(_token))
             {
-                Debug.LogError("[GameWright MCP Server] Broker transport cannot start without a broker token.");
+                Debug.LogError("[KitWright MCP Server] Broker transport cannot start without a broker token.");
                 return Task.FromResult(false);
             }
 
             if (!TryAttach())
             {
-                Debug.LogError("[GameWright MCP Server] Broker transport could not attach its Unity backend session.");
+                Debug.LogError("[KitWright MCP Server] Broker transport could not attach its Unity backend session.");
                 return Task.FromResult(false);
             }
 
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _isRunning = true;
             _ = Task.Run(() => PollLoopAsync(_cts.Token), _cts.Token);
-            PluginDebugLogger.Log("[GameWright MCP Server] Broker transport attached to " + _baseUrl + "/");
+            PluginDebugLogger.Log("[KitWright MCP Server] Broker transport attached to " + _baseUrl + "/");
             return Task.FromResult(true);
         }
 
@@ -77,7 +77,7 @@ namespace GameWright.Editor.MCP.Server
 
             try { _cts?.Dispose(); } catch { }
             _cts = null;
-            PluginDebugLogger.Log("[GameWright MCP Server] Broker transport stopped");
+            PluginDebugLogger.Log("[KitWright MCP Server] Broker transport stopped");
         }
 
         public void Dispose()
@@ -119,7 +119,7 @@ namespace GameWright.Editor.MCP.Server
                 {
                     // Never let a single bad request kill the poll loop -- that would
                     // leave the broker queueing requests with nobody pulling them.
-                    Debug.LogError("[GameWright MCP Server] Broker request handling failed: " + ex.Message);
+                    Debug.LogError("[KitWright MCP Server] Broker request handling failed: " + ex.Message);
                 }
             }
         }
@@ -182,7 +182,7 @@ namespace GameWright.Editor.MCP.Server
             {
                 responseJson = MCPToolListChangeNotifier.BuildSseBody(responseJson);
                 contentType = "text/event-stream";
-                PluginDebugLogger.Log("[GameWright MCP Server] Delivering tools/list_changed notification via broker SSE response.");
+                PluginDebugLogger.Log("[KitWright MCP Server] Delivering tools/list_changed notification via broker SSE response.");
             }
 
             try
@@ -199,7 +199,7 @@ namespace GameWright.Editor.MCP.Server
             {
                 if (contentType != null)
                     MCPToolListChangeNotifier.RestorePending();
-                Debug.LogError("[GameWright MCP Server] Broker push failed: " + ex.Message);
+                Debug.LogError("[KitWright MCP Server] Broker push failed: " + ex.Message);
             }
         }
 

@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Collections.Generic;
 
-namespace GameWright.Editor.State
+namespace KitWright.Editor.State
 {
-    internal enum GameWrightState
+    internal enum KitWrightState
     {
         Initialized,
         ExecutingAllFunctions,
@@ -13,21 +13,21 @@ namespace GameWright.Editor.State
 
     internal interface IStateController
     {
-        GameWrightState CurrentState { get; }
+        KitWrightState CurrentState { get; }
 
-        void SetState(GameWrightState state);
+        void SetState(KitWrightState state);
         void ReturnToPreviousState();
         void ClearState();
     }
 
     internal class StateController : IStateController
     {
-        private readonly Stack<GameWrightState> _stateHistory = new Stack<GameWrightState>();
-        private GameWrightState _currentState = GameWrightState.Initialized;
+        private readonly Stack<KitWrightState> _stateHistory = new Stack<KitWrightState>();
+        private KitWrightState _currentState = KitWrightState.Initialized;
 
-        public GameWrightState CurrentState => _currentState;
+        public KitWrightState CurrentState => _currentState;
 
-        public void SetState(GameWrightState state)
+        public void SetState(KitWrightState state)
         {
             if (_currentState == state) return;
 
@@ -39,13 +39,13 @@ namespace GameWright.Editor.State
         {
             _currentState = _stateHistory.Count > 0
                 ? _stateHistory.Pop()
-                : GameWrightState.Initialized;
+                : KitWrightState.Initialized;
         }
 
         public void ClearState()
         {
             _stateHistory.Clear();
-            _currentState = GameWrightState.Initialized;
+            _currentState = KitWrightState.Initialized;
         }
     }
 }

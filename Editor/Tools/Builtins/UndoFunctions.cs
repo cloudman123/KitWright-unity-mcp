@@ -1,9 +1,9 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Undo")]
     internal static class UndoFunctions

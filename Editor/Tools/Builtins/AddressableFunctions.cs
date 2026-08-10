@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
 using System.Linq;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 #endif
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Addressable")]
     internal static class AddressableFunctions
@@ -18,7 +18,7 @@ namespace GameWright.Editor.Tools.Builtins
             "This project has no Addressables package. Install 'com.unity.addressables' and open " +
             "Window > Asset Management > Addressables > Groups once to create the settings asset, then retry.";
 
-#if !GAMEWRIGHT_ADDRESSABLES
+#if !KITWRIGHT_ADDRESSABLES
         private static object NoPackage() => Response.Error("ADDRESSABLES_REQUIRED", new { hint = NoPackageHint });
 #endif
 
@@ -28,7 +28,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Address key (default: the asset path)", Required = false)] string address = null,
             [ToolParam("Group name to place the entry in", Required = false)] string group = null)
         {
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
             if (!TryGetSettings(out var settings, out var err)) return err;
 
             var guid = AssetDatabase.AssetPathToGUID(path);
@@ -50,7 +50,7 @@ namespace GameWright.Editor.Tools.Builtins
         public static object UnmarkAddressable(
             [ToolParam("Project-relative asset path")] string path)
         {
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
             if (!TryGetSettings(out var settings, out var err)) return err;
             var guid = AssetDatabase.AssetPathToGUID(path);
             if (string.IsNullOrEmpty(guid)) return Response.Error("ASSET_NOT_FOUND", new { path });
@@ -69,7 +69,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Project-relative asset path")] string path,
             [ToolParam("New address key")] string address)
         {
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
             if (!TryGetEntry(path, out var settings, out var entry, out var err)) return err;
             entry.address = address;
             settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryModified, entry, true);
@@ -86,7 +86,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Label name")] string label,
             [ToolParam("true to add, false to remove", Required = false)] bool add = true)
         {
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
             if (!TryGetEntry(path, out var settings, out var entry, out var err)) return err;
 
             if (add && !settings.GetLabels().Contains(label))
@@ -105,7 +105,7 @@ namespace GameWright.Editor.Tools.Builtins
         [ReadOnlyTool]
         public static object ListAddressableGroups()
         {
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
             if (!TryGetSettings(out var settings, out var err)) return err;
             var groups = settings.groups
                 .Where(g => g != null)
@@ -122,7 +122,7 @@ namespace GameWright.Editor.Tools.Builtins
         public static object GetAddressableInfo(
             [ToolParam("Project-relative asset path")] string path)
         {
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
             if (!TryGetSettings(out var settings, out var err)) return err;
             var guid = AssetDatabase.AssetPathToGUID(path);
             if (string.IsNullOrEmpty(guid)) return Response.Error("ASSET_NOT_FOUND", new { path });
@@ -144,7 +144,7 @@ namespace GameWright.Editor.Tools.Builtins
 #endif
         }
 
-#if GAMEWRIGHT_ADDRESSABLES
+#if KITWRIGHT_ADDRESSABLES
         private static bool TryGetSettings(out AddressableAssetSettings settings, out object error)
         {
             error = null;

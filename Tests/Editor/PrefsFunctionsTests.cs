@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEditor;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class PrefsFunctionsTests
     {

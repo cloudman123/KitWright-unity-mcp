@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Collections.Generic;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
-namespace GameWright.Editor.Tools.Scripting
+namespace KitWright.Editor.Tools.Scripting
 {
     /// <summary>
-    /// Injected into <see cref="IGameWrightCommand.Execute"/> by <c>execute_code</c>.
+    /// Injected into <see cref="IKitWrightCommand.Execute"/> by <c>execute_code</c>.
     ///
     /// Use the Register/Destroy methods instead of touching <c>Undo</c> directly — that way
     /// every snippet automatically participates in editor Undo and the host returns a

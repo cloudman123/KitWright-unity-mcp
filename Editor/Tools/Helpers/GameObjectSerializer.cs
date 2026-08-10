@@ -1,9 +1,9 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     /// <summary>
     /// Build structured payloads describing GameObjects and Components.

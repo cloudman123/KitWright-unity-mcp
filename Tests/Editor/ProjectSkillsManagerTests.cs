@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using GameWright.Editor.MCP.Server;
+using KitWright.Editor.MCP.Server;
 using NUnit.Framework;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class ProjectSkillsManagerTests
     {
@@ -33,7 +33,7 @@ namespace GameWright.Editor.Tests
                 StringAssert.Contains(ProjectSkillsManager.ManagedEndMarker, File.ReadAllText(agentsPath));
                 StringAssert.Contains(ProjectSkillsManager.ManagedEndMarker, File.ReadAllText(claudePath));
                 StringAssert.Contains("version: 1.0.0", File.ReadAllText(skillPath));
-                StringAssert.Contains("<!-- GameWright Unity skill version: unity-mcp-workflow@1.0.0 -->", File.ReadAllText(skillPath));
+                StringAssert.Contains("<!-- KitWright Unity skill version: unity-mcp-workflow@1.0.0 -->", File.ReadAllText(skillPath));
 
                 var manifestJson = File.ReadAllText(ProjectSkillsManager.GetManifestPath(projectRoot));
                 StringAssert.Contains("\"skillVersions\"", manifestJson);
@@ -54,16 +54,16 @@ namespace GameWright.Editor.Tests
             try
             {
                 var agentsPath = ProjectSkillsManager.GetCodexAgentsPath(projectRoot);
-                File.WriteAllText(agentsPath, "# Team instructions\n\nKeep this before GameWright.\n");
+                File.WriteAllText(agentsPath, "# Team instructions\n\nKeep this before KitWright.\n");
 
                 ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
-                File.AppendAllText(agentsPath, "\nKeep this after GameWright.\n");
+                File.AppendAllText(agentsPath, "\nKeep this after KitWright.\n");
                 ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
 
                 var content = File.ReadAllText(agentsPath);
                 StringAssert.Contains("# Team instructions", content);
-                StringAssert.Contains("Keep this before GameWright.", content);
-                StringAssert.Contains("Keep this after GameWright.", content);
+                StringAssert.Contains("Keep this before KitWright.", content);
+                StringAssert.Contains("Keep this after KitWright.", content);
                 Assert.AreEqual(1, CountOccurrences(content, ProjectSkillsManager.ManagedMarker));
                 Assert.AreEqual(1, CountOccurrences(content, ProjectSkillsManager.ManagedEndMarker));
                 CollectionAssert.DoesNotContain(
@@ -137,10 +137,10 @@ namespace GameWright.Editor.Tests
         }
 
         [Test]
-        public void DisablePlatform_RemovesOnlyManagedBlockAndDeletesGameWrightOnlyFile()
+        public void DisablePlatform_RemovesOnlyManagedBlockAndDeletesKitWrightOnlyFile()
         {
             var sharedRoot = CreateTempProjectPath();
-            var gamewrightOnlyRoot = CreateTempProjectPath();
+            var kitwrightOnlyRoot = CreateTempProjectPath();
 
             try
             {
@@ -155,16 +155,16 @@ namespace GameWright.Editor.Tests
                 StringAssert.DoesNotContain(ProjectSkillsManager.ManagedMarker, sharedContent);
                 StringAssert.DoesNotContain(ProjectSkillsManager.ManagedEndMarker, sharedContent);
 
-                var gamewrightOnlyPath = ProjectSkillsManager.GetCodexAgentsPath(gamewrightOnlyRoot);
-                ProjectSkillsManager.ApplyConfiguration(gamewrightOnlyRoot, new[] { "codex" }, Array.Empty<string>());
-                Assert.IsTrue(File.Exists(gamewrightOnlyPath));
-                ProjectSkillsManager.ApplyConfiguration(gamewrightOnlyRoot, Array.Empty<string>(), Array.Empty<string>());
-                Assert.IsFalse(File.Exists(gamewrightOnlyPath));
+                var kitwrightOnlyPath = ProjectSkillsManager.GetCodexAgentsPath(kitwrightOnlyRoot);
+                ProjectSkillsManager.ApplyConfiguration(kitwrightOnlyRoot, new[] { "codex" }, Array.Empty<string>());
+                Assert.IsTrue(File.Exists(kitwrightOnlyPath));
+                ProjectSkillsManager.ApplyConfiguration(kitwrightOnlyRoot, Array.Empty<string>(), Array.Empty<string>());
+                Assert.IsFalse(File.Exists(kitwrightOnlyPath));
             }
             finally
             {
                 DeleteTempProjectPath(sharedRoot);
-                DeleteTempProjectPath(gamewrightOnlyRoot);
+                DeleteTempProjectPath(kitwrightOnlyRoot);
             }
         }
 
@@ -177,7 +177,7 @@ namespace GameWright.Editor.Tests
             {
                 ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
                 var skillPath = GetCodexWorkflowSkillPath(projectRoot);
-                RemoveLinesContaining(skillPath, "GameWright Unity skill version:");
+                RemoveLinesContaining(skillPath, "KitWright Unity skill version:");
                 RemoveLinesContaining(skillPath, "version: 1.0.0");
 
                 var manifest = ProjectSkillsManager.LoadManifest(projectRoot);
@@ -230,7 +230,7 @@ namespace GameWright.Editor.Tests
             {
                 var rulesRoot = ProjectSkillsManager.GetCursorRulesPath(projectRoot);
                 Directory.CreateDirectory(rulesRoot);
-                var path = Path.Combine(rulesRoot, "gamewright-unity-mcp-workflow.mdc");
+                var path = Path.Combine(rulesRoot, "kitwright-unity-mcp-workflow.mdc");
                 File.WriteAllText(path, "# User-owned Cursor rule");
 
                 var conflicts = ProjectSkillsManager.GetPlatformConflictPaths(projectRoot, new[] { "cursor" });
@@ -247,7 +247,7 @@ namespace GameWright.Editor.Tests
         {
             return Path.Combine(
                 ProjectSkillsManager.GetCodexSkillsRoot(projectRoot),
-                "gamewright-unity-mcp-workflow",
+                "kitwright-unity-mcp-workflow",
                 "SKILL.md");
         }
 
@@ -293,7 +293,7 @@ namespace GameWright.Editor.Tests
 
         private static string CreateTempProjectPath()
         {
-            var path = Path.Combine(Path.GetTempPath(), "GameWrightProjectSkillsTests_" + Guid.NewGuid().ToString("N"));
+            var path = Path.Combine(Path.GetTempPath(), "KitWrightProjectSkillsTests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(path);
             return path;
         }

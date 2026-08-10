@@ -1,6 +1,6 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 //
-// Standalone keepalive broker for GameWright Unity MCP.
+// Standalone keepalive broker for KitWright Unity MCP.
 // Compiled on demand with the Unity-bundled Mono C# compiler and run outside
 // Unity's reloadable AppDomain. The broker owns the client-facing HTTP port.
 
@@ -13,7 +13,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
-namespace GameWright.UnityMcp.Broker
+namespace KitWright.UnityMcp.Broker
 {
     internal static class Program
     {
@@ -26,15 +26,15 @@ namespace GameWright.UnityMcp.Broker
         private const int BackendUnavailableCode = -32001;
         private const string BackendUnavailableMessage =
             "Unity MCP backend is reloading or reconnecting. Retry shortly.";
-        private const string TokenHeader = "X-GameWright-Broker-Token";
-        private const string SessionHeader = "X-GameWright-Broker-Session";
-        private const string ReqIdHeader = "X-GameWright-Broker-ReqId";
-        private const string RedeliveryHeader = "X-GameWright-Broker-Redelivery";
-        private const string BrokerHeader = "X-GameWright-Broker";
-        private const string AcceptSseHeader = "X-GameWright-Broker-Accept-SSE";
-        private const string ContentTypeHeader = "X-GameWright-Broker-Content-Type";
-        private const string AttachPath = "/_gamewright/broker/attach";
-        private const string DetachPath = "/_gamewright/broker/detach";
+        private const string TokenHeader = "X-KitWright-Broker-Token";
+        private const string SessionHeader = "X-KitWright-Broker-Session";
+        private const string ReqIdHeader = "X-KitWright-Broker-ReqId";
+        private const string RedeliveryHeader = "X-KitWright-Broker-Redelivery";
+        private const string BrokerHeader = "X-KitWright-Broker";
+        private const string AcceptSseHeader = "X-KitWright-Broker-Accept-SSE";
+        private const string ContentTypeHeader = "X-KitWright-Broker-Content-Type";
+        private const string AttachPath = "/_kitwright/broker/attach";
+        private const string DetachPath = "/_kitwright/broker/detach";
 
         private static readonly object Gate = new object();
         private static readonly Dictionary<long, PendingRequest> Pending = new Dictionary<long, PendingRequest>();
@@ -167,7 +167,7 @@ namespace GameWright.UnityMcp.Broker
 
             LastActivityMs = NowMs();
 
-            if (method == "GET" && path.StartsWith("/_gamewright/broker/health", StringComparison.Ordinal))
+            if (method == "GET" && path.StartsWith("/_kitwright/broker/health", StringComparison.Ordinal))
             {
                 if (!HasValidToken(headers))
                 {
@@ -176,7 +176,7 @@ namespace GameWright.UnityMcp.Broker
                     return;
                 }
 
-                var response = "{\"ok\":true,\"name\":\"gamewright-unity-mcp-broker\",\"protocol\":" +
+                var response = "{\"ok\":true,\"name\":\"kitwright-unity-mcp-broker\",\"protocol\":" +
                                ProtocolVersion + ",\"pid\":" + Process.GetCurrentProcess().Id +
                                ",\"pending\":" + GetPendingCount() + "}";
                 WriteResponse(stream, 200, "OK", "application/json", BrokerHeaderLine(), response);
@@ -184,7 +184,7 @@ namespace GameWright.UnityMcp.Broker
                 return;
             }
 
-            if (method == "POST" && path.StartsWith("/_gamewright/broker/shutdown", StringComparison.Ordinal))
+            if (method == "POST" && path.StartsWith("/_kitwright/broker/shutdown", StringComparison.Ordinal))
             {
                 if (!HasValidToken(headers))
                 {
@@ -199,7 +199,7 @@ namespace GameWright.UnityMcp.Broker
                 return;
             }
 
-            if (method == "GET" && path.StartsWith("/_gamewright/broker/pull", StringComparison.Ordinal))
+            if (method == "GET" && path.StartsWith("/_kitwright/broker/pull", StringComparison.Ordinal))
             {
                 if (!HasValidToken(headers))
                 {
@@ -216,7 +216,7 @@ namespace GameWright.UnityMcp.Broker
                 return;
             }
 
-            if (method == "POST" && path.StartsWith("/_gamewright/broker/push", StringComparison.Ordinal))
+            if (method == "POST" && path.StartsWith("/_kitwright/broker/push", StringComparison.Ordinal))
             {
                 if (!HasValidToken(headers))
                 {
@@ -878,7 +878,7 @@ namespace GameWright.UnityMcp.Broker
 
         private static void Log(string message)
         {
-            Console.Error.WriteLine("[gamewright-broker " + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message);
+            Console.Error.WriteLine("[kitwright-broker " + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message);
         }
     }
 }

@@ -1,12 +1,12 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.Text;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEditor;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// Tracks changes to the exposed MCP tool list across server restarts and domain
@@ -23,8 +23,8 @@ namespace GameWright.Editor.MCP.Server
     /// </summary>
     internal static class MCPToolListChangeNotifier
     {
-        private const string HashKey = "GameWright.MCP.ExposedToolsHash";
-        private const string PendingKey = "GameWright.MCP.ToolsChangedPending";
+        private const string HashKey = "KitWright.MCP.ExposedToolsHash";
+        private const string PendingKey = "KitWright.MCP.ToolsChangedPending";
 
         internal const string NotificationJson =
             "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/tools/list_changed\"}";
@@ -56,7 +56,7 @@ namespace GameWright.Editor.MCP.Server
                     SessionState.SetBool(PendingKey, true);
                     pending = true;
                     PluginDebugLogger.Log(
-                        "[GameWright MCP Server] Exposed tool list changed; clients will be notified via tools/list_changed.");
+                        "[KitWright MCP Server] Exposed tool list changed; clients will be notified via tools/list_changed.");
                 }
 
                 _pending = pending;
@@ -70,7 +70,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                PluginDebugLogger.Log("[GameWright MCP Server] Tool list change check failed: " + ex.Message);
+                PluginDebugLogger.Log("[KitWright MCP Server] Tool list change check failed: " + ex.Message);
             }
         }
 

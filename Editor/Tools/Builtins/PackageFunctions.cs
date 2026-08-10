@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools;
+using KitWright.Editor.Tools;
 using UnityEditor;
 using UnityEditor.PackageManager;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Package")]
     internal static class PackageFunctions

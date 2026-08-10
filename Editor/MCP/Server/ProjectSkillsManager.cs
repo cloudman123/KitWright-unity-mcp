@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -9,29 +9,29 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using GameWright.Editor.DI;
-using GameWright.Editor.Services;
-using GameWright.Editor.Settings;
-using GameWright.Editor.Tools;
+using KitWright.Editor.DI;
+using KitWright.Editor.Services;
+using KitWright.Editor.Settings;
+using KitWright.Editor.Tools;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal static class ProjectSkillsManager
     {
-        internal const string ManagedMarker = "<!-- GameWright Unity managed project skills -->";
+        internal const string ManagedMarker = "<!-- KitWright Unity managed project skills -->";
 
-        // For shared root instructions files (CLAUDE.md / AGENTS.md) GameWright manages ONLY the
+        // For shared root instructions files (CLAUDE.md / AGENTS.md) KitWright manages ONLY the
         // region between ManagedMarker (begin) and ManagedEndMarker (end); everything outside the
         // block is the user's and is never modified. ManagedMarker doubles as the begin marker so
         // IsManagedFile / version-status detection keep working unchanged.
-        internal const string ManagedEndMarker = "<!-- /GameWright Unity managed project skills -->";
+        internal const string ManagedEndMarker = "<!-- /KitWright Unity managed project skills -->";
 
-        private const string ManifestDirectory = ".gamewright/skills";
+        private const string ManifestDirectory = ".kitwright/skills";
         private const string ManifestFileName = "manifest.json";
-        private const string ProjectSkillVersionsMarkerPrefix = "<!-- GameWright Unity project skill versions: ";
-        private const string SkillVersionMarkerPrefix = "<!-- GameWright Unity skill version: ";
-        private const string CodexManagedNotice = "This section is managed by GameWright MCP for Unity. Everything between the begin and end markers is regenerated on each sync; edit outside this block.";
-        private const string ClaudeManagedNotice = "This section is managed by GameWright MCP for Unity for Claude Code. Everything between the begin and end markers is regenerated on each sync; edit outside this block.";
+        private const string ProjectSkillVersionsMarkerPrefix = "<!-- KitWright Unity project skill versions: ";
+        private const string SkillVersionMarkerPrefix = "<!-- KitWright Unity skill version: ";
+        private const string CodexManagedNotice = "This section is managed by KitWright MCP for Unity. Everything between the begin and end markers is regenerated on each sync; edit outside this block.";
+        private const string ClaudeManagedNotice = "This section is managed by KitWright MCP for Unity for Claude Code. Everything between the begin and end markers is regenerated on each sync; edit outside this block.";
 
         private static readonly string[] SupportedPlatforms = { "codex", "claude", "cursor", "agents" };
 
@@ -61,7 +61,7 @@ namespace GameWright.Editor.MCP.Server
                     "If Tool Exposure has been customized and a named tool is unavailable, adapt to the exposed tool list and report which expected tool is missing.",
                     "Never edit Unity serialized files (`.unity`, `.prefab`, `.asset`) with shell text tools or patches. Use Unity MCP or Editor APIs for scenes, prefabs, and ScriptableObject assets; shell tools may only inspect or locate these files.",
                     "Choose the correct edit surface: source files with normal repo tools, scene objects through Unity APIs and saved scenes, prefab assets through `PrefabUtility.LoadPrefabContents` and `SaveAsPrefabAsset`.",
-                    "For `execute_code`, prefer the IGameWrightCommand template over the legacy `static string Run()`: include `using GameWright.Editor.Tools.Scripting;`, implement `IGameWrightCommand`, and use `ctx.RegisterObjectCreation`, `ctx.RegisterObjectModification`, `ctx.DestroyObject` so created/modified objects participate in editor Undo automatically. Use `ctx.Log` / `ctx.LogWarning` / `ctx.LogError` for traceable output that comes back in the response (without polluting the Unity console).",
+                    "For `execute_code`, prefer the IKitWrightCommand template over the legacy `static string Run()`: include `using KitWright.Editor.Tools.Scripting;`, implement `IKitWrightCommand`, and use `ctx.RegisterObjectCreation`, `ctx.RegisterObjectModification`, `ctx.DestroyObject` so created/modified objects participate in editor Undo automatically. Use `ctx.Log` / `ctx.LogWarning` / `ctx.LogError` for traceable output that comes back in the response (without polluting the Unity console).",
                     "Batch related Unity-side changes in one guarded `execute_code` snippet. Null-guard every lookup, return explicit missing path/object/component messages, and include concise before/after values.",
                     "`execute_code` now refreshes the asset database and waits for compilation to finish before compiling the snippet, so external file edits are picked up automatically. For other tools that depend on the latest assemblies (e.g. `get_compilation_errors`), still call `request_recompile` after external file edits.",
                     "After code or resource edits, exit Play Mode if needed, call `request_recompile`, call `wait_for_compilation`, then read compilation errors or console errors before claiming success.",
@@ -169,7 +169,7 @@ namespace GameWright.Editor.MCP.Server
                 "Project Skills Configuration",
                 "Existing non-managed project instruction files were found:\n\n" +
                 string.Join("\n", conflictPaths) +
-                "\n\nOverwrite them with GameWright-managed files?",
+                "\n\nOverwrite them with KitWright-managed files?",
                 "Overwrite",
                 "Cancel");
         }
@@ -246,15 +246,15 @@ namespace GameWright.Editor.MCP.Server
             var conflicts = new List<string>();
             var platforms = new HashSet<string>(selectedPlatforms ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
 
-            // AGENTS.md and CLAUDE.md are shared files. Their GameWright block is appended when no
+            // AGENTS.md and CLAUDE.md are shared files. Their KitWright block is appended when no
             // managed marker exists, so user-owned content there is no longer an overwrite conflict.
-            // Cursor rules remain GameWright-namespaced whole files and still need conflict handling.
+            // Cursor rules remain KitWright-namespaced whole files and still need conflict handling.
             if (platforms.Contains("cursor"))
             {
                 var rulesRoot = GetCursorRulesPath(projectRoot);
                 foreach (var skill in SkillCatalog)
                 {
-                    var path = Path.Combine(rulesRoot, $"gamewright-{skill.Id}.mdc");
+                    var path = Path.Combine(rulesRoot, $"kitwright-{skill.Id}.mdc");
                     if (File.Exists(path) && !IsManagedFile(path))
                         conflicts.Add(path);
                 }
@@ -380,7 +380,7 @@ namespace GameWright.Editor.MCP.Server
 
             foreach (var skill in GetInstalledSkills(manifest))
             {
-                var directory = Path.Combine(skillsRoot, $"gamewright-{skill.Id}");
+                var directory = Path.Combine(skillsRoot, $"kitwright-{skill.Id}");
                 Directory.CreateDirectory(directory);
                 File.WriteAllText(Path.Combine(directory, "SKILL.md"), BuildSkillDocument(skill, platform));
             }
@@ -392,7 +392,7 @@ namespace GameWright.Editor.MCP.Server
 
             foreach (var skill in GetInstalledSkills(manifest))
             {
-                var path = Path.Combine(rulesRoot, $"gamewright-{skill.Id}.mdc");
+                var path = Path.Combine(rulesRoot, $"kitwright-{skill.Id}.mdc");
                 File.WriteAllText(path, BuildCursorRuleContent(skill));
             }
         }
@@ -402,7 +402,7 @@ namespace GameWright.Editor.MCP.Server
             if (!Directory.Exists(skillsRoot))
                 return;
 
-            foreach (var directory in Directory.GetDirectories(skillsRoot, "gamewright-*", SearchOption.TopDirectoryOnly))
+            foreach (var directory in Directory.GetDirectories(skillsRoot, "kitwright-*", SearchOption.TopDirectoryOnly))
             {
                 var skillPath = Path.Combine(directory, "SKILL.md");
                 if (IsManagedFile(skillPath))
@@ -415,7 +415,7 @@ namespace GameWright.Editor.MCP.Server
             if (!Directory.Exists(rulesRoot))
                 return;
 
-            foreach (var file in Directory.GetFiles(rulesRoot, "gamewright-*.mdc", SearchOption.TopDirectoryOnly))
+            foreach (var file in Directory.GetFiles(rulesRoot, "kitwright-*.mdc", SearchOption.TopDirectoryOnly))
             {
                 if (IsManagedFile(file))
                     File.Delete(file);
@@ -463,12 +463,12 @@ namespace GameWright.Editor.MCP.Server
                 }
 
                 throw new InvalidOperationException(
-                    $"'{path}' contains a legacy GameWright begin marker without an end marker and no longer exactly matches the known generated file. No content was changed. Preserve any hand-authored text, then either remove the legacy begin marker so GameWright can append a new block, or add '{ManagedEndMarker}' immediately after the GameWright-managed section.");
+                    $"'{path}' contains a legacy KitWright begin marker without an end marker and no longer exactly matches the known generated file. No content was changed. Preserve any hand-authored text, then either remove the legacy begin marker so KitWright can append a new block, or add '{ManagedEndMarker}' immediately after the KitWright-managed section.");
             }
 
             if (beginCount != 0 || endCount != 0)
                 throw new InvalidOperationException(
-                    $"'{path}' contains duplicate, unmatched, or out-of-order GameWright managed markers. No content was changed. Keep exactly one '{ManagedMarker}' followed by one '{ManagedEndMarker}'.");
+                    $"'{path}' contains duplicate, unmatched, or out-of-order KitWright managed markers. No content was changed. Keep exactly one '{ManagedMarker}' followed by one '{ManagedEndMarker}'.");
 
             var trimmed = content.TrimEnd('\n', '\r', ' ', '\t');
             var userContent = trimmed.Length == 0 ? defaultTitle : trimmed;
@@ -477,7 +477,7 @@ namespace GameWright.Editor.MCP.Server
 
         // Inverse of WriteManagedBlock, used when a platform is disabled: strip ONLY the managed
         // block and keep the user's content. If nothing but a bare title (or whitespace) remains,
-        // the file was GameWright-only, so delete it. Exact legacy generated files can also be safely
+        // the file was KitWright-only, so delete it. Exact legacy generated files can also be safely
         // deleted; edited legacy files are left untouched and reported for manual cleanup.
         private static void RemoveManagedBlock(string path, string defaultTitle, string legacyContent)
         {
@@ -504,12 +504,12 @@ namespace GameWright.Editor.MCP.Server
                 }
 
                 throw new InvalidOperationException(
-                    $"'{path}' contains an edited legacy GameWright file with no end marker. It was left untouched while disabling Project Skills. Preserve any hand-authored text and remove the stale GameWright section manually.");
+                    $"'{path}' contains an edited legacy KitWright file with no end marker. It was left untouched while disabling Project Skills. Preserve any hand-authored text and remove the stale KitWright section manually.");
             }
 
             if (beginCount != 1 || endCount != 1 || end <= begin)
                 throw new InvalidOperationException(
-                    $"'{path}' contains duplicate, unmatched, or out-of-order GameWright managed markers. It was left untouched while disabling Project Skills.");
+                    $"'{path}' contains duplicate, unmatched, or out-of-order KitWright managed markers. It was left untouched while disabling Project Skills.");
 
             var prefix = content.Substring(0, begin);
             var suffix = content.Substring(end + ManagedEndMarker.Length);
@@ -599,7 +599,7 @@ namespace GameWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetCodexSkillsRoot(projectRoot), $"gamewright-{skill.Id}", "SKILL.md"),
+                            Path.Combine(GetCodexSkillsRoot(projectRoot), $"kitwright-{skill.Id}", "SKILL.md"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -610,7 +610,7 @@ namespace GameWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetClaudeSkillsRoot(projectRoot), $"gamewright-{skill.Id}", "SKILL.md"),
+                            Path.Combine(GetClaudeSkillsRoot(projectRoot), $"kitwright-{skill.Id}", "SKILL.md"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -620,7 +620,7 @@ namespace GameWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetCursorRulesPath(projectRoot), $"gamewright-{skill.Id}.mdc"),
+                            Path.Combine(GetCursorRulesPath(projectRoot), $"kitwright-{skill.Id}.mdc"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -630,7 +630,7 @@ namespace GameWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetAgentsSkillsRoot(projectRoot), $"gamewright-{skill.Id}", "SKILL.md"),
+                            Path.Combine(GetAgentsSkillsRoot(projectRoot), $"kitwright-{skill.Id}", "SKILL.md"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -782,18 +782,18 @@ namespace GameWright.Editor.MCP.Server
 $@"{ManagedMarker}
 {BuildProjectSkillVersionsMarker(installed)}
 
-# GameWright MCP for Unity Project Guidance
+# KitWright MCP for Unity Project Guidance
 
 {CodexManagedNotice}
 
 ## Installed project skills
 
-{string.Join("\n", installed.Select(skill => $"- `gamewright-{skill.Id}` v{skill.Version} - {skill.Description}"))}
+{string.Join("\n", installed.Select(skill => $"- `kitwright-{skill.Id}` v{skill.Version} - {skill.Description}"))}
 
 ## Codex workflow rules
 
-- Prefer project-local GameWright skills under `.codex/skills/`.
-- Use `execute_code` as the primary Unity automation tool. For new snippets, include `using GameWright.Editor.Tools.Scripting;`, implement `IGameWrightCommand`, and use `ctx.RegisterObjectCreation` / `RegisterObjectModification` / `DestroyObject` so changes participate in Undo automatically.
+- Prefer project-local KitWright skills under `.codex/skills/`.
+- Use `execute_code` as the primary Unity automation tool. For new snippets, include `using KitWright.Editor.Tools.Scripting;`, implement `IKitWrightCommand`, and use `ctx.RegisterObjectCreation` / `RegisterObjectModification` / `DestroyObject` so changes participate in Undo automatically.
 - Confirm the Unity project root, active scene, and real object/prefab/asset path before edits. Treat user-provided object names as hints, not paths.
 - Inspect Unity objects through MCP before changing user-named scene or prefab targets. Carry the returned `instanceId` into follow-up calls (`find_method=by_id`) instead of re-resolving by name.
 - Tool returns are structured JSON (`{{success, message, data}}` / `{{success: false, code, error, data}}`). Branch on `code`, not free-form text.
@@ -818,7 +818,7 @@ $@"{ManagedMarker}
 
 ## Notes
 
-- Re-run `GameWright > Project Skills` after changing selected skills or platforms.
+- Re-run `KitWright > Project Skills` after changing selected skills or platforms.
 {ManagedEndMarker}";
         }
 
@@ -829,7 +829,7 @@ $@"{ManagedMarker}
 $@"{ManagedMarker}
 {BuildProjectSkillVersionsMarker(installed)}
 
-# GameWright MCP for Unity Project Guidance
+# KitWright MCP for Unity Project Guidance
 
 {ClaudeManagedNotice}
 
@@ -839,8 +839,8 @@ $@"{ManagedMarker}
 
 ## Preferred workflow
 
-- Use GameWright Unity tools for Unity editor state and automation.
-- Use `execute_code` for non-trivial Unity orchestration. For new snippets, include `using GameWright.Editor.Tools.Scripting;`, implement `IGameWrightCommand`, and use `ctx.RegisterObjectCreation` / `RegisterObjectModification` / `DestroyObject` so changes participate in Undo and `ctx.Log` for traceable output.
+- Use KitWright Unity tools for Unity editor state and automation.
+- Use `execute_code` for non-trivial Unity orchestration. For new snippets, include `using KitWright.Editor.Tools.Scripting;`, implement `IKitWrightCommand`, and use `ctx.RegisterObjectCreation` / `RegisterObjectModification` / `DestroyObject` so changes participate in Undo and `ctx.Log` for traceable output.
 - Confirm the Unity project root, active scene, and real object/prefab/asset path before edits. Treat user-provided object names as hints, not paths.
 - Inspect Unity objects through MCP before changing user-named scene or prefab targets. Carry the returned `instanceId` into follow-up calls (`find_method=by_id`) instead of re-resolving by name.
 - Tool returns are structured JSON (`{{success, message, data}}` / `{{success: false, code, error, data}}`). Branch on `code`, not free-form text.
@@ -868,14 +868,14 @@ $@"{ManagedMarker}
         private static string BuildLegacyCodexAgentsContent(string projectRoot, ProjectSkillsManifest manifest)
         {
             var block = RemoveManagedEndMarker(BuildCodexManagedBlock(projectRoot, manifest))
-                .Replace(CodexManagedNotice, "This file is managed by GameWright MCP for Unity.");
+                .Replace(CodexManagedNotice, "This file is managed by KitWright MCP for Unity.");
             return "# AGENTS.md\n" + block + "\n";
         }
 
         private static string BuildLegacyClaudeInstructionsContent(string projectRoot, ProjectSkillsManifest manifest)
         {
             var block = RemoveManagedEndMarker(BuildClaudeManagedBlock(projectRoot, manifest))
-                .Replace(ClaudeManagedNotice, "This file is managed by GameWright MCP for Unity for Claude Code.");
+                .Replace(ClaudeManagedNotice, "This file is managed by KitWright MCP for Unity for Claude Code.");
             return "# CLAUDE.md\n" + block + "\n";
         }
 
@@ -913,7 +913,7 @@ version: {skill.Version}
 - Skill id: `{skill.Id}`
 - Skill version: `{skill.Version}`
 - Built-in: `{skill.IsBuiltIn}`
-- Source: `https://github.com/gamewrightdev/gamewright-unity-mcp`
+- Source: `https://github.com/kitwright/unity-mcp`
 ";
         }
 
@@ -947,7 +947,7 @@ platform: {platform.ToString().ToLowerInvariant()}
 
 - Original skill id: `{skill.Id}`
 - Skill version: `{skill.Version}`
-- Source repository: `https://github.com/gamewrightdev/gamewright-unity-mcp`
+- Source repository: `https://github.com/kitwright/unity-mcp`
 ";
         }
 
@@ -1051,13 +1051,13 @@ NODE
 
 ## Recommended `execute_code` Template
 
-For non-trivial snippets, prefer `IGameWrightCommand` over the legacy `public static string Run()` template. `execute_code` auto-adds `using GameWright.Editor.Tools.Scripting;` when `IGameWrightCommand` is used, but include it explicitly in generated snippets for readability:
+For non-trivial snippets, prefer `IKitWrightCommand` over the legacy `public static string Run()` template. `execute_code` auto-adds `using KitWright.Editor.Tools.Scripting;` when `IKitWrightCommand` is used, but include it explicitly in generated snippets for readability:
 
 ```csharp
-using GameWright.Editor.Tools.Scripting;
+using KitWright.Editor.Tools.Scripting;
 using UnityEngine;
 
-public class CommandScript : IGameWrightCommand
+public class CommandScript : IKitWrightCommand
 {
     public void Execute(ExecutionContext ctx)
     {
@@ -1215,7 +1215,7 @@ $@"
 
 - Original skill id: `{skill.Id}`
 - Skill version: `{skill.Version}`
-- Source repository: `https://github.com/gamewrightdev/gamewright-unity-mcp`
+- Source repository: `https://github.com/kitwright/unity-mcp`
 ";
 
             return header + body + footer;

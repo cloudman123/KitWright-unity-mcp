@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
 using UnityEngine.Rendering.Universal;
 #endif
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class VolumeFunctionsTests
     {
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
         [Test]
         public void ResolveOverrideType_KnownEffectsCaseInsensitive()
         {

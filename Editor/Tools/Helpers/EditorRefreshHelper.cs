@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     internal static class EditorRefreshHelper
     {

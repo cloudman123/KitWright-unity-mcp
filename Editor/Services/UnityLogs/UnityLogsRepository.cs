@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
-namespace GameWright.Editor.Services.UnityLogs
+namespace KitWright.Editor.Services.UnityLogs
 {
     internal class UnityLogsRepository : IDisposable
     {
@@ -179,8 +179,8 @@ namespace GameWright.Editor.Services.UnityLogs
             if (string.IsNullOrEmpty(message))
                 return;
 
-            if (message.StartsWith("[GameWright]", StringComparison.Ordinal) ||
-                message.StartsWith("[GameWright MCP Server]", StringComparison.Ordinal))
+            if (message.StartsWith("[KitWright]", StringComparison.Ordinal) ||
+                message.StartsWith("[KitWright MCP Server]", StringComparison.Ordinal))
             {
                 return;
             }

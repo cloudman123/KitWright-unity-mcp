@@ -45,7 +45,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          package_url="https://api.nuget.org/v3-flatcontainer/gamewright.unity.mcp/${VERSION}/gamewright.unity.mcp.${VERSION}.nupkg"
+          package_url="https://api.nuget.org/v3-flatcontainer/kitwright.unity.mcp/${VERSION}/kitwright.unity.mcp.${VERSION}.nupkg"
           for attempt in {1..45}; do
             if curl -fsI "$package_url" >/dev/null; then
               echo "NuGet package is indexed: $package_url"
@@ -67,18 +67,18 @@ jobs:
           cat > server.json <<EOF
           {
             "\$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-            "name": "io.github.gamewrightdev/gamewright-unity-mcp",
-            "title": "GameWright Unity MCP",
-            "description": "stdio bridge for the local Unity Editor MCP server from gamewrightdev/gamewright-unity-mcp.",
+            "name": "io.github.kitwright/unity-mcp",
+            "title": "KitWright Unity MCP",
+            "description": "stdio bridge for the local Unity Editor MCP server from kitwright/unity-mcp.",
             "repository": {
-              "url": "https://github.com/gamewrightdev/gamewright-unity-mcp",
+              "url": "https://github.com/kitwright/unity-mcp",
               "source": "github"
             },
             "version": "$VERSION",
             "packages": [
               {
                 "registryType": "nuget",
-                "identifier": "gamewright.unity.mcp",
+                "identifier": "kitwright.unity.mcp",
                 "version": "$VERSION",
                 "transport": {
                   "type": "stdio"

@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     /// <summary>
     /// Bridges Unity's legacy InstanceID API and Unity 6 EntityId API behind one MCP-facing id.

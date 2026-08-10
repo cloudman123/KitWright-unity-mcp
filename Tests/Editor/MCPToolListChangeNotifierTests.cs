@@ -1,9 +1,9 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.MCP.Server;
+using KitWright.Editor.MCP.Server;
 using NUnit.Framework;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class MCPToolListChangeNotifierTests
     {

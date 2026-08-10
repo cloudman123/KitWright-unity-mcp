@@ -1,14 +1,14 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEditor.Compilation;
 
-namespace GameWright.Editor.Services
+namespace KitWright.Editor.Services
 {
     internal interface ICompilationService
     {

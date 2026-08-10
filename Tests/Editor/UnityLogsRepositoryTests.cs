@@ -1,17 +1,17 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.Services.UnityLogs;
+using KitWright.Editor.Services.UnityLogs;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class UnityLogsRepositoryTests
     {
         [Test]
         public void GetRecentLogs_FiltersGroupsAndTruncatesCachedEntries()
         {
-            var token = "GameWrightConsoleGrouping_" + System.Guid.NewGuid().ToString("N");
+            var token = "KitWrightConsoleGrouping_" + System.Guid.NewGuid().ToString("N");
             var longPayload = new string('x', 360);
 
             using (var repository = new UnityLogsRepository())

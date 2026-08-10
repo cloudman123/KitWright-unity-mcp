@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// Handles MCP protocol requests (initialize, tools/list, tools/call, etc.)
@@ -35,7 +35,7 @@ namespace GameWright.Editor.MCP.Server
             _executionBridge = executionBridge ?? throw new ArgumentNullException(nameof(executionBridge));
             _resourceProvider = resourceProvider ?? throw new ArgumentNullException(nameof(resourceProvider));
             _promptProvider = promptProvider ?? throw new ArgumentNullException(nameof(promptProvider));
-            _serverName = string.IsNullOrWhiteSpace(serverName) ? "GameWright MCP Server" : serverName;
+            _serverName = string.IsNullOrWhiteSpace(serverName) ? "KitWright MCP Server" : serverName;
             _serverVersion = string.IsNullOrWhiteSpace(serverVersion) ? "0.0.0" : serverVersion;
             _projectIdentity = projectIdentity ?? string.Empty;
         }
@@ -51,7 +51,7 @@ namespace GameWright.Editor.MCP.Server
                     return CreateErrorResponse(request.Id, -32600, "Invalid Request: jsonrpc must be '2.0'");
 
                 if (ShouldLogRequest(request.Method))
-                    PluginDebugLogger.Log($"[GameWright MCP Server] Handling request: {request.Method}");
+                    PluginDebugLogger.Log($"[KitWright MCP Server] Handling request: {request.Method}");
 
                 return request.Method switch
                 {
@@ -71,7 +71,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error handling request: {ex.Message}\n{ex.StackTrace}");
+                Debug.LogError($"[KitWright MCP Server] Error handling request: {ex.Message}\n{ex.StackTrace}");
                 return CreateErrorResponse(request?.Id, -32603, $"Internal error: {ex.Message}");
             }
         }
@@ -86,7 +86,7 @@ namespace GameWright.Editor.MCP.Server
                     ["name"] = _serverName,
                     ["version"] = _serverVersion
                 },
-                ["gamewright"] = new Dictionary<string, object>
+                ["kitwright"] = new Dictionary<string, object>
                 {
                     ["projectIdentity"] = _projectIdentity,
                     ["projectIdentityVersion"] = ProjectIdentity.IdentityVersion
@@ -101,14 +101,14 @@ namespace GameWright.Editor.MCP.Server
                 }
             };
 
-            PluginDebugLogger.Log("[GameWright MCP Server] Initialized successfully");
+            PluginDebugLogger.Log("[KitWright MCP Server] Initialized successfully");
             return new MCPResponse { Id = request.Id, Result = result };
         }
 
         private MCPResponse HandleToolsList(MCPRequest request)
         {
             var tools = _toolExporter.ExportTools();
-            PluginDebugLogger.Log($"[GameWright MCP Server] Returning {tools.Count} tools");
+            PluginDebugLogger.Log($"[KitWright MCP Server] Returning {tools.Count} tools");
 
             return new MCPResponse
             {
@@ -128,7 +128,7 @@ namespace GameWright.Editor.MCP.Server
                     ? args
                     : new Dictionary<string, object>();
 
-                PluginDebugLogger.Log($"[GameWright MCP Server] Calling tool: {toolName}");
+                PluginDebugLogger.Log($"[KitWright MCP Server] Calling tool: {toolName}");
                 var result = await _executionBridge.ExecuteToolAsync(toolName, arguments, ct);
 
                 return new MCPResponse
@@ -142,7 +142,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error executing tool: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error executing tool: {ex.Message}");
                 return CreateErrorResponse(request.Id, -32603, $"Tool execution failed: {ex.Message}");
             }
         }

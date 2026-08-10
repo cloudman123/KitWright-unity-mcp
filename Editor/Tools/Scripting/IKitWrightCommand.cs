@@ -1,6 +1,6 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-namespace GameWright.Editor.Tools.Scripting
+namespace KitWright.Editor.Tools.Scripting
 {
     /// <summary>
     /// Implement this in a code snippet passed to <c>execute_code</c> to opt into
@@ -11,9 +11,9 @@ namespace GameWright.Editor.Tools.Scripting
     /// <code>
     /// using UnityEngine;
     /// using UnityEditor;
-    /// using GameWright.Editor.Tools.Scripting;
+    /// using KitWright.Editor.Tools.Scripting;
     ///
-    /// public class CommandScript : IGameWrightCommand
+    /// public class CommandScript : IKitWrightCommand
     /// {
     ///     public void Execute(ExecutionContext ctx)
     ///     {
@@ -24,7 +24,7 @@ namespace GameWright.Editor.Tools.Scripting
     /// }
     /// </code>
     /// </summary>
-    public interface IGameWrightCommand
+    public interface IKitWrightCommand
     {
         void Execute(ExecutionContext ctx);
     }

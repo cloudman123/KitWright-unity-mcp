@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal static class ProjectIdentity
     {

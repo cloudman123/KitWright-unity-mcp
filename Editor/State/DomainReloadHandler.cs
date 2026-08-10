@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Tools;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Tools;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.State
+namespace KitWright.Editor.State
 {
     /// <summary>
     /// Saves and restores running state across Unity domain reloads (triggered by script recompilation).
@@ -15,12 +15,12 @@ namespace GameWright.Editor.State
     /// </summary>
     internal static class DomainReloadHandler
     {
-        private const string StateKey = "GameWright_ReloadState";
-        private const string TimestampKey = "GameWright_ReloadTimestamp";
-        private const string PendingFunctionKey = "GameWright_ReloadPendingFunction";
-        private const string LastRecoveryInfoKey = "GameWright_LastRecoveryInfo";
-        private const string ResumeCountKey = "GameWright_ConsecutiveResumeCount";
-        private const string LastResumeTimestampKey = "GameWright_LastResumeTimestamp";
+        private const string StateKey = "KitWright_ReloadState";
+        private const string TimestampKey = "KitWright_ReloadTimestamp";
+        private const string PendingFunctionKey = "KitWright_ReloadPendingFunction";
+        private const string LastRecoveryInfoKey = "KitWright_LastRecoveryInfo";
+        private const string ResumeCountKey = "KitWright_ConsecutiveResumeCount";
+        private const string LastResumeTimestampKey = "KitWright_LastResumeTimestamp";
 
         private const int MaxConsecutiveResumes = 5;
         private const double ResumeCountResetSeconds = 120;
@@ -45,7 +45,7 @@ namespace GameWright.Editor.State
             };
         }
 
-        public static void SaveState(GameWrightState state)
+        public static void SaveState(KitWrightState state)
         {
             SessionState.SetString(StateKey, state.ToString());
             SessionState.SetString(TimestampKey, DateTime.Now.ToString("O"));
@@ -127,7 +127,7 @@ namespace GameWright.Editor.State
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright] Failed to parse recovery info: {ex.Message}");
+                Debug.LogWarning($"[KitWright] Failed to parse recovery info: {ex.Message}");
                 return null;
             }
         }
@@ -192,10 +192,10 @@ namespace GameWright.Editor.State
 
             if (string.IsNullOrEmpty(stateStr) && pendingFunction == null) return null;
 
-            if (!Enum.TryParse<GameWrightState>(stateStr, out var state))
-                state = pendingFunction != null ? GameWrightState.ExecutingFunction : GameWrightState.Initialized;
+            if (!Enum.TryParse<KitWrightState>(stateStr, out var state))
+                state = pendingFunction != null ? KitWrightState.ExecutingFunction : KitWrightState.Initialized;
 
-            if (state == GameWrightState.Initialized && pendingFunction == null)
+            if (state == KitWrightState.Initialized && pendingFunction == null)
                 return null;
 
             // Discard if too old (> 120 seconds)
@@ -266,7 +266,7 @@ namespace GameWright.Editor.State
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright] Failed to parse pending function state: {ex.Message}");
+                Debug.LogWarning($"[KitWright] Failed to parse pending function state: {ex.Message}");
                 return null;
             }
         }
@@ -278,7 +278,7 @@ namespace GameWright.Editor.State
 
         internal class InterruptedState
         {
-            public GameWrightState State;
+            public KitWrightState State;
             public PendingFunctionInfo PendingFunction;
 
             public string GetDescription()
@@ -288,8 +288,8 @@ namespace GameWright.Editor.State
 
                 switch (State)
                 {
-                    case GameWrightState.ExecutingFunction:
-                    case GameWrightState.ExecutingAllFunctions:
+                    case KitWrightState.ExecutingFunction:
+                    case KitWrightState.ExecutingAllFunctions:
                         return "Function execution was interrupted by script recompilation.";
                     default:
                         return "Operation was interrupted by script recompilation.";

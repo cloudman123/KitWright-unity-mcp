@@ -1,14 +1,14 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Services;
-using GameWright.Editor.Services.UnityLogs;
-using GameWright.Editor.Settings;
-using GameWright.Editor.State;
-using GameWright.Editor.Threading;
-using GameWright.Editor.Tools;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Services;
+using KitWright.Editor.Services.UnityLogs;
+using KitWright.Editor.Settings;
+using KitWright.Editor.State;
+using KitWright.Editor.Threading;
+using KitWright.Editor.Tools;
 
-namespace GameWright.Editor.DI
+namespace KitWright.Editor.DI
 {
     internal static class ServiceRegistration
     {

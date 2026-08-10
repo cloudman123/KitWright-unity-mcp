@@ -1,8 +1,8 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Builtins;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEditor;
@@ -10,7 +10,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class PrefabFunctionsTests
     {
@@ -21,7 +21,7 @@ namespace GameWright.Editor.Tests
                 Assert.Ignore("Skipping prefab-stage tool test because a Prefab Stage is already open in the interactive editor.");
 
             var suffix = Guid.NewGuid().ToString("N");
-            var tempFolder = "Assets/__GameWrightMcpPrefabStageTests";
+            var tempFolder = "Assets/__KitWrightMcpPrefabStageTests";
             var prefabPath = tempFolder + "/Primary_" + suffix + ".prefab";
             var otherPrefabPath = tempFolder + "/Other_" + suffix + ".prefab";
             var savedChildName = "SavedChild_" + suffix;
@@ -70,7 +70,7 @@ namespace GameWright.Editor.Tests
         public void CreatePrefabVariant_ProducesVariantOfBase()
         {
             var suffix = Guid.NewGuid().ToString("N");
-            var tempFolder = "Assets/__GameWrightMcpPrefabVariantTests";
+            var tempFolder = "Assets/__KitWrightMcpPrefabVariantTests";
             var basePath = tempFolder + "/Base_" + suffix + ".prefab";
             var variantPath = tempFolder + "/Variant_" + suffix + ".prefab";
 
@@ -111,7 +111,7 @@ namespace GameWright.Editor.Tests
         public void GetPrefabVariantInfo_ReportsVariant()
         {
             var suffix = Guid.NewGuid().ToString("N");
-            var tempFolder = "Assets/__GameWrightMcpPrefabVariantInfoTests";
+            var tempFolder = "Assets/__KitWrightMcpPrefabVariantInfoTests";
             var basePath = tempFolder + "/Base_" + suffix + ".prefab";
             var variantPath = tempFolder + "/Variant_" + suffix + ".prefab";
 

@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
@@ -9,13 +9,13 @@ using System.Reflection;
 using System.Threading.Tasks;
 
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using Newtonsoft.Json;
 using Unity.Profiling.Memory;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     /// <summary>
     /// REAL Unity memory snapshots (.snap) -- the file format the Memory Profiler

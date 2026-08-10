@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using GameWright.Editor.Services.UnityLogs;
+using KitWright.Editor.Services.UnityLogs;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace GameWright.Editor.Services
+namespace KitWright.Editor.Services
 {
     internal interface IEditorContextBuilder
     {

@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.DI
+namespace KitWright.Editor.DI
 {
     /// <summary>
     /// Manages the per-window service scope. Only one window scope exists at a time.
@@ -36,7 +36,7 @@ namespace GameWright.Editor.DI
                 }
                 else
                 {
-                    Debug.LogError("[GameWright] Root service provider is not initialized.");
+                    Debug.LogError("[KitWright] Root service provider is not initialized.");
                 }
             }
         }
@@ -50,7 +50,7 @@ namespace GameWright.Editor.DI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Error disposing window scope: {ex}");
+                Debug.LogError($"[KitWright] Error disposing window scope: {ex}");
             }
         }
 
@@ -66,7 +66,7 @@ namespace GameWright.Editor.DI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Error disposing window scope during reset: {ex}");
+                Debug.LogError($"[KitWright] Error disposing window scope during reset: {ex}");
             }
             finally
             {

@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing a new open-source release of GameWright MCP for Unity.
+Use this checklist before publishing a new open-source release of KitWright MCP for Unity.
 
 The local helper `scripts/release.sh <version>` automates the high-risk mechanical steps:
 version bumping, Unity EditMode tests, `.unitypackage` export, pathname validation, SHA/manifest generation,
@@ -18,7 +18,7 @@ wrapper packing, and opt-in publishing flags for GitHub, NuGet, and the MCP Regi
 
 - [ ] Test in a clean Unity `2022.3+` project
 - [ ] Install the package from the Git URL
-- [ ] Open `GameWright > MCP Server`
+- [ ] Open `KitWright > MCP Server`
 - [ ] Start the MCP server successfully
 - [ ] Confirm the configured local endpoint is reachable from an MCP client
 - [ ] If the configured port is already in use, verify the server reports the startup failure clearly

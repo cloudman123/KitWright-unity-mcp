@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
@@ -11,15 +11,15 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.State;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.State;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
-namespace GameWright.Editor
+namespace KitWright.Editor
 {
     public sealed class MCPBrokerTransportTests
     {
@@ -466,7 +466,7 @@ namespace GameWright.Editor
             var source = AssetDatabase.LoadAssetAtPath<TextAsset>(assetPath);
 
             Assert.NotNull(source, "Broker source TextAsset not found at " + assetPath);
-            Assert.That(source.text, Does.Contain("gamewright-unity-mcp-broker"));
+            Assert.That(source.text, Does.Contain("kitwright-unity-mcp-broker"));
         }
 
         private static MCPResponse CreateToolTextResponse(object id, string text)
@@ -625,7 +625,7 @@ namespace GameWright.Editor
 
         private static string CreateTempRoot()
         {
-            var path = Path.Combine(Path.GetTempPath(), "GameWrightBrokerTests_" + Guid.NewGuid().ToString("N"));
+            var path = Path.Combine(Path.GetTempPath(), "KitWrightBrokerTests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(path);
             return path;
         }

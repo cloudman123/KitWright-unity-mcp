@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     /// <summary>
     /// O(1) type lookup for UnityEngine.Object-derived types (components, assets, scriptable objects).

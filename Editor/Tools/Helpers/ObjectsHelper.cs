@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -8,10 +8,10 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     /// <summary>
-    /// Unified GameObject locator. All GameWright tools should resolve scene objects through here
+    /// Unified GameObject locator. All KitWright tools should resolve scene objects through here
     /// instead of calling <c>GameObject.Find</c> directly — that way name/path/id/tag/layer/component
     /// lookups, inactive-object handling and prefab-stage awareness stay consistent.
     /// </summary>
@@ -202,7 +202,7 @@ namespace GameWright.Editor.Tools.Helpers
                     return FindObjects(target, MethodByName, findAll, searchInactive, searchInChildren, root);
                 }
                 default:
-                    Debug.LogWarning($"[GameWright] Unknown search method '{searchMethod}'");
+                    Debug.LogWarning($"[KitWright] Unknown search method '{searchMethod}'");
                     break;
             }
 

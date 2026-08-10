@@ -1,14 +1,14 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     /// <summary>
     /// Unity Test Runner integration with an async job pattern: run_tests starts a run and
@@ -21,7 +21,7 @@ namespace GameWright.Editor.Tools.Builtins
     [ToolProvider("Testing")]
     internal static class TestRunnerFunctions
     {
-        private const string ActiveJobKey = "GameWright.TestRunner.ActiveJob";
+        private const string ActiveJobKey = "KitWright.TestRunner.ActiveJob";
 
         [Description("Run Unity Test Runner tests (EditMode or PlayMode) asynchronously. Returns a job_id immediately; " +
                      "poll get_test_job for status and results. Only one test run can be active at a time (a Unity Test " +

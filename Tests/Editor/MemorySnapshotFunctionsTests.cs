@@ -1,12 +1,12 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using Unity.Profiling.Memory;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class MemorySnapshotFunctionsTests
     {
@@ -125,7 +125,7 @@ namespace GameWright.Editor.Tests
 
         private static string MakeTempStorageDir()
         {
-            return Path.Combine(Path.GetTempPath(), "GameWrightMcpMemorySnapshotTests", Guid.NewGuid().ToString("N"));
+            return Path.Combine(Path.GetTempPath(), "KitWrightMcpMemorySnapshotTests", Guid.NewGuid().ToString("N"));
         }
     }
 }

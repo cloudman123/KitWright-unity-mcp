@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Collections.Generic;
-using GameWright.Editor.DI;
-using GameWright.Editor.Settings;
+using KitWright.Editor.DI;
+using KitWright.Editor.Settings;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal class MCPWindow : EditorWindow
     {
@@ -39,10 +39,10 @@ namespace GameWright.Editor.MCP.Server
         [SerializeField] private Tab _activeTab = Tab.Server;
         private bool? _lastRunning;
 
-        [MenuItem("Window/GameWright/MCP Window", false, 0)]
+        [MenuItem("Window/KitWright/MCP Window", false, 0)]
         public static void ShowWindow()
         {
-            var window = GetWindow<MCPWindow>("GameWright MCP");
+            var window = GetWindow<MCPWindow>("KitWright MCP");
             window.minSize = new Vector2(460, 560);
             window.Show();
         }
@@ -51,7 +51,7 @@ namespace GameWright.Editor.MCP.Server
         {
             var icon = PluginIcon.TabTexture;
             if (icon != null)
-                titleContent = new GUIContent("GameWright MCP", icon);
+                titleContent = new GUIContent("KitWright MCP", icon);
 
             _settingsController = RootScopeServices.Services?.GetService(typeof(ISettingsController))
                 as ISettingsController;

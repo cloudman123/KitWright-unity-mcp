@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPO="gamewrightdev/gamewright-unity-mcp"
+REPO="kitwright/unity-mcp"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_ROOT="${UNITY_PROJECT_ROOT:-$(cd "$ROOT/../.." && pwd)}"
 ARTIFACT_ROOT="${RELEASE_ARTIFACT_DIR:-$PROJECT_ROOT/release-artifacts}"
@@ -16,7 +16,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/release.sh <version> [options]
 
-Local release helper for GameWright Unity MCP.
+Local release helper for KitWright Unity MCP.
 
 Default behavior:
   - bump package.json and local wrapper versions when the wrapper workspace exists
@@ -93,7 +93,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 OUT_DIR="$ARTIFACT_ROOT/$VERSION"
-PACKAGE_OUTPUT="$OUT_DIR/GameWright.UnityMcp.v$VERSION.unitypackage"
+PACKAGE_OUTPUT="$OUT_DIR/KitWright.UnityMcp.v$VERSION.unitypackage"
 NOTES_FILE="$OUT_DIR/release-notes.md"
 SHA_FILE="$OUT_DIR/SHA256SUMS.txt"
 MANIFEST_FILE="$OUT_DIR/release-manifest.json"
@@ -198,7 +198,7 @@ for (const file of files) {
   if (!fs.existsSync(file)) continue;
   const text = fs.readFileSync(file, "utf8");
   const updated = text.replace(
-    /("com\.gamewright\.unity\.mcp"\s*:\s*")[^"]+(")/g,
+    /("com\.kitwright\.unity\.mcp"\s*:\s*")[^"]+(")/g,
     `$1${version}$2`
   );
   fs.writeFileSync(file, updated);
@@ -208,7 +208,7 @@ NODE
   if [[ "$USE_WRAPPER" == 1 && -n "$WRAPPER_ROOT" && -d "$WRAPPER_ROOT" ]]; then
     info "Bumping wrapper version in $WRAPPER_ROOT"
     run perl -0pi -e "s#<Version>[^<]+</Version>#<Version>$VERSION</Version>#" "$WRAPPER_ROOT/FunseaAI.Unity.Mcp.csproj"
-    run perl -0pi -e "s#gamewright-unity-mcp [0-9]+\\.[0-9]+\\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?#gamewright-unity-mcp $VERSION#g" "$WRAPPER_ROOT/Program.cs"
+    run perl -0pi -e "s#kitwright-unity-mcp [0-9]+\\.[0-9]+\\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?#kitwright-unity-mcp $VERSION#g" "$WRAPPER_ROOT/Program.cs"
     run node - "$WRAPPER_ROOT/server.json" "$VERSION" <<'NODE'
 const fs = require("fs");
 const path = process.argv[2];
@@ -276,7 +276,7 @@ export_unitypackage() {
     CREATED_EDITOR_DIR=1
   fi
 
-  EXPORTER_FILE="$editor_dir/ExportGameWrightUnityPackage.cs"
+  EXPORTER_FILE="$editor_dir/ExportKitWrightUnityPackage.cs"
   trap cleanup_exporter EXIT
 
   local escaped_output
@@ -292,7 +292,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-public static class ExportGameWrightUnityPackage
+public static class ExportKitWrightUnityPackage
 {
     public static void Export()
     {
@@ -375,7 +375,7 @@ EOF
   run_unity_export "$unity_bin" \
     -batchmode -quit \
     -projectPath "$PROJECT_ROOT" \
-    -executeMethod ExportGameWrightUnityPackage.Export \
+    -executeMethod ExportKitWrightUnityPackage.Export \
     -logFile "$OUT_DIR/unitypackage-export.log"
   cleanup_exporter
 }
@@ -422,7 +422,7 @@ generate_notes_and_sums() {
   (
     cd "$OUT_DIR"
     : > "$SHA_FILE"
-    for file in GameWright.UnityMcp.v"$VERSION".unitypackage *.nupkg server.json; do
+    for file in KitWright.UnityMcp.v"$VERSION".unitypackage *.nupkg server.json; do
       [[ -f "$file" ]] || continue
       shasum -a 256 "$file" >> "$SHA_FILE"
     done
@@ -449,7 +449,7 @@ pack_wrapper() {
   run rm -rf "$WRAPPER_ROOT/bin" "$WRAPPER_ROOT/obj" "$WRAPPER_ROOT/nupkg"
   run dotnet pack "$WRAPPER_ROOT/FunseaAI.Unity.Mcp.csproj" -c Release
 
-  local nupkg="$WRAPPER_ROOT/nupkg/gamewright.unity.mcp.$VERSION.nupkg"
+  local nupkg="$WRAPPER_ROOT/nupkg/kitwright.unity.mcp.$VERSION.nupkg"
   [[ -f "$nupkg" ]] || fail "expected nupkg not found: $nupkg"
   run cp "$nupkg" "$OUT_DIR/"
   run cp "$WRAPPER_ROOT/server.json" "$OUT_DIR/server.json"
@@ -473,7 +473,7 @@ publish_nuget() {
   require_command dotnet
   [[ -n "${NUGET_API_KEY:-}" ]] || fail "NUGET_API_KEY is required for --publish-nuget"
 
-  local nupkg="$OUT_DIR/gamewright.unity.mcp.$VERSION.nupkg"
+  local nupkg="$OUT_DIR/kitwright.unity.mcp.$VERSION.nupkg"
   [[ -f "$nupkg" ]] || fail "nupkg not found: $nupkg"
 
   info "Publishing NuGet package"
@@ -488,7 +488,7 @@ wait_for_nuget_index() {
   require_command curl
 
   info "Waiting for NuGet flat-container index"
-  local url="https://api.nuget.org/v3-flatcontainer/gamewright.unity.mcp/index.json"
+  local url="https://api.nuget.org/v3-flatcontainer/kitwright.unity.mcp/index.json"
   for _ in {1..30}; do
     if curl -fsSL "$url" | rg -q "\"$VERSION\""; then
       return
@@ -515,7 +515,7 @@ wait_for_openupm_index() {
 
   info "Waiting for OpenUPM package index"
   for _ in {1..30}; do
-    if npm view com.gamewright.unity.mcp --registry https://package.openupm.com versions --json \
+    if npm view com.kitwright.unity.mcp --registry https://package.openupm.com versions --json \
         | rg -q "\"$VERSION\""; then
       return
     fi

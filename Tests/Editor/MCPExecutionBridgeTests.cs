@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
-using GameWright.Editor.Api.Models;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Api.Models;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     /// <summary>
     /// Integration tests that exercise <see cref="FunctionInvokerController"/> end-to-end
@@ -237,7 +237,7 @@ namespace GameWright.Editor.Tests
 
             try
             {
-                LogAssert.Expect(LogType.Error, $"[GameWright] Manual tool '{toolName}' failed: boom");
+                LogAssert.Expect(LogType.Error, $"[KitWright] Manual tool '{toolName}' failed: boom");
 
                 var invoker = new FunctionInvokerController();
                 var result = invoker.Invoke(new FunctionCall

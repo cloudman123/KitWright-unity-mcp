@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -6,12 +6,12 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class ClientConfigPanel
     {
@@ -22,7 +22,7 @@ namespace GameWright.Editor.MCP.Server
         private int _selectedTargetIndex;
         private Label _configStatusLabel;
         private Label _configPathLabel;
-        private const string ScopeGlobalKey = "GameWright.MCP.ConfigScopeGlobal";
+        private const string ScopeGlobalKey = "KitWright.MCP.ConfigScopeGlobal";
 
         public ClientConfigPanel(
             ISettingsController settings,
@@ -365,7 +365,7 @@ namespace GameWright.Editor.MCP.Server
             var targets = new[]
             {
                 // A project-scoped file holds entries for this project alone, so the entry keeps the
-                // plain "gamewright" name and no suffix is needed to separate sibling projects.
+                // plain "kitwright" name and no suffix is needed to separate sibling projects.
                 new MCPConfigTarget
                 {
                     Name = "Claude Code",
@@ -634,6 +634,8 @@ namespace GameWright.Editor.MCP.Server
                     {
                         servers.Remove(PinnedServerEntryName());
                         servers.Remove(ProductServerEntryName());
+                        foreach (var legacy in LegacyServerEntryNames())
+                            servers.Remove(legacy);
                         servers[serverName] = entry;
                     }
                     else
@@ -664,6 +666,8 @@ namespace GameWright.Editor.MCP.Server
             var content = File.Exists(target.ConfigPath) ? File.ReadAllText(target.ConfigPath) : string.Empty;
             content = RemoveTomlSection(content, "[mcp_servers." + PinnedServerEntryName() + "]");
             content = RemoveTomlSection(content, "[mcp_servers." + ServerEntryName + "]");
+            foreach (var legacy in LegacyServerEntryNames())
+                content = RemoveTomlSection(content, "[mcp_servers." + legacy + "]");
 
             if (content.Length > 0 && !content.EndsWith("\n"))
                 content += "\n";
@@ -756,7 +760,7 @@ namespace GameWright.Editor.MCP.Server
         // One name for both scopes. A global config is shared by every project, so the entry there
         // is rewritten by whichever project configures last — which is what a dev working on one
         // project at a time wants.
-        internal const string ServerEntryName = "gamewright";
+        internal const string ServerEntryName = "kitwright";
 
         // The pinned name written by 0.6.x, kept so configuring can drop the stale entry left
         // behind instead of leaving it pointed at a port nobody answers on.
@@ -766,10 +770,24 @@ namespace GameWright.Editor.MCP.Server
                    ProjectIdentity.PinFromProjectPath(GetProjectRootPath());
         }
 
-        private static string ProductServerEntryName()
+        // Entries written under the pre-rename brand. Configuring drops them so an upgraded user
+        // is not left with a duplicate server pointing at whatever port answered back then.
+        private static IEnumerable<string> LegacyServerEntryNames()
+        {
+            yield return LegacyBrand;
+            yield return ProductServerEntryName(LegacyBrand + "-");
+            yield return ProductServerEntryName(LegacyBrand + "-") + "-" +
+                         ProjectIdentity.PinFromProjectPath(GetProjectRootPath());
+        }
+
+        private const string LegacyBrand = "gamewright";
+
+        private static string ProductServerEntryName() => ProductServerEntryName("kitwright-");
+
+        private static string ProductServerEntryName(string prefix)
         {
             var name = Application.productName ?? string.Empty;
-            var sb = new StringBuilder("gamewright-");
+            var sb = new StringBuilder(prefix);
             foreach (var ch in name.ToLowerInvariant())
             {
                 if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'))
@@ -778,7 +796,7 @@ namespace GameWright.Editor.MCP.Server
                     sb.Append('-');
             }
             var result = sb.ToString().TrimEnd('-');
-            return result.Length <= "gamewright-".Length ? "gamewright" : result;
+            return result.Length <= prefix.Length ? prefix.TrimEnd('-') : result;
         }
 
         private string GetServerUrl()

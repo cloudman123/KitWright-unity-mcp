@@ -1,8 +1,8 @@
 {
-    "name": "GameWright.Editor.InputSystem.Tests",
-    "rootNamespace": "GameWright.Editor.Tests",
+    "name": "KitWright.Editor.InputSystem.Tests",
+    "rootNamespace": "KitWright.Editor.Tests",
     "references": [
-        "GameWright.Editor.InputSystem",
+        "KitWright.Editor.InputSystem",
         "Unity.InputSystem"
     ],
     "includePlatforms": [

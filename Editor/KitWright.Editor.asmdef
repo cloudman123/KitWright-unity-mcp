@@ -1,6 +1,6 @@
 {
-    "name": "GameWright.Editor",
-    "rootNamespace": "GameWright.Editor",
+    "name": "KitWright.Editor",
+    "rootNamespace": "KitWright.Editor",
     "references": [
         "Unity.Newtonsoft.Json",
         "GUID:df380645f10b7bc4b97d4f5eb6303d95",
@@ -20,12 +20,12 @@
         {
             "name": "com.unity.render-pipelines.universal",
             "expression": "",
-            "define": "GAMEWRIGHT_URP"
+            "define": "KITWRIGHT_URP"
         },
         {
             "name": "com.unity.addressables",
             "expression": "",
-            "define": "GAMEWRIGHT_ADDRESSABLES"
+            "define": "KITWRIGHT_ADDRESSABLES"
         }
     ],
     "noEngineReferences": false

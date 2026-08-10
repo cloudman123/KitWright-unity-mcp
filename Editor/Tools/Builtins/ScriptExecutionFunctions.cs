@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -9,34 +9,34 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using GameWright.Editor.DI;
-using GameWright.Editor.Settings;
-using GameWright.Editor.Tools.Helpers;
-using GameWright.Editor.Tools.Scripting;
+using KitWright.Editor.DI;
+using KitWright.Editor.Settings;
+using KitWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Scripting;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Script")]
     internal static class ScriptExecutionFunctions
     {
-        private const string HistorySessionKey = "GameWright.MCP.ExecuteCode.History";
+        private const string HistorySessionKey = "KitWright.MCP.ExecuteCode.History";
         private const int HistoryMaxEntries = 50;
-        private const string GameWrightScriptingNamespace = "GameWright.Editor.Tools.Scripting";
+        private const string KitWrightScriptingNamespace = "KitWright.Editor.Tools.Scripting";
 
         [Description("Primary high-flexibility execution tool. Compiles a C# snippet with Unity's Roslyn csc first " +
                      "while preserving the in-memory compilation/execution flow, then runs the compiled assembly on the editor thread. " +
                      "Two templates are supported:\n" +
-                     "  1) Recommended: implement IGameWrightCommand on a class — receives an ExecutionContext (ctx) " +
+                     "  1) Recommended: implement IKitWrightCommand on a class — receives an ExecutionContext (ctx) " +
                      "with RegisterObjectCreation/RegisterObjectModification/DestroyObject (auto-Undo + tracked) and " +
                      "Log/LogWarning/LogError (returned in the response).\n" +
                      "  2) Legacy: any class with `public static string Run()` — return value becomes the response message.\n" +
                      "Before compiling, the editor's AssetDatabase is refreshed and pending compilation is awaited, " +
                      "so external file edits are picked up automatically without a separate request_recompile " +
                      "(pass skip_refresh=true to bypass this for read-only snippets or a live Play Mode session you must not disturb). " +
-                     "When a full-class snippet implements IGameWrightCommand, the required GameWright.Editor.Tools.Scripting using is added automatically if omitted. " +
+                     "When a full-class snippet implements IKitWrightCommand, the required KitWright.Editor.Tools.Scripting using is added automatically if omitted. " +
                      "safety_checks blocks a small set of obviously dangerous patterns " +
                      "(File.Delete, Process.Start, while(true), Environment.Exit, AssetDatabase.DeleteAsset, etc) " +
                      "and, when strict filesystem safety is enabled, broad System.IO writes plus obvious absolute/system/traversal paths. " +
@@ -45,7 +45,7 @@ namespace GameWright.Editor.Tools.Builtins
                      "by default; add `using` directives in the snippet, or enable the ScriptAssemblies-based convenience toggle in the MCP Settings window. " +
                      "Every invocation is appended to a session-scoped history (see get_execute_code_history / replay_execute_code).")]
         public static async Task<object> ExecuteCode(
-            [ToolParam("C# code to execute. See description for IGameWrightCommand vs legacy Run() templates.")] string code,
+            [ToolParam("C# code to execute. See description for IKitWrightCommand vs legacy Run() templates.")] string code,
             [ToolParam("If true, reject the call before compile when the code contains obviously dangerous patterns. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null,
             [ToolParam("If true, skip the pre-compile AssetDatabase.Refresh + wait-for-ready. Use only when the editor is already up to date -- e.g. a read-only inspection snippet, or during a live Play Mode session you must not disturb. The default refresh can trigger an import/domain reload (from your own OR another actor's pending changes in a shared editor) that wipes Play Mode runtime state. When skipped, external file edits made since the last compile are NOT picked up.", Required = false)] bool skip_refresh = false)
         {
@@ -98,7 +98,7 @@ namespace GameWright.Editor.Tools.Builtins
             catch (Exception ex)
             {
                 var root = UnwrapTargetInvocationException(ex);
-                Debug.LogError($"[GameWright] ExecuteCode failed: {root.GetType().FullName}: {root.Message}\n{root.StackTrace}");
+                Debug.LogError($"[KitWright] ExecuteCode failed: {root.GetType().FullName}: {root.Message}\n{root.StackTrace}");
                 AppendHistory(code, false, $"{root.GetType().Name}: {root.Message}");
                 return Response.Error("EXECUTE_CODE_FAILED", new
                 {
@@ -255,7 +255,7 @@ namespace GameWright.Editor.Tools.Builtins
             catch (Exception ex)
             {
                 // Swallow — history is best-effort, must never break real execution.
-                Debug.LogWarning($"[GameWright] Failed to append execute_code history: {ex.Message}");
+                Debug.LogWarning($"[KitWright] Failed to append execute_code history: {ex.Message}");
             }
         }
 
@@ -317,12 +317,12 @@ namespace GameWright.Editor.Tools.Builtins
             string compilerName,
             List<ScriptCompilerAttempt> compilerAttempts)
         {
-            // Prefer IGameWrightCommand path: any class in the compiled assembly that implements it
+            // Prefer IKitWrightCommand path: any class in the compiled assembly that implements it
             Type commandType = null;
             try
             {
                 commandType = compiledAssembly.GetTypes()
-                    .FirstOrDefault(t => typeof(IGameWrightCommand).IsAssignableFrom(t)
+                    .FirstOrDefault(t => typeof(IKitWrightCommand).IsAssignableFrom(t)
                                          && !t.IsInterface && !t.IsAbstract);
             }
             catch (ReflectionTypeLoadException)
@@ -354,7 +354,7 @@ namespace GameWright.Editor.Tools.Builtins
             catch (TargetInvocationException ex)
             {
                 var inner = ex.InnerException ?? ex;
-                Debug.LogError($"[GameWright] Script runtime error: {inner.Message}\n{inner.StackTrace}");
+                Debug.LogError($"[KitWright] Script runtime error: {inner.Message}\n{inner.StackTrace}");
                 return Response.Error("RUNTIME_ERROR",
                     new { message = inner.Message, stack = inner.StackTrace, compiler = compilerName });
             }
@@ -362,8 +362,8 @@ namespace GameWright.Editor.Tools.Builtins
 
         private static object ExecuteAsCommand(Type commandType, string compilerName)
         {
-            IGameWrightCommand instance;
-            try { instance = (IGameWrightCommand)Activator.CreateInstance(commandType); }
+            IKitWrightCommand instance;
+            try { instance = (IKitWrightCommand)Activator.CreateInstance(commandType); }
             catch (Exception ex)
             {
                 return Response.Error("COMMAND_INSTANTIATION_FAILED",
@@ -377,7 +377,7 @@ namespace GameWright.Editor.Tools.Builtins
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Command runtime error: {ex.Message}\n{ex.StackTrace}");
+                Debug.LogError($"[KitWright] Command runtime error: {ex.Message}\n{ex.StackTrace}");
                 return Response.Error("COMMAND_RUNTIME_ERROR", new
                 {
                     message = ex.Message,
@@ -447,7 +447,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using {GameWrightScriptingNamespace};
+using {KitWrightScriptingNamespace};
 {projectUsings}
 public static class {className}
 {{
@@ -576,18 +576,18 @@ public static class {className}
 
         private static string GetRequiredSnippetUsings(string code)
         {
-            if (!UsesUnqualifiedIGameWrightCommand(code))
+            if (!UsesUnqualifiedIKitWrightCommand(code))
                 return string.Empty;
 
-            return $"using {GameWrightScriptingNamespace};\n";
+            return $"using {KitWrightScriptingNamespace};\n";
         }
 
-        internal static bool UsesUnqualifiedIGameWrightCommand(string code)
+        internal static bool UsesUnqualifiedIKitWrightCommand(string code)
         {
             if (string.IsNullOrEmpty(code))
                 return false;
 
-            return Regex.IsMatch(code, @"(?<![\w.])IGameWrightCommand(?!\w)");
+            return Regex.IsMatch(code, @"(?<![\w.])IKitWrightCommand(?!\w)");
         }
     }
 }

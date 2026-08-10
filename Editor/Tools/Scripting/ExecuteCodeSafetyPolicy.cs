@@ -1,8 +1,8 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Text.RegularExpressions;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     internal static class ExecuteCodeSafetyPolicy
     {

@@ -1,9 +1,9 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.DI;
+using KitWright.Editor.DI;
 using UnityEngine;
 
-namespace GameWright.Editor.Settings
+namespace KitWright.Editor.Settings
 {
     internal static class PluginDebugLogger
     {

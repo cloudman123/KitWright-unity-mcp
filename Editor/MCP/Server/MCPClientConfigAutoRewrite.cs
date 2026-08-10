@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// After the MCP server starts, sweeps all known client config files and repairs any
@@ -46,12 +46,12 @@ namespace GameWright.Editor.MCP.Server
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[GameWright MCP Server] Config auto-rewrite failed for {target.Name}: {ex.Message}");
+                    Debug.LogWarning($"[KitWright MCP Server] Config auto-rewrite failed for {target.Name}: {ex.Message}");
                 }
             }
 
             if (rewritten.Count > 0)
-                Debug.Log($"[GameWright MCP Server] Updated stale MCP config URL to {serverUrl} for:\n{string.Join("\n", rewritten)}\nRestart or reload the client(s) to reconnect.");
+                Debug.Log($"[KitWright MCP Server] Updated stale MCP config URL to {serverUrl} for:\n{string.Join("\n", rewritten)}\nRestart or reload the client(s) to reconnect.");
         }
 
         private static bool RewriteJson(

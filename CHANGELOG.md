@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **Renamed the project from GameWright to KitWright.** The package id is now `com.kitwright.unity.mcp`, the menu lives under `Window > KitWright`, and the MCP server entry written into client configs is `kitwright`.
+
+### Upgrading from 0.6.x
+- Remove the old `com.gamewright.unity.mcp` package before installing this one; Unity treats them as two separate packages.
+- Reopen the MCP Server window and click **Configure** once. It rewrites the client config and drops the stale `gamewright` entry.
+- Project skills installed under the old name (`.claude/skills/gamewright-*`, `.cursor/rules/gamewright-*.mdc`) are not migrated automatically — reinstall them from the Skills tab and delete the old files.
+- Local settings reset to defaults, since they now live in `UserSettings/KitWrightMcpSettings.json`.
+
 ## [0.6.0] - 2026-08-05
 
 ### Added
@@ -45,7 +56,7 @@
 - Added dedicated capability tools for asset import settings, dependency/broken-reference inspection, mesh and material inspection, 2D/3D physics queries, particle preview control, project settings, Undo/Redo, component batch operations, lighting, and reflection-based PlayableDirector evaluation. Reverse dependency scans are bounded and yield between batches; mutating setters validate the whole request before writing.
 
 ### Changed
-- Project Skills now manage only a delimited GameWright block inside shared `AGENTS.md` and `CLAUDE.md` files, preserving all hand-authored content outside it. Exact legacy generated files migrate automatically; edited legacy single-marker files are left unchanged with an explicit migration error instead of being overwritten.
+- Project Skills now manage only a delimited KitWright block inside shared `AGENTS.md` and `CLAUDE.md` files, preserving all hand-authored content outside it. Exact legacy generated files migrate automatically; edited legacy single-marker files are left unchanged with an explicit migration error instead of being overwritten.
 
 ### Fixed
 - Built-in tools that accept a GameObject target now consistently resolve names, hierarchy paths, and instance IDs through `ObjectsHelper`, including inactive objects and additively loaded scenes. `get_console_logs` also supports an opt-in `include_stack_trace` argument with independently capped, normalized stack output.
@@ -60,9 +71,9 @@
 ## [0.5.0] - 2026-07-07
 
 ### Added
-- Project Skills now include explicit bundled skill versions in generated `AGENTS.md`, `CLAUDE.md`, Cursor rules, and the GameWright skill manifest, so users can tell when installed project guidance is stale.
-- The Project Skills window now shows installed skill file status and exposes an `Upgrade Skills` action when GameWright-managed guidance files are behind the package version.
-- `save_to_file` option on all screenshot tools (`capture_game_view`, `capture_scene_view`, `capture_simulator_view`, `capture_multiview`): writes the PNG to disk (default `Library/GameWrightMcp/Screenshots/`, or a custom `output_path` that resolves inside the Unity project root) and returns the file path instead of base64 image data. High-resolution captures previously produced multi-megabyte base64 payloads that could break MCP transports; saving to a file and letting the client read it sidesteps the payload entirely.
+- Project Skills now include explicit bundled skill versions in generated `AGENTS.md`, `CLAUDE.md`, Cursor rules, and the KitWright skill manifest, so users can tell when installed project guidance is stale.
+- The Project Skills window now shows installed skill file status and exposes an `Upgrade Skills` action when KitWright-managed guidance files are behind the package version.
+- `save_to_file` option on all screenshot tools (`capture_game_view`, `capture_scene_view`, `capture_simulator_view`, `capture_multiview`): writes the PNG to disk (default `Library/KitWrightMcp/Screenshots/`, or a custom `output_path` that resolves inside the Unity project root) and returns the file path instead of base64 image data. High-resolution captures previously produced multi-megabyte base64 payloads that could break MCP transports; saving to a file and letting the client read it sidesteps the payload entirely.
 - New `capture_editor_window` tool: screenshot any open EditorWindow (Inspector, Console, custom tool windows...) by title or type name. Captures directly from the window's internal GUIView render surface, so the window does not need to be unoccluded on screen.
 - New `raycast_at_point` UI diagnostic tool: runs the live EventSystem's RaycastAll at a screen point and reports the full ordered hit chain (hierarchy path, raycast-receiving Graphic, raycastTarget flag, sorting info) plus the `IPointerClickHandler` that would actually receive a click there -- or the element silently swallowing the click when the topmost hit has no handler anywhere up its parent chain (the classic invisible-raycast-blocker bug). Coordinates can be pixels or normalized, with bottom-left or top-left origin; sizes are resolved against the real Game View render resolution rather than the editor window.
 - Real Unity memory snapshot (.snap) tools -- the full-detail captures the Memory Profiler package opens for object-level reference-chain analysis, complementing the existing lightweight aggregate-counter snapshots (`memory_take_snapshot`): `memory_take_full_snapshot` captures via `Unity.Profiling.Memory.MemoryProfiler.TakeSnapshot` (configurable CaptureFlags, async completion, written into the Memory Profiler package's snapshot folder), `memory_list_full_snapshots` lists them, and `memory_open_snapshot_in_profiler` loads one into the Memory Profiler window (com.unity.memoryprofiler package required for that last step only; capture itself is a core-engine API). Combine with `capture_editor_window('Memory Profiler')` to inspect the loaded analysis visually.
@@ -113,12 +124,12 @@
 ## [0.4.7] - 2026-06-23
 
 ### Added
-- Added a recommended `IGameWrightCommand` template to generated project skills, including traceable `ctx.Log` usage and Undo-aware object modification helpers.
+- Added a recommended `IKitWrightCommand` template to generated project skills, including traceable `ctx.Log` usage and Undo-aware object modification helpers.
 - Added generated skill guidance for Unity fake-null references: avoid `??=` when lazily resolving `UnityEngine.Object` references and use explicit `if (field == null)` checks instead.
 - Added a GitHub Actions workflow for publishing the MCP Registry entry with GitHub OIDC after the NuGet package is indexed.
 
 ### Changed
-- `execute_code` now automatically adds `using GameWright.Editor.Tools.Scripting;` when a full-class snippet implements an unqualified `IGameWrightCommand`, while avoiding duplicate usings when the namespace is already present.
+- `execute_code` now automatically adds `using KitWright.Editor.Tools.Scripting;` when a full-class snippet implements an unqualified `IKitWrightCommand`, while avoiding duplicate usings when the namespace is already present.
 
 ### Fixed
 - Fixed the release helper's Unity EditMode test invocation so batchmode waits for Test Runner completion and writes the XML result instead of exiting immediately after import.
@@ -178,7 +189,7 @@
 
 ### Changed
 - `execute_code` no longer auto-injects project namespaces by default. The optional MCP Settings toggle now derives namespaces from loaded project assemblies instead of regex-scanning source files, avoiding source-only, conditional, or asmdef-isolated namespaces that can make every snippet fail with `COMPILATION_FAILED`. (#9)
-- Moved `execute_code` safety controls out of the MCP Server window and into **GameWright > MCP Settings** alongside debug logging.
+- Moved `execute_code` safety controls out of the MCP Server window and into **KitWright > MCP Settings** alongside debug logging.
 
 ## [0.3.9] - 2026-06-01
 
@@ -208,8 +219,8 @@
 ## [0.3.7] - 2026-05-22
 
 ### Fixed
-- Added a project-path-hash identity to MCP `initialize` responses so an existing GameWright listener can be verified as belonging to the same Unity project without exposing the raw local path.
-- When HTTP binding finds the configured port already occupied, the transport now probes `initialize` and attaches only if both the GameWright server name and project identity match.
+- Added a project-path-hash identity to MCP `initialize` responses so an existing KitWright listener can be verified as belonging to the same Unity project without exposing the raw local path.
+- When HTTP binding finds the configured port already occupied, the transport now probes `initialize` and attaches only if both the KitWright server name and project identity match.
 - Attached transports detach without closing the owning listener, while owned transports still stop and close their `HttpListener` normally.
 - Probe timeouts and unrelated listeners are treated as probe failures, not as external cancellation.
 - The MCP Server window now distinguishes an attached existing server from a listener owned by the current service.
@@ -230,7 +241,7 @@
 ## [0.3.4] - 2026-05-20
 
 ### Added
-- Added LM Studio to the MCP Server window's one-click configuration targets. The generated config writes `gamewright` to LM Studio's `mcp.json` using Cursor-compatible `mcpServers` JSON.
+- Added LM Studio to the MCP Server window's one-click configuration targets. The generated config writes `kitwright` to LM Studio's `mcp.json` using Cursor-compatible `mcpServers` JSON.
 - Documented manual LM Studio setup paths for macOS/Linux and Windows.
 
 ## [0.3.3] - 2026-05-20
@@ -241,7 +252,7 @@
 ## [0.3.2] - 2026-05-18
 
 ### Added
-- `GameWright > MCP Server` window now shows the installed package version, polls GitHub for new releases every 6 hours, and surfaces a one-click update prompt when a newer version is available. Auto-check is skipped in Unity batch mode.
+- `KitWright > MCP Server` window now shows the installed package version, polls GitHub for new releases every 6 hours, and surfaces a one-click update prompt when a newer version is available. Auto-check is skipped in Unity batch mode.
 
 ### Fixed
 - Post-domain-reload server restart is now resilient to (a) the `[InitializeOnLoad]` vs `afterAssemblyReload` ordering race — the handler also kicks off a restart from its own static ctor if reload bookkeeping is pending, (b) `EditorApplication.isCompiling` still being true when the `delayCall` fires, (c) the service provider not yet being available, (d) duplicate scheduling. The restart now retries via `EditorApplication.update` until the editor is settled.
@@ -251,7 +262,7 @@
 - `request_recompile` now returns a clear error when called while Unity is in Play Mode (Unity does not process script compilation or domain reloads while playing). Call `exit_play_mode` first, then retry.
 
 ### Changed
-- `unity-mcp-workflow` skill (and the generated `AGENTS.md` / `CLAUDE.md` templates) now document two Play Mode lifecycle pitfalls: (1) after `enter_play_mode`, the HTTP server is briefly unreachable while Unity reloads the domain — poll `tools/list` / `get_reload_recovery_status` until it responds before issuing the next call; (2) `request_recompile` is rejected during Play Mode and must be preceded by `exit_play_mode`. Existing installs should regenerate Project Skills via `GameWright > Project Skills` to pick up the new content.
+- `unity-mcp-workflow` skill (and the generated `AGENTS.md` / `CLAUDE.md` templates) now document two Play Mode lifecycle pitfalls: (1) after `enter_play_mode`, the HTTP server is briefly unreachable while Unity reloads the domain — poll `tools/list` / `get_reload_recovery_status` until it responds before issuing the next call; (2) `request_recompile` is rejected during Play Mode and must be preceded by `exit_play_mode`. Existing installs should regenerate Project Skills via `KitWright > Project Skills` to pick up the new content.
 
 ## [0.3.1] - 2026-05-17
 
@@ -268,7 +279,7 @@
 - New foundation helpers under `Editor/Tools/Helpers/`: `ObjectsHelper` (unified by_id/by_name/by_path/by_tag/by_layer/by_component locator with searchInactive / searchInChildren / findAll, prefab-stage aware), `ComponentSerializer` (SerializedObject-based read/write that picks up `[SerializeField] private`, Object references via `{"fileID": instanceId}`, Vector/Quaternion/Color/Enum/Array), `TypeResolver` (TypeCache-backed O(1) component type lookup), `Response` (structured `{success, message, data}` / `{success, code, error, data}` envelope), `EditorReadyHelper` (refresh + wait for compilation), `GameObjectSerializer` (structured payloads with `instanceId` so agents can chain `by_id` calls).
 - New `EditorState` tool provider: `get_editor_state`, `get_selection`, `set_selection`, `get_prefab_stage`, `get_active_tool`, `set_active_tool`, `get_windows`, `get_tags`, `add_tag`, `remove_tag`, `get_layers`, `add_layer`, `get_build_settings`.
 - New `MenuItem` tool provider: `execute_menu_item`, `validate_menu_item` — drive any editor menu including third-party packages without writing dedicated wrappers.
-- New `IGameWrightCommand` + `ExecutionContext` API for `execute_code`. Snippets that implement `IGameWrightCommand` get `ctx.RegisterObjectCreation` / `RegisterObjectModification` / `DestroyObject` (auto-Undo + tracked) and `ctx.Log` / `LogWarning` / `LogError` (returned in the response).
+- New `IKitWrightCommand` + `ExecutionContext` API for `execute_code`. Snippets that implement `IKitWrightCommand` get `ctx.RegisterObjectCreation` / `RegisterObjectModification` / `DestroyObject` (auto-Undo + tracked) and `ctx.Log` / `LogWarning` / `LogError` (returned in the response).
 - `ComponentPropertyFunctions`: new `component_instance_id` parameter lets tools target a specific component when a GameObject has multiple of the same type.
 
 ### Changed
@@ -277,7 +288,7 @@
 - `ComponentPropertyFunctions.SetComponentProperty(ies)` now writes through `SerializedObject`, so `[SerializeField] private` fields and Object references work; partial writes return per-field success.
 - `execute_code` now calls `EditorReadyHelper.RefreshAndWaitForReady` before compiling, so external file edits are picked up automatically — no separate `request_recompile` needed in most flows.
 - `FunctionInvokerController` now serializes non-string tool returns to JSON via Newtonsoft, so tools can return `Response.Success(...)` or any object.
-- `unity-mcp-workflow` project skill rules updated to cover structured JSON returns, `instanceId` chaining, `find_method`, the new SerializedProperty-backed component setter, the IGameWrightCommand template, editor-state tools, and `execute_menu_item` as the preferred fallback before `execute_code`. Generated `AGENTS.md` / `CLAUDE.md` templates updated to match. Existing installed skills must be regenerated via `GameWright > Project Skills` to pick up the new content.
+- `unity-mcp-workflow` project skill rules updated to cover structured JSON returns, `instanceId` chaining, `find_method`, the new SerializedProperty-backed component setter, the IKitWrightCommand template, editor-state tools, and `execute_menu_item` as the preferred fallback before `execute_code`. Generated `AGENTS.md` / `CLAUDE.md` templates updated to match. Existing installed skills must be regenerated via `KitWright > Project Skills` to pick up the new content.
 - `core` profile expanded from 19 to 29 tools: added `get_editor_state`, `get_selection`, `set_selection`, `get_prefab_stage`, `find_game_objects`, `list_components`, `get_component_properties`, `set_component_property`, `set_component_properties`, `execute_menu_item`. Lower-frequency editor-state tools (tag/layer mutation, window listing, build settings, active-tool control, `validate_menu_item`) remain `full`-only.
 
 ### Breaking
@@ -291,17 +302,17 @@
 - Moved Claude project skill installation from `.claude/commands/` to project-root `.claude/skills/`.
 - Renamed Project Skills to use the final feature name across UI and docs.
 - Added a one-click `Configure + Skills` action for supported MCP clients.
-- Added `GameWright > Tool Exposure` for editing which tools `core` and `full` expose.
+- Added `KitWright > Tool Exposure` for editing which tools `core` and `full` expose.
 - Grouped the Tool Exposure editor by tool category with per-category selection controls.
 - Updated the default Unity MCP workflow skill to cover default `core`, default `full`, and customized tool exposure.
 - Rendered screenshot tool results as image previews in Recent Activity.
-- Added `GameWright > Plugin Settings` with a toggle for verbose plugin debug logging.
+- Added `KitWright > Plugin Settings` with a toggle for verbose plugin debug logging.
 - Enabled plugin debug logging by default and expanded the default Unity MCP workflow skill with safer scene, prefab, and readback validation guidance.
 
 ## [0.1.10] - 2026-04-17
 
 ### Added
-- Added `GameWright > Project Skills` as a dedicated window for project-level skills setup
+- Added `KitWright > Project Skills` as a dedicated window for project-level skills setup
 - Added built-in and optional project skills management for supported AI clients, with per-platform generated file visibility
 - Added persistence for the currently selected one-click configuration target so related tools stay aligned across sessions
 
@@ -321,9 +332,9 @@
 ## [0.1.8] - 2026-04-15
 
 ### Changed
-- Rebranded the open-source package and documentation from GameBooom to GameWright
-- Moved the public Git repository to `WrightAI/gamewright-unity-mcp`
-- Updated Unity menu paths to `GameWright/MCP Server` and `GameWright/Check for Updates`
+- Rebranded the open-source package and documentation from GameBooom to KitWright
+- Moved the public Git repository to `WrightAI/kitwright-unity-mcp`
+- Updated Unity menu paths to `KitWright/MCP Server` and `KitWright/Check for Updates`
 - Reorganized the README quick start and one-click client configuration guidance
 
 ## [0.1.7] - 2026-04-10
@@ -355,7 +366,7 @@
 ## [0.1.4] - 2026-04-01
 
 ### Added
-- Built-in update checking from `GameWright/Check for Updates` with install-source aware behavior
+- Built-in update checking from `KitWright/Check for Updates` with install-source aware behavior
 - Automatic Git package refresh for Git-based installs
 - Automatic latest `.unitypackage` download and import for asset-import installs
 
@@ -363,7 +374,7 @@
 - Game View screenshots now default to the current Game View render size instead of a fixed 512x512 capture
 - Mouse click simulation now maps coordinates against the real Game View render size for more reliable UI and physics hits
 - Package version resolution now prefers the actual installed package location so Git installs report the correct version
-- Package metadata now points to the `WrightAI/gamewright-unity-mcp` repository and `0.1.4`
+- Package metadata now points to the `WrightAI/kitwright-unity-mcp` repository and `0.1.4`
 
 ## [0.1.2] - 2026-03-30
 
@@ -395,7 +406,7 @@
 ## [0.1.0] - 2026-03-12
 
 ### Added
-- Initial release of GameWright MCP for Unity (Community Edition)
+- Initial release of KitWright MCP for Unity (Community Edition)
 - MCP Server with HTTP JSON-RPC 2.0 transport
 - 60+ built-in tool functions across 15 modules (scene, asset, script, UI, camera, animation, etc.)
 - Reflection-based tool discovery with attribute annotations

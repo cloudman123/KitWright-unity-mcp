@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,9 +7,9 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class ProjectSkillsPanel : IMCPWindowPanel
     {
@@ -184,7 +184,7 @@ namespace GameWright.Editor.MCP.Server
             applyButton.style.width = 100;
             applyButton.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
             applyButton.style.color = Color.white;
-            applyButton.tooltip = "Write GameWright-managed skill files for the selected platform using the versions bundled in this package.";
+            applyButton.tooltip = "Write KitWright-managed skill files for the selected platform using the versions bundled in this package.";
             actionRow.Add(applyButton);
 
             root.Add(actionRow);
@@ -391,7 +391,7 @@ namespace GameWright.Editor.MCP.Server
                 return $"Missing  {status.Path}  (expected {status.ExpectedVersion})";
 
             if (status.Unmanaged)
-                return $"Conflict  {status.Path}  (not GameWright-managed, expected {status.ExpectedVersion})";
+                return $"Conflict  {status.Path}  (not KitWright-managed, expected {status.ExpectedVersion})";
 
             if (status.RequiresUpgrade)
                 return $"Update  {status.Path}  ({status.InstalledVersion} -> {status.ExpectedVersion})";

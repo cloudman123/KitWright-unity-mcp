@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Linq;
 using System.Reflection;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class EditorWindowInteractionFunctionsTests
     {

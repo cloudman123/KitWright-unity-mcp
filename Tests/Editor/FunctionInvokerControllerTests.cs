@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
-using GameWright.Editor.Api.Models;
-using GameWright.Editor.Tools;
+using KitWright.Editor.Api.Models;
+using KitWright.Editor.Tools;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class FunctionInvokerControllerTests
     {

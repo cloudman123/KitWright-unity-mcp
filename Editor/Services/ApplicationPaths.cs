@@ -1,9 +1,9 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.IO;
 using UnityEngine;
 
-namespace GameWright.Editor.Services
+namespace KitWright.Editor.Services
 {
     internal interface IApplicationPaths
     {

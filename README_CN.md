@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">GameWright MCP for Unity</h1>
+  <h1 align="center">KitWright MCP for Unity</h1>
   <p align="center">
     <strong>The Most Advanced MCP Server for Unity Editor</strong>
   </p>
@@ -21,25 +21,25 @@
 
 ---
 
-GameWright MCP for Unity 是一个采用 MIT 协议 of Unity 编辑器 MCP 服务器，让 Claude Code、Cursor、LM Studio、Windsurf、Codex、VS Code Copilot 等 AI 助手直接操作正在运行 of Unity 项目。
+KitWright MCP for Unity 是一个采用 MIT 协议 of Unity 编辑器 MCP 服务器，让 Claude Code、Cursor、LM Studio、Windsurf、Codex、VS Code Copilot 等 AI 助手直接操作正在运行 of Unity 项目。
 
-一句话描述你的游戏 — AI 助手通过 GameWright MCP for Unity 的 150 个内置工具自动创建场景、编写脚本、验证运行态、模拟输入、分析性能并完成编辑器自动化，把所有逻辑串联起来。
+一句话描述你的游戏 — AI 助手通过 KitWright MCP for Unity 的 150 个内置工具自动创建场景、编写脚本、验证运行态、模拟输入、分析性能并完成编辑器自动化，把所有逻辑串联起来。
 
 > *"做一个贪吃蛇游戏，10x10 网格，食物随机生成，计分 UI，游戏结束界面"*
 >
-> AI 助手通过 GameWright MCP for Unity 全程处理：创建场景、生成全部脚本、搭建 UI、配置游戏逻辑 — 只需一句话。
+> AI 助手通过 KitWright MCP for Unity 全程处理：创建场景、生成全部脚本、搭建 UI、配置游戏逻辑 — 只需一句话。
 
 <p align="center">
-  <img src="./Documentation~/demo.gif" alt="GameWright MCP for Unity — 16 秒 demo" width="100%">
+  <img src="./Documentation~/demo.gif" alt="KitWright MCP for Unity — 16 秒 demo" width="100%">
 </p>
-<p align="center"><em>16 秒 demo — AI 生成 3D 模型并端到端集成进场景。<a href="https://github.com/gamewrightdev/gamewright-unity-mcp/raw/main/Documentation~/demo.mp4">观看高清 MP4</a>。</em></p>
+<p align="center"><em>16 秒 demo — AI 生成 3D 模型并端到端集成进场景。<a href="https://github.com/kitwright/unity-mcp/raw/main/Documentation~/demo.mp4">观看高清 MP4</a>。</em></p>
 
 ## 快速开始
 
 如果你只想尽快跑起来，先做这三步：
 
 - 用 Git URL 安装 Unity 包
-- 打开 `GameWright > MCP Server`
+- 打开 `KitWright > MCP Server`
 - 使用内置的一键客户端配置
 
 ### 1. 通过 UPM 安装 (Git URL)
@@ -47,7 +47,7 @@ GameWright MCP for Unity 是一个采用 MIT 协议 of Unity 编辑器 MCP 服�
 在 Unity 中，打开 **Window → Package Manager → + → Add package from git URL**：
 
 ```
-https://github.com/gamewrightdev/gamewright-unity-mcp.git
+https://github.com/kitwright/unity-mcp.git
 ```
 
 > 💡 在 clone 或安装之前，如果你愿意顺手点一个 ⭐，会非常感谢。
@@ -59,7 +59,7 @@ https://github.com/gamewrightdev/gamewright-unity-mcp.git
 使用 OpenUPM CLI：
 
 ```bash
-openupm add com.gamewright.unity.mcp
+openupm add com.kitwright.unity.mcp
 ```
 
 或者手动在 `Packages/manifest.json` 中添加 scoped registry：
@@ -71,12 +71,12 @@ openupm add com.gamewright.unity.mcp
       "name": "OpenUPM",
       "url": "https://package.openupm.com",
       "scopes": [
-        "com.gamewright"
+        "com.kitwright"
       ]
     }
   ],
   "dependencies": {
-    "com.gamewright.unity.mcp": "0.6.0"
+    "com.kitwright.unity.mcp": "0.6.0"
   }
 }
 ```
@@ -85,25 +85,25 @@ openupm add com.gamewright.unity.mcp
 
 ### 2. 启动 MCP Server
 
-**菜单：GameWright → MCP Server** 启动服务。
+**菜单：KitWright → MCP Server** 启动服务。
 
 默认从 `http://127.0.0.1:8765/` 启动。
 
 默认传输仍然是进程内 Direct HTTP。如果你需要在 Unity 脚本重编译或进入 Play Mode 触发域重载时尽量保持 MCP 客户端连接，可以在 MCP Server 窗口启用 **Experimental Broker Mode**。它会用 Unity 自带 Mono 启动一个很小的本地 broker，客户端仍然连接同一个 `127.0.0.1` 端口，不需要改 MCP 配置。
 
-如果你想编辑 `core` 或 `full` 各自暴露哪些工具，可以打开 **GameWright → Tool Exposure**。
+如果你想编辑 `core` 或 `full` 各自暴露哪些工具，可以打开 **KitWright → Tool Exposure**。
 
-如果需要调整 `execute_code` 安全默认值或插件 debug 日志，可以打开 **GameWright → MCP Settings**。
+如果需要调整 `execute_code` 安全默认值或插件 debug 日志，可以打开 **KitWright → MCP Settings**。
 
 ### 3. 配置 AI 客户端
 
-优先使用 `GameWright > MCP Server` 窗口里的 **一键 MCP 配置**。
+优先使用 `KitWright > MCP Server` 窗口里的 **一键 MCP 配置**。
 
 选择目标客户端后点击 **Configure**，插件会直接帮你写入推荐的 MCP 配置项。
 
 对于 Claude Code、Cursor 和 Codex，也可以点击 **Configure + Skills**，同时安装默认的项目级 MCP 工作流 skill。
 
-如果你希望为当前 Unity 项目配置项目级 AI 指引，可以打开 **GameWright → Project Skills**，为支持的平台安装默认的 `unity-mcp-workflow` skill。
+如果你希望为当前 Unity 项目配置项目级 AI 指引，可以打开 **KitWright → Project Skills**，为支持的平台安装默认的 `unity-mcp-workflow` skill。
 
 如果你更想手动编辑配置文件，再参考下面这些示例：
 
@@ -113,7 +113,7 @@ openupm add com.gamewright.unity.mcp
 ```json
 {
   "mcpServers": {
-    "gamewright": {
+    "kitwright": {
       "type": "http",
       "url": "http://127.0.0.1:8765/"
     }
@@ -129,7 +129,7 @@ openupm add com.gamewright.unity.mcp
 ```json
 {
   "mcpServers": {
-    "gamewright": {
+    "kitwright": {
       "url": "http://127.0.0.1:8765/"
     }
   }
@@ -141,12 +141,12 @@ openupm add com.gamewright.unity.mcp
 <details>
 <summary>LM Studio</summary>
 
-LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM Studio 中通过 **Program > Install > Edit mcp.json** 打开当前生效的配置文件。GameWright 的一键 Configure 会打开 LM Studio 官方 `lmstudio://add_mcp` 链接，并且只在发现已有配置文件时顺手更新它，不会创建一个猜测出来的路径。
+LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM Studio 中通过 **Program > Install > Edit mcp.json** 打开当前生效的配置文件。KitWright 的一键 Configure 会打开 LM Studio 官方 `lmstudio://add_mcp` 链接，并且只在发现已有配置文件时顺手更新它，不会创建一个猜测出来的路径。
 
 ```json
 {
   "mcpServers": {
-    "gamewright": {
+    "kitwright": {
       "url": "http://127.0.0.1:8765/"
     }
   }
@@ -161,7 +161,7 @@ LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM 
 ```json
 {
   "servers": {
-    "gamewright": {
+    "kitwright": {
       "type": "http",
       "url": "http://127.0.0.1:8765/"
     }
@@ -177,7 +177,7 @@ LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM 
 ```json
 {
   "mcpServers": {
-    "gamewright": {
+    "kitwright": {
       "url": "http://127.0.0.1:8765/"
     }
   }
@@ -192,7 +192,7 @@ LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM 
 ```json
 {
   "mcpServers": {
-    "gamewright": {
+    "kitwright": {
       "type": "http",
       "url": "http://127.0.0.1:8765/"
     }
@@ -206,7 +206,7 @@ LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM 
 <summary>Codex</summary>
 
 ```toml
-[mcp_servers.gamewright]
+[mcp_servers.kitwright]
 url = "http://127.0.0.1:8765/"
 ```
 
@@ -239,12 +239,12 @@ url = "http://127.0.0.1:8765/"
 
 - 这是一个 **仅限 Editor** 的包，不会向最终构建产物添加运行时代码。
 - MCP Server 默认从 `http://127.0.0.1:8765/` 启动。
-- 本地 MCP Server 配置保存在 `UserSettings/GameWrightMcpSettings.json`。
+- 本地 MCP Server 配置保存在 `UserSettings/KitWrightMcpSettings.json`。
 - 插件默认使用 `core` MCP 工具暴露配置，减少 AI 客户端的工具噪音；`core` 当前暴露 32 个高频工具，覆盖 `execute_code`、运行模式控制、输入模拟、截图、性能检查、日志、编译检查、结构化对象定位与组件编辑、编辑器选中与 prefab stage 状态读写，以及 `execute_menu_item` 兜底入口。如果你需要完整工具集，可在 MCP Server 窗口切换到 `full`，暴露全部 150 个工具。
-- `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **GameWright > MCP Settings** 设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径，但它不是完整沙箱。客户端仍可在单次调用中用可选 `safety_checks` 参数显式覆盖。
-- 插件 debug 日志默认关闭，也可在 **GameWright > MCP Settings** 中开启；Warning 和 Error 始终会输出到 Unity Console。
+- `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **KitWright > MCP Settings** 设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径，但它不是完整沙箱。客户端仍可在单次调用中用可选 `safety_checks` 参数显式覆盖。
+- 插件 debug 日志默认关闭，也可在 **KitWright > MCP Settings** 中开启；Warning 和 Error 始终会输出到 Unity Console。
 - 所有已暴露的 MCP 工具都会直接执行，不再提供额外的 approval 开关。
-- **菜单：`GameWright > Check for Updates`** 可按安装来源自动更新：Git 安装会直接重新拉取，`.unitypackage` 导入会自动下载并导入最新版。
+- **菜单：`KitWright > Check for Updates`** 可按安装来源自动更新：Git 安装会直接重新拉取，`.unitypackage` 导入会自动下载并导入最新版。
 
 ## 能力概览
 
@@ -260,7 +260,7 @@ url = "http://127.0.0.1:8765/"
 
 - **150 个内置工具** — 覆盖场景编辑、脚本、资产、运行态控制、截图、性能分析、Prompts、Resources、结构化对象定位、SerializedObject 组件编辑、编辑器状态读写、菜单项兜底以及编辑器自动化，共 35 个模块
 - **结构化返回 + `instanceId` 链式调用** — 工具返回 `{success, message, data}` JSON 并附带稳定的 `instanceId`，agent 后续直接 `by_id` 调用，不再受重名困扰
-- **`execute_code` 的 `IGameWrightCommand` 模板** — 新模板自动 Undo（`ctx.RegisterObjectCreation/Modification/DestroyObject`）、结构化日志（`ctx.Log/LogWarning/LogError`），并把改动列表回传给 agent
+- **`execute_code` 的 `IKitWrightCommand` 模板** — 新模板自动 Undo（`ctx.RegisterObjectCreation/Modification/DestroyObject`）、结构化日志（`ctx.Log/LogWarning/LogError`），并把改动列表回传给 agent
 - **Resources 与 Prompts** — 暴露实时项目上下文、场景/选择/错误资源、资源模板，以及常见 Unity 工作流的可复用 MCP Prompt
 - **输入模拟 + 截图验证** — 在 Play Mode 中模拟键盘/鼠标，再用 Game View / Scene View 截图验证结果
 - **内置更新** — 直接在 Unity 菜单中检查更新，并根据安装方式自动重新拉取 Git 包或导入最新 `unitypackage`
@@ -272,19 +272,19 @@ url = "http://127.0.0.1:8765/"
 
 ## `execute_code`：内存 C# 执行
 
-`execute_code` 是 GameWright MCP for Unity 的核心工具。AI 写一段 C#，通过 Roslyn 优先的内存编译流程完成编译，并在编辑器线程直接执行——agent 拿到 Unity Editor 与 Runtime 的全套 API，但完全不需要往项目里写 file。
+`execute_code` 是 KitWright MCP for Unity 的核心工具。AI 写一段 C#，通过 Roslyn 优先的内存编译流程完成编译，并在编辑器线程直接执行——agent 拿到 Unity Editor 与 Runtime 的全套 API，但完全不需要往项目里写 file。
 
 - **零项目落盘编译** —— 优先使用 Unity 自带 Roslyn csc 编译，同时保留内存编译/内存执行流程。`Assets/` 下不会多出 `.cs` 文件，不会触发 domain reload，除非 snippet 自己显式改，否则项目状态不动。
 - **运行前自动就绪** —— 每次调用都会先刷新 AssetDatabase 并等待 pending compilation 完成，外部文件编辑会被自动拾取，不需要额外 `request_recompile`。
-- **自动 Undo + 结构化日志（推荐模板）** —— 实现 `IGameWrightCommand`，用注入的 `ExecutionContext`：所有新建/修改/销毁的对象都自动进 editor Undo，改动列表也会回传给 agent。
+- **自动 Undo + 结构化日志（推荐模板）** —— 实现 `IKitWrightCommand`，用注入的 `ExecutionContext`：所有新建/修改/销毁的对象都自动进 editor Undo，改动列表也会回传给 agent。
 
 ```csharp
 using UnityEngine;
 using UnityEditor;
-using GameWright.Editor.Tools.Helpers;
-using GameWright.Editor.Tools.Scripting;
+using KitWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Scripting;
 
-public class CommandScript : IGameWrightCommand
+public class CommandScript : IKitWrightCommand
 {
     public void Execute(ExecutionContext ctx)
     {
@@ -306,7 +306,7 @@ public class CommandScript : IGameWrightCommand
 
 下表基于 Coplay 官方公开 GitHub README 所描述的能力与安装方式进行对比。
 
-| 维度 | GameWright MCP for Unity | Coplay `unity-mcp` |
+| 维度 | KitWright MCP for Unity | Coplay `unity-mcp` |
 |------|-------------------------|--------------------|
 | Unity 侧架构 | Unity 包内置 HTTP MCP server | Unity bridge + 本地 Python MCP server |
 | 额外本地依赖 | `core` 工作流下只需要 Unity 包本身 | 官方 quick start 要求 Python 3.10+ 与 `uv` |
@@ -322,20 +322,20 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 
 下表对比本仓库与 Unity Technologies 官方包 `com.unity.ai.assistant`（2026-05 时点 v2.7.0-pre.2）。
 
-| 维度 | GameWright MCP for Unity | Unity AI Assistant |
+| 维度 | KitWright MCP for Unity | Unity AI Assistant |
 |------|-------------------------|--------------------|
 | 最低 Unity 版本 | 2022.3 | 6000.3（仅 Unity 6）|
 | 协议 / License | MIT 开源 | Unity Terms of Service，私有 |
 | 部署 | Editor 内嵌 HTTP MCP server，纯本地 | Editor + 原生 Relay 子进程 + Unity Cloud 后端 |
 | 计费 | 免费，用户自带 AI 客户端 | Credits 点数制（Unity Dashboard）|
 | 工具暴露 | 150 工具 / 35 模块，`core` (32) / `full` profile | ~15 个 MCP 工具（多数为 `Manage*` 大粒度族）|
-| 通用逃生口 | `execute_code` — Roslyn 优先内存编译、`IGameWrightCommand` + Undo、无沙箱（客户端层审批）| `RunCommand` — 命名空间黑名单沙箱 |
+| 通用逃生口 | `execute_code` — Roslyn 优先内存编译、`IKitWrightCommand` + Undo、无沙箱（客户端层审批）| `RunCommand` — 命名空间黑名单沙箱 |
 | Play Mode 验证 | 完整闭环：进入 / 模拟输入 / 截图 / 读日志 / 退出 | 仅进入/退出，无输入模拟 |
 | 资产生成器 | 不内建（通过 `execute_code` 组合外部 API）| 内建 Image / Mesh / PBR / Sound / Animation 五类生成器 |
 | 主要客户端模型 | BYO 任意 MCP 客户端（Claude Code / Cursor / LM Studio / Codex / VS Code）| 自带对话窗口 + ACP 经 Gateway 接 Claude/Gemini |
 | 离线可用 | ✅ 工具调用本身全本地（推理依赖所选客户端）| ❌ 推理必须连 Unity Cloud |
 
-长文对比见 [GameWright Unity MCP 与 Unity AI Assistant 详细对比](https://blog.csdn.net/m0_62670368/article/details/161039766)。
+长文对比见 [KitWright Unity MCP 与 Unity AI Assistant 详细对比](https://blog.csdn.net/m0_62670368/article/details/161039766)。
 
 ## MCP 能力结构
 
@@ -348,7 +348,7 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 
 ## 内置工具
 
-GameWright MCP for Unity 当前提供 **150 个工具函数**，覆盖 35 个模块：
+KitWright MCP for Unity 当前提供 **150 个工具函数**，覆盖 35 个模块：
 
 | 分类 | 工具 |
 |------|------|

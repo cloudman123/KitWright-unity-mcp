@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class PerformanceFunctionsTests
     {
@@ -22,7 +22,7 @@ namespace GameWright.Editor.Tests
                 Assert.Ignore("Skipping performance multi-scene test because the interactive editor has unsaved untitled scenes.");
 
             var suffix = Guid.NewGuid().ToString("N");
-            var tempFolder = "Assets/__GameWrightMcpPerformanceTests";
+            var tempFolder = "Assets/__KitWrightMcpPerformanceTests";
             var activeScenePath = tempFolder + "/Active_" + suffix + ".unity";
             var additiveScenePath = tempFolder + "/Additive_" + suffix + ".unity";
 

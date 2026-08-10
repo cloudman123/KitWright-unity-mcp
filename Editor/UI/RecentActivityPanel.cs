@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class RecentActivityPanel : IDisposable
     {
@@ -18,7 +18,7 @@ namespace GameWright.Editor.MCP.Server
         private ScrollView _scrollView;
         private Label _totalTokensLabel;
         private readonly HashSet<string> _enabled = new HashSet<string> { "Success", "Interrupted", "Error" };
-        private const string ScrollOffsetKey = "GameWright.MCP.RecentActivity.ScrollY";
+        private const string ScrollOffsetKey = "KitWright.MCP.RecentActivity.ScrollY";
         private const float BottomThreshold = 20f;
         private bool _stickToBottom = true;
 
@@ -573,7 +573,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP] Failed to open image: {ex.Message}");
+                Debug.LogError($"[KitWright MCP] Failed to open image: {ex.Message}");
             }
         }
 

@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("References")]
     internal static class ReferenceFunctions
@@ -328,7 +328,7 @@ namespace GameWright.Editor.Tools.Builtins
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright.References] Failed to scan scene component '{objectPath}' ({comp.GetType().Name}): {ex.Message}");
+                Debug.LogWarning($"[KitWright.References] Failed to scan scene component '{objectPath}' ({comp.GetType().Name}): {ex.Message}");
             }
         }
 
@@ -389,7 +389,7 @@ namespace GameWright.Editor.Tools.Builtins
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright.References] Failed to scan '{objectPath}' ({componentName}): {ex.Message}");
+                Debug.LogWarning($"[KitWright.References] Failed to scan '{objectPath}' ({componentName}): {ex.Message}");
             }
         }
 

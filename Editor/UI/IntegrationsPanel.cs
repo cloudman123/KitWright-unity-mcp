@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Linq;
@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class IntegrationsPanel : IMCPWindowPanel
     {
@@ -125,7 +125,7 @@ namespace GameWright.Editor.MCP.Server
             headerRow.Add(counter);
             container.Add(headerRow);
 
-            container.Add(MCPSection.PanelHint("Optional packages GameWright MCP detects and integrates with. Installing one unlocks its tools automatically."));
+            container.Add(MCPSection.PanelHint("Optional packages KitWright MCP detects and integrates with. Installing one unlocks its tools automatically."));
 
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;

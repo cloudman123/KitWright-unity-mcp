@@ -1,14 +1,14 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Settings;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
-    /// Exports GameWright tool definitions to MCP tool schema format.
+    /// Exports KitWright tool definitions to MCP tool schema format.
     /// </summary>
     internal class MCPToolExporter
     {
@@ -39,7 +39,7 @@ namespace GameWright.Editor.MCP.Server
                     : string.Compare(left.function.name, right.function.name, StringComparison.OrdinalIgnoreCase);
             });
 
-            PluginDebugLogger.Log($"[GameWright MCP Server] Exporting tools with profile '{MCPToolExportPolicy.ToSettingValue(profile)}'");
+            PluginDebugLogger.Log($"[KitWright MCP Server] Exporting tools with profile '{MCPToolExportPolicy.ToSettingValue(profile)}'");
 
             foreach (var tool in tools)
             {
@@ -77,7 +77,7 @@ namespace GameWright.Editor.MCP.Server
         }
 
         private Dictionary<string, object> ConvertParametersToJsonSchema(
-            GameWright.Editor.Api.Models.ToolParametersDef parameters,
+            KitWright.Editor.Api.Models.ToolParametersDef parameters,
             bool compact)
         {
             var properties = new Dictionary<string, object>();

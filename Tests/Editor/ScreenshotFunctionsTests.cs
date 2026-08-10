@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class ScreenshotFunctionsTests
     {
@@ -262,7 +262,7 @@ namespace GameWright.Editor.Tests
             var projectRoot = MakeTempProjectRoot();
 
             Assert.IsTrue(ScreenshotFunctions.TryResolveScreenshotOutputPath(
-                "Library/GameWrightMcp/Screenshots/custom.png",
+                "Library/KitWrightMcp/Screenshots/custom.png",
                 "game-view",
                 projectRoot,
                 out var path,
@@ -270,7 +270,7 @@ namespace GameWright.Editor.Tests
 
             Assert.IsNull(error);
             Assert.AreEqual(
-                Path.GetFullPath(Path.Combine(projectRoot, "Library/GameWrightMcp/Screenshots/custom.png")),
+                Path.GetFullPath(Path.Combine(projectRoot, "Library/KitWrightMcp/Screenshots/custom.png")),
                 path);
         }
 
@@ -278,7 +278,7 @@ namespace GameWright.Editor.Tests
         public void TryResolveScreenshotOutputPath_AcceptsAbsoluteProjectPath()
         {
             var projectRoot = MakeTempProjectRoot();
-            var outputPath = Path.Combine(projectRoot, "Library", "GameWrightMcp", "Screenshots", "absolute.png");
+            var outputPath = Path.Combine(projectRoot, "Library", "KitWrightMcp", "Screenshots", "absolute.png");
 
             Assert.IsTrue(ScreenshotFunctions.TryResolveScreenshotOutputPath(
                 outputPath,
@@ -330,7 +330,7 @@ namespace GameWright.Editor.Tests
             var projectRoot = MakeTempProjectRoot();
 
             Assert.IsFalse(ScreenshotFunctions.TryResolveScreenshotOutputPath(
-                "Library/GameWrightMcp/Screenshots/custom.jpg",
+                "Library/KitWrightMcp/Screenshots/custom.jpg",
                 "game-view",
                 projectRoot,
                 out var path,
@@ -421,7 +421,7 @@ namespace GameWright.Editor.Tests
 
         private static string MakeTempProjectRoot()
         {
-            return Path.Combine(Path.GetTempPath(), "GameWrightMcpScreenshotPathTests", Guid.NewGuid().ToString("N"));
+            return Path.Combine(Path.GetTempPath(), "KitWrightMcpScreenshotPathTests", Guid.NewGuid().ToString("N"));
         }
 
         private static void AssertPathInside(string path, string root)

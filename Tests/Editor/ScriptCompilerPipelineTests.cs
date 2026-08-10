@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
 using System.Text;
 using System.Threading.Tasks;
-using GameWright.Editor.Tools.Builtins;
-using GameWright.Editor.Tools.Scripting;
+using KitWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Scripting;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class ScriptCompilerPipelineTests
     {
@@ -103,14 +103,14 @@ namespace GameWright.Editor.Tests
         }
 
         [UnityTest]
-        public IEnumerator ExecuteCode_IGameWrightCommand_RunsWithRoslyn()
+        public IEnumerator ExecuteCode_IKitWrightCommand_RunsWithRoslyn()
         {
             return ExecuteCodeAndAssert(
-                @"using GameWright.Editor.Tools.Scripting;
+                @"using KitWright.Editor.Tools.Scripting;
 
-public class CommandSyntax : IGameWrightCommand
+public class CommandSyntax : IKitWrightCommand
 {
-    public void Execute(GameWright.Editor.Tools.Scripting.ExecutionContext ctx)
+    public void Execute(KitWright.Editor.Tools.Scripting.ExecutionContext ctx)
     {
         System.Collections.Generic.List<string> values = new() { ""a"", ""b"" };
         ctx.Log(""count="" + values.Count);
@@ -131,15 +131,15 @@ public class CommandSyntax : IGameWrightCommand
                         if (GetField<string>(log, "Message") == "count=2")
                             found = true;
                     }
-                    Assert.IsTrue(found, "Expected IGameWrightCommand ctx.Log output in response data.");
+                    Assert.IsTrue(found, "Expected IKitWrightCommand ctx.Log output in response data.");
                 });
         }
 
         [UnityTest]
-        public IEnumerator ExecuteCode_IGameWrightCommandMissingUsing_RunsWithRoslyn()
+        public IEnumerator ExecuteCode_IKitWrightCommandMissingUsing_RunsWithRoslyn()
         {
             return ExecuteCodeAndAssert(
-                @"public class CommandSyntaxWithoutUsing : IGameWrightCommand
+                @"public class CommandSyntaxWithoutUsing : IKitWrightCommand
 {
     public void Execute(ExecutionContext ctx)
     {
@@ -185,7 +185,7 @@ public class CommandSyntax : IGameWrightCommand
         [UnityTest]
         public IEnumerator ExecuteCode_RuntimeError_ReturnsStructuredErrorFormat()
         {
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex(@"\[GameWright\] Script runtime error: boom from test"));
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex(@"\[KitWright\] Script runtime error: boom from test"));
             return ExecuteCodeAndAssert(
                 "public class RuntimeBoom { public static string Run() { throw new System.InvalidOperationException(\"boom from test\"); } }",
                 result =>

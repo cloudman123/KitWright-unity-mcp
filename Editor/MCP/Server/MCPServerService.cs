@@ -1,21 +1,21 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using GameWright.Editor.MCP;
-using GameWright.Editor.Services;
-using GameWright.Editor.Settings;
-using GameWright.Editor.State;
-using GameWright.Editor.Threading;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Tools.Builtins;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.MCP;
+using KitWright.Editor.Services;
+using KitWright.Editor.Settings;
+using KitWright.Editor.State;
+using KitWright.Editor.Threading;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// Main MCP server service singleton.
@@ -101,7 +101,7 @@ namespace GameWright.Editor.MCP.Server
         {
             if (Application.isBatchMode)
             {
-                Debug.LogWarning("[GameWright MCP Server] Skipping server start in Unity batch mode process.");
+                Debug.LogWarning("[KitWright MCP Server] Skipping server start in Unity batch mode process.");
                 return Task.FromResult(false);
             }
 
@@ -110,19 +110,19 @@ namespace GameWright.Editor.MCP.Server
             {
                 if (_disposed)
                 {
-                    Debug.LogWarning("[GameWright MCP Server] Cannot start: service is disposed");
+                    Debug.LogWarning("[KitWright MCP Server] Cannot start: service is disposed");
                     return Task.FromResult(false);
                 }
 
                 if (_isRunning && _transport?.IsRunning == true)
                 {
-                    PluginDebugLogger.Log("[GameWright MCP Server] Server is already running");
+                    PluginDebugLogger.Log("[KitWright MCP Server] Server is already running");
                     return Task.FromResult(true);
                 }
 
                 if (_startTask != null)
                 {
-                    PluginDebugLogger.Log("[GameWright MCP Server] Server start is already in progress");
+                    PluginDebugLogger.Log("[KitWright MCP Server] Server start is already in progress");
                     return _startTask;
                 }
 
@@ -131,7 +131,7 @@ namespace GameWright.Editor.MCP.Server
 
             if (cleanupStaleState)
             {
-                Debug.LogWarning("[GameWright MCP Server] Server lifecycle state was stale; cleaning up before restart.");
+                Debug.LogWarning("[KitWright MCP Server] Server lifecycle state was stale; cleaning up before restart.");
                 StopSync();
             }
 
@@ -139,19 +139,19 @@ namespace GameWright.Editor.MCP.Server
             {
                 if (_disposed)
                 {
-                    Debug.LogWarning("[GameWright MCP Server] Cannot start: service is disposed");
+                    Debug.LogWarning("[KitWright MCP Server] Cannot start: service is disposed");
                     return Task.FromResult(false);
                 }
 
                 if (_isRunning && _transport?.IsRunning == true)
                 {
-                    PluginDebugLogger.Log("[GameWright MCP Server] Server is already running");
+                    PluginDebugLogger.Log("[KitWright MCP Server] Server is already running");
                     return Task.FromResult(true);
                 }
 
                 if (_startTask != null)
                 {
-                    PluginDebugLogger.Log("[GameWright MCP Server] Server start is already in progress");
+                    PluginDebugLogger.Log("[KitWright MCP Server] Server start is already in progress");
                     return _startTask;
                 }
 
@@ -178,9 +178,9 @@ namespace GameWright.Editor.MCP.Server
             {
                 var startupPort = ResolveStartupPort(NormalizePort(_settings.MCPServerPort));
                 var toolExposureSetting = BuildToolExposureSetting();
-                PluginDebugLogger.Log("[GameWright MCP Server] Starting server...");
+                PluginDebugLogger.Log("[KitWright MCP Server] Starting server...");
 
-                var serverName = "GameWright MCP Server - " + Application.productName;
+                var serverName = "KitWright MCP Server - " + Application.productName;
                 var projectIdentity = ProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
                 transport = CreateTransport(startupPort, projectIdentity);
                 var toolExporter = new MCPToolExporter(_settings);
@@ -239,11 +239,11 @@ namespace GameWright.Editor.MCP.Server
 
                     if (transport.IsAttachedToExistingServer)
                     {
-                        PluginDebugLogger.Log($"[GameWright] MCP Server attached to existing listener on http://127.0.0.1:{Port}/");
+                        PluginDebugLogger.Log($"[KitWright] MCP Server attached to existing listener on http://127.0.0.1:{Port}/");
                     }
                     else
                     {
-                        PluginDebugLogger.Log($"[GameWright] MCP Server started on http://127.0.0.1:{Port}/ If this tool saves you time, please consider giving it a Star on GitHub: https://github.com/gamewrightdev/gamewright-unity-mcp");
+                        PluginDebugLogger.Log($"[KitWright] MCP Server started on http://127.0.0.1:{Port}/ If this tool saves you time, please consider giving it a Star on GitHub: https://github.com/kitwright/unity-mcp");
                     }
                     MCPClientConfigAutoRewrite.Schedule(Port);
                     ExternalSyncRecoveryTracker.TryCompletePendingRecovery();
@@ -252,7 +252,7 @@ namespace GameWright.Editor.MCP.Server
                 }
 
                 CleanupServerState(transport);
-                Debug.LogError("[GameWright MCP Server] Failed to start transport");
+                Debug.LogError("[KitWright MCP Server] Failed to start transport");
                 return false;
             }
             catch (OperationCanceledException)
@@ -269,7 +269,7 @@ namespace GameWright.Editor.MCP.Server
                     CleanupServerState(transport);
                 else
                     DisposeUnassignedStartState(transport, resourceProvider);
-                Debug.LogError($"[GameWright MCP Server] Failed to start: {ex.Message}\n{ex.StackTrace}");
+                Debug.LogError($"[KitWright MCP Server] Failed to start: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }
@@ -318,11 +318,11 @@ namespace GameWright.Editor.MCP.Server
 
             try
             {
-                PluginDebugLogger.Log("[GameWright] MCP Server stopped");
+                PluginDebugLogger.Log("[KitWright] MCP Server stopped");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error stopping server: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error stopping server: {ex.Message}");
             }
         }
 
@@ -429,7 +429,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error handling request: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error handling request: {ex.Message}");
                 sendResponse(new MCPResponse
                 {
                     Id = request?.Id,
@@ -457,7 +457,7 @@ namespace GameWright.Editor.MCP.Server
 
             if ((portChanged || toolExposureChanged || transportChanged) && _isRunning)
             {
-                PluginDebugLogger.Log("[GameWright MCP Server] Server settings changed, restarting MCP transport...");
+                PluginDebugLogger.Log("[KitWright MCP Server] Server settings changed, restarting MCP transport...");
                 Port = _settings.MCPServerPort;
                 _toolExposureSetting = toolExposureSetting;
                 _transportSetting = transportSetting;
@@ -487,7 +487,7 @@ namespace GameWright.Editor.MCP.Server
                 if (offset > 0)
                 {
                     Debug.LogWarning(
-                        $"[GameWright MCP Server] Port {basePort} is in use by another process; " +
+                        $"[KitWright MCP Server] Port {basePort} is in use by another process; " +
                         $"using port {candidate} instead. Update your MCP client configuration if needed.");
                 }
                 return candidate;
@@ -522,7 +522,7 @@ namespace GameWright.Editor.MCP.Server
                 }
 
                 Debug.LogWarning(
-                    "[GameWright MCP Server] Broker mode requested but broker could not start (" +
+                    "[KitWright MCP Server] Broker mode requested but broker could not start (" +
                     (MCPBrokerProcessManager.LastError ?? "unknown error") +
                     "); falling back to in-process HTTP transport.");
             }
@@ -664,7 +664,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Failed while restarting after settings change: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Failed while restarting after settings change: {ex.Message}");
                 _restartInProgress = false;
             }
         }
@@ -780,9 +780,9 @@ namespace GameWright.Editor.MCP.Server
             InteractionLog.Add(toolName, status, summary);
 
             if (status == MCPToolCallStatus.Success || status == MCPToolCallStatus.Interrupted)
-                PluginDebugLogger.Log($"[GameWright MCP Server] Recovery completed for '{toolName}'. {summary}");
+                PluginDebugLogger.Log($"[KitWright MCP Server] Recovery completed for '{toolName}'. {summary}");
             else
-                Debug.LogWarning($"[GameWright MCP Server] Recovery detected for '{toolName}'. {summary}");
+                Debug.LogWarning($"[KitWright MCP Server] Recovery detected for '{toolName}'. {summary}");
         }
 
         internal static MCPToolCallStatus DetermineInterruptedToolRecoveryStatus(string scriptResult)

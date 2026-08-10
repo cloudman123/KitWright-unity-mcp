@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Concurrent;
@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 
-namespace GameWright.Editor.Threading
+namespace KitWright.Editor.Threading
 {
     internal interface IEditorThreadHelper : IDisposable
     {

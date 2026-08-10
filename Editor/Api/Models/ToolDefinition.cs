@@ -1,7 +1,7 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System.Collections.Generic;
 
-namespace GameWright.Editor.Api.Models
+namespace KitWright.Editor.Api.Models
 {
     internal class ToolDefinition
     {

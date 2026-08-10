@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
 using System.IO;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,11 +12,11 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class ToolSmokeTests
     {
-        private const string TempFolder = "Assets/__GameWrightCapabilityTests";
+        private const string TempFolder = "Assets/__KitWrightCapabilityTests";
 
         [Test]
         public void CapabilitySurface_IncludesSafeToolsAndExcludesRiskyGlobalTools()

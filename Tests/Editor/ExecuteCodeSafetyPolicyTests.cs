@@ -1,14 +1,14 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
 using System.Reflection;
-using GameWright.Editor.Tools.Builtins;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class ExecuteCodeSafetyPolicyTests
     {
@@ -56,35 +56,35 @@ namespace GameWright.Editor.Tests
                 out var actualClassName);
 
             Assert.AreEqual("Smoke", actualClassName);
-            Assert.IsFalse(fullCode.Contains("using GameWright.Editor.Tools.Builtins;"), fullCode);
-            Assert.IsFalse(fullCode.Contains("using GameWright.Editor.Tests;"), fullCode);
+            Assert.IsFalse(fullCode.Contains("using KitWright.Editor.Tools.Builtins;"), fullCode);
+            Assert.IsFalse(fullCode.Contains("using KitWright.Editor.Tests;"), fullCode);
         }
 
         [Test]
-        public void BuildCodeForCompilation_IGameWrightCommandMissingUsing_AddsScriptingNamespace()
+        public void BuildCodeForCompilation_IKitWrightCommandMissingUsing_AddsScriptingNamespace()
         {
             var fullCode = ScriptExecutionFunctions.BuildCodeForCompilation(
-                "public class CommandScript : IGameWrightCommand { public void Execute(ExecutionContext ctx) { ctx.ReturnValue = \"ok\"; } }",
+                "public class CommandScript : IKitWrightCommand { public void Execute(ExecutionContext ctx) { ctx.ReturnValue = \"ok\"; } }",
                 "TempScript",
                 false,
                 out var actualClassName);
 
             Assert.AreEqual("CommandScript", actualClassName);
-            StringAssert.StartsWith("using GameWright.Editor.Tools.Scripting;", fullCode);
+            StringAssert.StartsWith("using KitWright.Editor.Tools.Scripting;", fullCode);
         }
 
         [Test]
-        public void BuildCodeForCompilation_IGameWrightCommandExistingUsing_DoesNotDuplicateScriptingNamespace()
+        public void BuildCodeForCompilation_IKitWrightCommandExistingUsing_DoesNotDuplicateScriptingNamespace()
         {
             var fullCode = ScriptExecutionFunctions.BuildCodeForCompilation(
-                "using GameWright.Editor.Tools.Scripting;\npublic class CommandScript : IGameWrightCommand { public void Execute(ExecutionContext ctx) { ctx.ReturnValue = \"ok\"; } }",
+                "using KitWright.Editor.Tools.Scripting;\npublic class CommandScript : IKitWrightCommand { public void Execute(ExecutionContext ctx) { ctx.ReturnValue = \"ok\"; } }",
                 "TempScript",
                 false,
                 out _);
 
-            var first = fullCode.IndexOf("using GameWright.Editor.Tools.Scripting;", StringComparison.Ordinal);
+            var first = fullCode.IndexOf("using KitWright.Editor.Tools.Scripting;", StringComparison.Ordinal);
             Assert.GreaterOrEqual(first, 0, fullCode);
-            Assert.AreEqual(first, fullCode.LastIndexOf("using GameWright.Editor.Tools.Scripting;", StringComparison.Ordinal), fullCode);
+            Assert.AreEqual(first, fullCode.LastIndexOf("using KitWright.Editor.Tools.Scripting;", StringComparison.Ordinal), fullCode);
         }
 
         [Test]
@@ -95,15 +95,15 @@ namespace GameWright.Editor.Tests
                 new[] { typeof(string).Assembly, typeof(ScriptExecutionFunctions).Assembly },
                 projectRoot);
 
-            StringAssert.Contains("using GameWright.Editor.Tools.Builtins;", usings);
+            StringAssert.Contains("using KitWright.Editor.Tools.Builtins;", usings);
             Assert.IsFalse(usings.Contains("using System;"), usings);
-            Assert.IsFalse(usings.Contains("GameWright.Repro.Unreachable"), usings);
+            Assert.IsFalse(usings.Contains("KitWright.Repro.Unreachable"), usings);
         }
 
         [Test]
         public void ProjectScriptAssemblyPath_OnlyAllowsLibraryScriptAssembliesUnderProject()
         {
-            var projectRoot = Path.Combine(Path.GetTempPath(), "GameWright Project");
+            var projectRoot = Path.Combine(Path.GetTempPath(), "KitWright Project");
 
             Assert.IsTrue(ScriptExecutionFunctions.IsProjectScriptAssemblyPath(
                 Path.Combine(projectRoot, "Library", "ScriptAssemblies", "Game.Editor.dll"),

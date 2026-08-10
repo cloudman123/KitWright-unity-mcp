@@ -1,7 +1,7 @@
 {
-  "name": "com.gamewright.unity.mcp",
+  "name": "com.kitwright.unity.mcp",
   "version": "0.6.0",
-  "displayName": "GameWright MCP for Unity",
+  "displayName": "KitWright MCP for Unity",
   "description": "MIT-licensed MCP server for Unity Editor with execute_code, prompts/resources, input simulation, screenshots, and play mode automation.",
   "license": "MIT",
   "unity": "2022.3",
@@ -10,11 +10,11 @@
   },
   "keywords": ["mcp", "ai", "llm", "editor", "tools", "model-context-protocol"],
   "author": {
-    "name": "GameWright",
-    "email": "gamewright.dev@gmail.com"
+    "name": "KitWright",
+    "email": "contact@kitwright.dev"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gamewrightdev/gamewright-unity-mcp.git"
+    "url": "https://github.com/kitwright/unity-mcp.git"
   }
 }

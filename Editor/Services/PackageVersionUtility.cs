@@ -1,17 +1,17 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.IO;
 using System.Text.RegularExpressions;
 using UnityEditor.PackageManager;
 using UnityEngine;
 
-namespace GameWright.Editor.Services
+namespace KitWright.Editor.Services
 {
     internal static class PackageVersionUtility
     {
-        private const string PackageName = "com.gamewright.unity.mcp";
+        private const string PackageName = "com.kitwright.unity.mcp";
         private const string AssetInstallRoot = "Assets/unity-mcp";
-        private const string PackageInstallRoot = "Packages/com.gamewright.unity.mcp";
+        private const string PackageInstallRoot = "Packages/com.kitwright.unity.mcp";
         private static string _cachedVersion;
 
         public static string CurrentVersion

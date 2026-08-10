@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Reflection;
 using System.Text;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.DI;
-using GameWright.Editor.Services.UnityLogs;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.DI;
+using KitWright.Editor.Services.UnityLogs;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Visual")]
     internal static class VisualFeedbackFunctions
@@ -67,9 +67,9 @@ namespace GameWright.Editor.Tools.Builtins
         {
             switch (log_type.ToLowerInvariant())
             {
-                case "warning": Debug.LogWarning($"[GameWright] {message}"); break;
-                case "error": Debug.LogError($"[GameWright] {message}"); break;
-                default: Debug.Log($"[GameWright] {message}"); break;
+                case "warning": Debug.LogWarning($"[KitWright] {message}"); break;
+                case "error": Debug.LogError($"[KitWright] {message}"); break;
+                default: Debug.Log($"[KitWright] {message}"); break;
             }
             return $"Logged {log_type}: {message}";
         }
@@ -173,7 +173,7 @@ namespace GameWright.Editor.Tools.Builtins
                     string message = (string)messageField.GetValue(entry);
 
                     if (message != null &&
-                        message.StartsWith("[GameWright", StringComparison.Ordinal)) continue;
+                        message.StartsWith("[KitWright", StringComparison.Ordinal)) continue;
 
                     // Classify: ERROR (bits 0,1,4,8,11), WARN (bits 9,12), LOG (others)
                     const int errorMask = 1 | (1 << 1) | (1 << 4) | (1 << 8) | (1 << 11);

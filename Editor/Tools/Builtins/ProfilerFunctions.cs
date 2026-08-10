@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using System.Text;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Profiling;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Profiler")]
     internal static class ProfilerFunctions
@@ -209,7 +209,7 @@ namespace GameWright.Editor.Tools.Builtins
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[GameWright.Profiler] Failed to start recorder '{key}': {ex.Message}");
+                    Debug.LogWarning($"[KitWright.Profiler] Failed to start recorder '{key}': {ex.Message}");
                 }
             }
         }

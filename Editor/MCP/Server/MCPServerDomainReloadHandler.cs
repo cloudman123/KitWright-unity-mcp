@@ -1,12 +1,12 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEditor;
-using GameWright.Editor.DI;
+using KitWright.Editor.DI;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// Handles Unity domain reload for the MCP server.
@@ -15,9 +15,9 @@ namespace GameWright.Editor.MCP.Server
     [InitializeOnLoad]
     internal static class MCPServerDomainReloadHandler
     {
-        private const string WasRunningKey = "GameWright_MCPServer_WasRunning";
-        private const string PortKey = "GameWright_MCPServer_Port";
-        private const string RestartDeadlineTicksKey = "GameWright_MCPServer_RestartDeadlineTicks";
+        private const string WasRunningKey = "KitWright_MCPServer_WasRunning";
+        private const string PortKey = "KitWright_MCPServer_Port";
+        private const string RestartDeadlineTicksKey = "KitWright_MCPServer_RestartDeadlineTicks";
         private static readonly TimeSpan RestartRetryWindow = TimeSpan.FromMinutes(5);
         private static bool _restartScheduled;
         private static bool _restartInProgress;
@@ -42,14 +42,14 @@ namespace GameWright.Editor.MCP.Server
                 if (mcpServer?.IsRunning != true)
                     return;
 
-                PluginDebugLogger.Log("[GameWright MCP Server] Saving state before domain reload");
+                PluginDebugLogger.Log("[KitWright MCP Server] Saving state before domain reload");
                 SessionState.SetBool(WasRunningKey, true);
                 SessionState.SetInt(PortKey, mcpServer.Port);
                 SessionState.SetString(RestartDeadlineTicksKey, DateTime.UtcNow.Add(RestartRetryWindow).Ticks.ToString());
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error preparing reload state: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error preparing reload state: {ex.Message}");
             }
         }
 
@@ -70,7 +70,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error in OnBeforeReload: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error in OnBeforeReload: {ex.Message}");
             }
         }
 
@@ -91,13 +91,13 @@ namespace GameWright.Editor.MCP.Server
             {
                 if (SessionState.GetBool(WasRunningKey, false))
                 {
-                    PluginDebugLogger.Log("[GameWright MCP Server] Restarting server after domain reload");
+                    PluginDebugLogger.Log("[KitWright MCP Server] Restarting server after domain reload");
                     SchedulePostReloadRestart();
                 }
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error in OnAfterReload: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error in OnAfterReload: {ex.Message}");
             }
         }
 
@@ -128,7 +128,7 @@ namespace GameWright.Editor.MCP.Server
 
             if (RestartDeadlineExpired())
             {
-                Debug.LogError("[GameWright MCP Server] Timed out restarting after domain reload.");
+                Debug.LogError("[KitWright MCP Server] Timed out restarting after domain reload.");
                 ClearPendingRestart();
                 ClearScheduledRestart();
                 return;
@@ -162,7 +162,7 @@ namespace GameWright.Editor.MCP.Server
                     }
                     else if (RestartDeadlineExpired())
                     {
-                        Debug.LogError("[GameWright MCP Server] Failed to restart after domain reload.");
+                        Debug.LogError("[KitWright MCP Server] Failed to restart after domain reload.");
                         ClearPendingRestart();
                         ClearScheduledRestart();
                     }
@@ -175,7 +175,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error restarting after reload: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error restarting after reload: {ex.Message}");
             }
             finally
             {

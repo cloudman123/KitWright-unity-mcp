@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
-using GameWright.Editor.Tools.Builtins;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class HierarchyFunctionsTests
     {
@@ -71,12 +71,12 @@ namespace GameWright.Editor.Tests
             Scene additiveScene = default;
 
             string suffix = Guid.NewGuid().ToString("N");
-            string tempFolder = "Assets/__GameWrightMcpSceneHierarchyTests";
+            string tempFolder = "Assets/__KitWrightMcpSceneHierarchyTests";
             string activeScenePath = tempFolder + "/Active_" + suffix + ".unity";
             string additiveScenePath = tempFolder + "/Additive_" + suffix + ".unity";
-            string activeRootName = "GameWrightActiveRoot_" + suffix;
-            string additiveRootName = "GameWrightAdditiveRoot_" + suffix;
-            string inactiveRootName = "GameWrightInactiveAdditiveRoot_" + suffix;
+            string activeRootName = "KitWrightActiveRoot_" + suffix;
+            string additiveRootName = "KitWrightAdditiveRoot_" + suffix;
+            string inactiveRootName = "KitWrightInactiveAdditiveRoot_" + suffix;
 
             try
             {

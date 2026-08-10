@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -8,10 +8,10 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
     /// HTTP transport implementation for MCP using a loopback TCP listener.
@@ -132,7 +132,7 @@ namespace GameWright.Editor.MCP.Server
 
                     _ = Task.Run(() => ListenLoopAsync(_cts.Token), _cts.Token);
 
-                    PluginDebugLogger.Log($"[GameWright MCP Server] HTTP transport started on http://127.0.0.1:{_port}/");
+                    PluginDebugLogger.Log($"[KitWright MCP Server] HTTP transport started on http://127.0.0.1:{_port}/");
                     return true;
                 }
                 catch (OperationCanceledException)
@@ -146,7 +146,7 @@ namespace GameWright.Editor.MCP.Server
                     CleanupFailedStart();
                     if (attempt >= StartRetryAttempts)
                     {
-                        Debug.LogError($"[GameWright MCP Server] Failed to start HTTP transport: {ex.Message}");
+                        Debug.LogError($"[KitWright MCP Server] Failed to start HTTP transport: {ex.Message}");
                         _isRunning = false;
                         return false;
                     }
@@ -154,7 +154,7 @@ namespace GameWright.Editor.MCP.Server
                     if (attempt == 1)
                     {
                         Debug.LogWarning(
-                            $"[GameWright MCP Server] Port {_port} is temporarily in use; retrying for up to {(StartRetryAttempts * StartRetryDelayMs) / 1000f:0.#} seconds.");
+                            $"[KitWright MCP Server] Port {_port} is temporarily in use; retrying for up to {(StartRetryAttempts * StartRetryDelayMs) / 1000f:0.#} seconds.");
                     }
 
                     if (!await DelayBeforeRetryAsync(ct).ConfigureAwait(false))
@@ -163,7 +163,7 @@ namespace GameWright.Editor.MCP.Server
                 catch (Exception ex)
                 {
                     CleanupFailedStart();
-                    Debug.LogError($"[GameWright MCP Server] Failed to start HTTP transport: {ex.Message}");
+                    Debug.LogError($"[KitWright MCP Server] Failed to start HTTP transport: {ex.Message}");
                     _isRunning = false;
                     return false;
                 }
@@ -183,15 +183,15 @@ namespace GameWright.Editor.MCP.Server
                 _isRunning = false;
                 _cts?.Cancel();
                 CloseListener();
-                PluginDebugLogger.Log("[GameWright MCP Server] HTTP transport stopped");
+                PluginDebugLogger.Log("[KitWright MCP Server] HTTP transport stopped");
             }
             catch (ObjectDisposedException)
             {
-                PluginDebugLogger.Log("[GameWright MCP Server] HTTP transport was already disposed");
+                PluginDebugLogger.Log("[KitWright MCP Server] HTTP transport was already disposed");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error stopping HTTP transport: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error stopping HTTP transport: {ex.Message}");
             }
             finally
             {
@@ -280,7 +280,7 @@ namespace GameWright.Editor.MCP.Server
                         consecutiveErrors++;
                         if (consecutiveErrors >= MaxConsecutiveAcceptErrors)
                         {
-                            Debug.LogError($"[GameWright MCP Server] Listen loop aborting after {consecutiveErrors} consecutive accept errors: {ex.Message}");
+                            Debug.LogError($"[KitWright MCP Server] Listen loop aborting after {consecutiveErrors} consecutive accept errors: {ex.Message}");
                             break;
                         }
 
@@ -398,7 +398,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] Error handling request: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Error handling request: {ex.Message}");
                 if (stream != null)
                     await SendErrorResponseAsync(stream, request?.Id, -32603, $"Internal error: {ex.Message}", CancellationToken.None);
             }
@@ -511,7 +511,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright MCP Server] JSON parse error: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] JSON parse error: {ex.Message}");
                 return null;
             }
         }
@@ -525,7 +525,7 @@ namespace GameWright.Editor.MCP.Server
             }
             catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
             {
-                PluginDebugLogger.Log($"[GameWright MCP Server] Response not sent because the client disconnected: {ex.Message}");
+                PluginDebugLogger.Log($"[KitWright MCP Server] Response not sent because the client disconnected: {ex.Message}");
             }
         }
 
@@ -540,17 +540,17 @@ namespace GameWright.Editor.MCP.Server
             {
                 var body = MCPToolListChangeNotifier.BuildSseBody(SerializeResponse(mcpResponse));
                 await SendRawResponseAsync(stream, 200, "OK", "text/event-stream", body, ct);
-                PluginDebugLogger.Log("[GameWright MCP Server] Delivered tools/list_changed notification via SSE response.");
+                PluginDebugLogger.Log("[KitWright MCP Server] Delivered tools/list_changed notification via SSE response.");
             }
             catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
             {
                 MCPToolListChangeNotifier.RestorePending();
-                PluginDebugLogger.Log($"[GameWright MCP Server] SSE response not sent because the client disconnected: {ex.Message}");
+                PluginDebugLogger.Log($"[KitWright MCP Server] SSE response not sent because the client disconnected: {ex.Message}");
             }
             catch (Exception ex)
             {
                 MCPToolListChangeNotifier.RestorePending();
-                Debug.LogError($"[GameWright MCP Server] Failed to send response: {ex.Message}");
+                Debug.LogError($"[KitWright MCP Server] Failed to send response: {ex.Message}");
             }
         }
 
@@ -615,12 +615,12 @@ namespace GameWright.Editor.MCP.Server
         private Task SendWrongProjectAsync(NetworkStream stream, string path, CancellationToken ct)
         {
             Debug.LogWarning(
-                $"[GameWright MCP Server] Refused a request for project pin '{ExtractPin(path)}' — this server " +
+                $"[KitWright MCP Server] Refused a request for project pin '{ExtractPin(path)}' — this server " +
                 $"serves pin '{_projectPin}' on port {_port}. The client's MCP config points at the wrong port; " +
-                "re-run Configure in the GameWright MCP window for that project.");
+                "re-run Configure in the KitWright MCP window for that project.");
 
             return SendRawResponseAsync(stream, (int)HttpStatusCode.NotFound, "Not Found", "text/plain",
-                $"This GameWright MCP server serves project pin {_projectPin}, not {ExtractPin(path)}.", ct);
+                $"This KitWright MCP server serves project pin {_projectPin}, not {ExtractPin(path)}.", ct);
         }
 
         private Task SendAcceptedAsync(NetworkStream stream, CancellationToken ct)
@@ -639,10 +639,10 @@ namespace GameWright.Editor.MCP.Server
                 $"<circle cx='16' cy='16' r='12' fill='{color}'/></svg>";
             var favicon = "data:image/svg+xml," + Uri.EscapeDataString(faviconSvg);
             var body =
-                "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>GameWright MCP</title>" +
+                "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>KitWright MCP</title>" +
                 $"<link rel=\"icon\" href=\"{favicon}\"></head>" +
                 "<body style=\"font-family:system-ui;background:#1b1b1e;color:#ddd;text-align:center;padding-top:80px\">" +
-                $"<h1 style=\"color:{color}\">GameWright MCP: {status}</h1>" +
+                $"<h1 style=\"color:{color}\">KitWright MCP: {status}</h1>" +
                 $"<p>Listening on http://127.0.0.1:{_port}/</p>" +
                 "</body></html>";
             return SendRawResponseAsync(stream, 200, "OK", "text/html; charset=utf-8", body, ct);
@@ -749,7 +749,7 @@ namespace GameWright.Editor.MCP.Server
             try
             {
                 orphan.Stop();
-                Debug.LogWarning("[GameWright MCP Server] Closed an orphaned listener left behind by a hot-patched transport.");
+                Debug.LogWarning("[KitWright MCP Server] Closed an orphaned listener left behind by a hot-patched transport.");
             }
             catch { }
         }

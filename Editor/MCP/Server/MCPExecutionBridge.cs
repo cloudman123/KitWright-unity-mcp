@@ -1,21 +1,21 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using GameWright.Editor.Settings;
-using GameWright.Editor.State;
-using GameWright.Editor.Threading;
-using GameWright.Editor.Tools;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Settings;
+using KitWright.Editor.State;
+using KitWright.Editor.Threading;
+using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Helpers;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
-    /// Bridges MCP tool calls to GameWright's FunctionInvokerController.
+    /// Bridges MCP tool calls to KitWright's FunctionInvokerController.
     /// Handles thread marshalling and approval workflow.
     /// </summary>
     internal class MCPExecutionBridge
@@ -85,10 +85,10 @@ namespace GameWright.Editor.MCP.Server
                     }
 
                     DomainReloadHandler.ResetResumeCounter();
-                    _stateController.SetState(GameWrightState.ExecutingFunction);
+                    _stateController.SetState(KitWrightState.ExecutingFunction);
                     DomainReloadHandler.SavePendingFunction(functionCall);
 
-                    PluginDebugLogger.Log($"[GameWright MCP Server] Executing tool: {toolName}");
+                    PluginDebugLogger.Log($"[KitWright MCP Server] Executing tool: {toolName}");
                     var result = await _invoker.InvokeAsync(functionCall);
                     DomainReloadHandler.CompletePendingFunction(_stateController);
 
@@ -104,7 +104,7 @@ namespace GameWright.Editor.MCP.Server
                     _stateController.ClearState();
                     var exError = ToolResultFormatter.Error("TOOL_EXCEPTION",
                         new { tool = toolName, message = ex.Message });
-                    Debug.LogError($"[GameWright MCP Server] Error executing tool '{toolName}': {ex.Message}\n{ex.StackTrace}");
+                    Debug.LogError($"[KitWright MCP Server] Error executing tool '{toolName}': {ex.Message}\n{ex.StackTrace}");
                     _interactionLog?.Add(toolName, MCPToolCallStatus.Error, exError);
                     return exError;
                 }

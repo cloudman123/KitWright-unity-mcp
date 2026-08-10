@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections;
@@ -11,17 +11,17 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace GameWright.Editor
+namespace KitWright.Editor
 {
     public sealed class HttpMCPTransportLifecycleTests
     {
-        private const string ServerName = "GameWright MCP Server - Test Project";
+        private const string ServerName = "KitWright MCP Server - Test Project";
         private const string ProjectIdentityA = "project-a";
 
         // A full 64-hex identity; only the first ProjectIdentity.PinLength chars form the pin.
@@ -343,7 +343,7 @@ namespace GameWright.Editor
                         ["name"] = ServerName,
                         ["version"] = "test"
                     },
-                    ["gamewright"] = new Dictionary<string, object>
+                    ["kitwright"] = new Dictionary<string, object>
                     {
                         ["projectIdentity"] = projectIdentity,
                         ["projectIdentityVersion"] = ProjectIdentity.IdentityVersion

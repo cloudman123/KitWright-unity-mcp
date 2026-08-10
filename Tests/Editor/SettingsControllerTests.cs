@@ -1,12 +1,12 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
-using GameWright.Editor.Services;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Services;
+using KitWright.Editor.Settings;
 using NUnit.Framework;
 
-namespace GameWright.Editor
+namespace KitWright.Editor
 {
     public sealed class SettingsControllerTests
     {
@@ -52,7 +52,7 @@ namespace GameWright.Editor
                 var settingsDirectory = Path.Combine(projectPath, "UserSettings");
                 Directory.CreateDirectory(settingsDirectory);
                 File.WriteAllText(
-                    Path.Combine(settingsDirectory, "GameWrightMcpSettings.json"),
+                    Path.Combine(settingsDirectory, "KitWrightMcpSettings.json"),
                     "{\"enabled\":false,\"port\":8765,\"toolExportProfile\":\"core\"}");
 
                 var controller = new SettingsController(new TestApplicationPaths(projectPath));
@@ -194,12 +194,12 @@ namespace GameWright.Editor
 
         private static string ReadSettingsJson(string projectPath)
         {
-            return File.ReadAllText(Path.Combine(projectPath, "UserSettings", "GameWrightMcpSettings.json"));
+            return File.ReadAllText(Path.Combine(projectPath, "UserSettings", "KitWrightMcpSettings.json"));
         }
 
         private static string CreateTempProjectPath()
         {
-            var path = Path.Combine(Path.GetTempPath(), "GameWrightSettingsTests_" + Guid.NewGuid().ToString("N"));
+            var path = Path.Combine(Path.GetTempPath(), "KitWrightSettingsTests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(path);
             return path;
         }
@@ -216,7 +216,7 @@ namespace GameWright.Editor
             {
                 ProjectPath = projectPath;
                 AssetsPath = Path.Combine(projectPath, "Assets");
-                TempPath = Path.Combine(projectPath, "Temp", "GameWright");
+                TempPath = Path.Combine(projectPath, "Temp", "KitWright");
                 DataPath = AssetsPath;
                 PersistentDataPath = Path.Combine(projectPath, "PersistentData");
             }

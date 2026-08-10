@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,10 +7,10 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using GameWright.Editor.Settings;
-using GameWright.Editor.Tools;
+using KitWright.Editor.Settings;
+using KitWright.Editor.Tools;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class ToolExposureEditorPanel : IMCPWindowPanel
     {

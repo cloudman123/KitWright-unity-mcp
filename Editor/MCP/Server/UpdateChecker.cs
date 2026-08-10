@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -7,26 +7,26 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using GameWright.Editor.Services;
+using KitWright.Editor.Services;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityPackageInfo = UnityEditor.PackageManager.PackageInfo;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal static class UpdateChecker
     {
-        private const string PackageName = "com.gamewright.unity.mcp";
-        private const string PackageRoot = "Packages/com.gamewright.unity.mcp";
+        private const string PackageName = "com.kitwright.unity.mcp";
+        private const string PackageRoot = "Packages/com.kitwright.unity.mcp";
         private const string DefaultAssetRoot = "Assets/unity-mcp";
-        private const string GitRepositoryUrl = "https://github.com/gamewrightdev/gamewright-unity-mcp.git";
-        private const string LatestReleaseApiUrl = "https://api.github.com/repos/gamewrightdev/gamewright-unity-mcp/releases/latest";
-        private const string DefaultReleasesUrl = "https://github.com/gamewrightdev/gamewright-unity-mcp/releases";
+        private const string GitRepositoryUrl = "https://github.com/kitwright/unity-mcp.git";
+        private const string LatestReleaseApiUrl = "https://api.github.com/repos/kitwright/unity-mcp/releases/latest";
+        private const string DefaultReleasesUrl = "https://github.com/kitwright/unity-mcp/releases";
         private const string ScriptRootSuffix = "/Editor/MCP/Server/MCPServerService.cs";
         private const double AutoCheckIntervalHours = 6d;
-        private const string PrefsPrefix = "GameWright.MCP.UpdateChecker";
+        private const string PrefsPrefix = "KitWright.MCP.UpdateChecker";
 
         private static bool _stateLoaded;
         private static bool _isChecking;
@@ -95,7 +95,7 @@ namespace GameWright.Editor.MCP.Server
             NotifyStateChanged();
 
             if (interactive)
-                EditorUtility.DisplayProgressBar("GameWright MCP", "Checking for updates...", 0.4f);
+                EditorUtility.DisplayProgressBar("KitWright MCP", "Checking for updates...", 0.4f);
 
             try
             {
@@ -112,7 +112,7 @@ namespace GameWright.Editor.MCP.Server
                     if (interactive)
                     {
                         EditorUtility.DisplayDialog(
-                            "GameWright MCP",
+                            "KitWright MCP",
                             "Failed to fetch the latest release information from GitHub.",
                             "OK");
                     }
@@ -171,7 +171,7 @@ namespace GameWright.Editor.MCP.Server
                         return;
 
                     if (EditorUtility.DisplayDialog(
-                            "GameWright MCP",
+                            "KitWright MCP",
                             $"You are up to date.\n\nCurrent version: {currentVersion}\nLatest version: {latestVersion}\nInstall source: {installContext.Description}",
                             "View Release",
                             "Close"))
@@ -190,7 +190,7 @@ namespace GameWright.Editor.MCP.Server
                 if (interactive)
                 {
                     EditorUtility.DisplayDialog(
-                        "GameWright MCP",
+                        "KitWright MCP",
                         $"Current version: {currentVersion}\nLatest published release: {latestVersion}\n\nYour local package version appears to be newer than the latest GitHub release.",
                         "OK");
                 }
@@ -204,7 +204,7 @@ namespace GameWright.Editor.MCP.Server
                 if (interactive)
                 {
                     EditorUtility.DisplayDialog(
-                        "GameWright MCP",
+                        "KitWright MCP",
                         $"Failed to check for updates:\n{ex.Message}",
                         "OK");
                 }
@@ -238,7 +238,7 @@ namespace GameWright.Editor.MCP.Server
                 _statusMessage = "Preparing update...";
                 _progress = 0.1f;
                 NotifyStateChanged();
-                EditorUtility.DisplayProgressBar("GameWright MCP", "Preparing update...", _progress);
+                EditorUtility.DisplayProgressBar("KitWright MCP", "Preparing update...", _progress);
 
                 latestRelease = await FetchLatestReleaseAsync();
                 if (latestRelease == null)
@@ -287,9 +287,9 @@ namespace GameWright.Editor.MCP.Server
                 _updateStarted = false;
                 _statusMessage = $"Update failed: {ex.Message}";
                 _progress = 0f;
-                Debug.LogError($"[GameWright MCP] Update failed: {ex}");
+                Debug.LogError($"[KitWright MCP] Update failed: {ex}");
                 NotifyStateChanged();
-                EditorUtility.DisplayDialog("GameWright MCP", $"Update failed:\n{ex.Message}", "OK");
+                EditorUtility.DisplayDialog("KitWright MCP", $"Update failed:\n{ex.Message}", "OK");
             }
             finally
             {
@@ -321,7 +321,7 @@ namespace GameWright.Editor.MCP.Server
             EditorUtility.ClearProgressBar();
             SetUpdateProgress("Unity Package Manager update started. Unity may recompile and reload.", 1f);
             EditorUtility.DisplayDialog(
-                "GameWright MCP",
+                "KitWright MCP",
                 $"Git update started.\n\nSource: {gitReference}\n\nUnity Package Manager will re-fetch the package. The editor may recompile and reload during the update.",
                 "OK");
         }
@@ -337,11 +337,11 @@ namespace GameWright.Editor.MCP.Server
                 throw new InvalidOperationException("The latest release does not contain a downloadable .unitypackage asset.");
             }
 
-            var tempDirectory = Path.Combine(Path.GetTempPath(), "GameWrightMCP");
+            var tempDirectory = Path.Combine(Path.GetTempPath(), "KitWrightMCP");
             Directory.CreateDirectory(tempDirectory);
 
             var safeFileName = SanitizeFileName(string.IsNullOrEmpty(primaryAsset.name)
-                ? $"GameWrightMCP-v{NormalizeVersion(latestVersion)}.unitypackage"
+                ? $"KitWrightMCP-v{NormalizeVersion(latestVersion)}.unitypackage"
                 : primaryAsset.name);
             var tempPackagePath = Path.Combine(tempDirectory, safeFileName);
             var filteredPackagePath = Path.Combine(
@@ -357,7 +357,7 @@ namespace GameWright.Editor.MCP.Server
                     tempPackagePath,
                     filteredPackagePath,
                     installContext.RootPath);
-                Debug.Log($"[GameWright MCP] {filterSummary}");
+                Debug.Log($"[KitWright MCP] {filterSummary}");
 
                 SetUpdateProgress($"Importing {safeFileName}...", 0.95f);
                 EditorUtility.ClearProgressBar();
@@ -552,7 +552,7 @@ namespace GameWright.Editor.MCP.Server
             using (var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET))
             {
                 request.timeout = 60;
-                request.SetRequestHeader("User-Agent", "GameWright-Unity-MCP");
+                request.SetRequestHeader("User-Agent", "KitWright-Unity-MCP");
                 request.downloadHandler = new DownloadHandlerFile(destinationPath);
 
                 var operation = request.SendWebRequest();
@@ -580,7 +580,7 @@ namespace GameWright.Editor.MCP.Server
             using (var request = UnityWebRequest.Get(LatestReleaseApiUrl))
             {
                 request.timeout = 15;
-                request.SetRequestHeader("User-Agent", "GameWright-Unity-MCP");
+                request.SetRequestHeader("User-Agent", "KitWright-Unity-MCP");
                 request.SetRequestHeader("Accept", "application/vnd.github+json");
 
                 var operation = request.SendWebRequest();
@@ -589,7 +589,7 @@ namespace GameWright.Editor.MCP.Server
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Debug.LogWarning($"[GameWright MCP] Update check failed: {request.error}");
+                    Debug.LogWarning($"[KitWright MCP] Update check failed: {request.error}");
                     return null;
                 }
 
@@ -602,7 +602,7 @@ namespace GameWright.Editor.MCP.Server
             _statusMessage = message;
             _progress = Mathf.Clamp01(progress);
             NotifyStateChanged();
-            EditorUtility.DisplayProgressBar("GameWright MCP", message, _progress);
+            EditorUtility.DisplayProgressBar("KitWright MCP", message, _progress);
         }
 
         private static void EnsureStateLoaded()
@@ -800,7 +800,7 @@ namespace GameWright.Editor.MCP.Server
         private static string SanitizeFileName(string fileName)
         {
             if (string.IsNullOrEmpty(fileName))
-                return "GameWrightMCP.unitypackage";
+                return "KitWrightMCP.unitypackage";
 
             var sanitized = fileName;
             var invalidCharacters = Path.GetInvalidFileNameChars();

@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Threading.Tasks;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools
+namespace KitWright.Editor.Tools
 {
     /// <summary>
     /// Invokes tool functions via reflection.
@@ -46,7 +46,7 @@ namespace GameWright.Editor.Tools
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[GameWright] Manual tool '{functionCall.FunctionName}' failed: {ex.Message}");
+                    Debug.LogError($"[KitWright] Manual tool '{functionCall.FunctionName}' failed: {ex.Message}");
                     return ToolResultFormatter.Error("MANUAL_TOOL_FAILED",
                         new { tool = functionCall.FunctionName, message = ex.Message });
                 }
@@ -71,13 +71,13 @@ namespace GameWright.Editor.Tools
             catch (TargetInvocationException ex)
             {
                 var inner = ex.InnerException ?? ex;
-                Debug.LogError($"[GameWright] Function '{functionCall.FunctionName}' failed: {inner.Message}\n{inner.StackTrace}");
+                Debug.LogError($"[KitWright] Function '{functionCall.FunctionName}' failed: {inner.Message}\n{inner.StackTrace}");
                 return ToolResultFormatter.Error("FUNCTION_FAILED",
                     new { function = functionCall.FunctionName, message = inner.Message });
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Function invoke error for '{functionCall.FunctionName}': {ex.Message}");
+                Debug.LogError($"[KitWright] Function invoke error for '{functionCall.FunctionName}': {ex.Message}");
                 return ToolResultFormatter.Error("FUNCTION_INVOKE_ERROR",
                     new { function = functionCall.FunctionName, message = ex.Message });
             }
@@ -114,7 +114,7 @@ namespace GameWright.Editor.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright] Failed to serialize tool result: {ex.Message}");
+                Debug.LogWarning($"[KitWright] Failed to serialize tool result: {ex.Message}");
                 return JsonConvert.SerializeObject(Response.Success(value.ToString() ?? "OK"));
             }
         }

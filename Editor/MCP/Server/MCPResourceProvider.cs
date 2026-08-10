@@ -1,16 +1,16 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using GameWright.Editor.Services;
+using KitWright.Editor.Services;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal class MCPResourceProvider : IDisposable
     {
@@ -216,7 +216,7 @@ namespace GameWright.Editor.MCP.Server
         private string BuildProjectContext()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("GameWright MCP Project Context");
+            sb.AppendLine("KitWright MCP Project Context");
             sb.AppendLine("- Project: " + _projectName);
             sb.AppendLine("- Unity: " + Application.unityVersion);
             sb.AppendLine("- Package Version: " + PackageVersionUtility.CurrentVersion);

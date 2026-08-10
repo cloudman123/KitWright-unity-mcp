@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
 using System;
 using System.Globalization;
 using System.Linq;
@@ -12,7 +12,7 @@ using System.Reflection;
 using UnityEngine.Rendering;
 #endif
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Volume")]
     internal static class VolumeFunctions
@@ -21,7 +21,7 @@ namespace GameWright.Editor.Tools.Builtins
             "This project has no Universal Render Pipeline package. Post-processing Volumes require URP. " +
             "Install 'com.unity.render-pipelines.universal' and assign a URP asset in Project Settings > Graphics, then retry.";
 
-#if !GAMEWRIGHT_URP
+#if !KITWRIGHT_URP
         private static object UrpRequired() => Response.Error("URP_REQUIRED", new { hint = UrpRequiredHint });
 #endif
 
@@ -31,7 +31,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Global volume (affects whole scene) vs local box", Required = false)] bool global = true,
             [ToolParam("Priority (higher wins when volumes overlap)", Required = false)] float priority = 0f)
         {
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
             var go = new GameObject(name);
             Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
             var volume = Undo.AddComponent<Volume>(go);
@@ -66,7 +66,7 @@ namespace GameWright.Editor.Tools.Builtins
         public static object GetVolumeInfo(
             [ToolParam("Volume GameObject name, path, or instance ID")] string target)
         {
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
             if (!TryResolveProfile(target, out var profile, out var err)) return err;
             var overrides = profile.components.Select(c => new
             {
@@ -84,7 +84,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Volume GameObject name, path, or instance ID")] string target,
             [ToolParam("Effect type name (e.g. 'Bloom', 'Tonemapping')")] string override_type)
         {
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
             if (!TryResolveProfile(target, out var profile, out var err)) return err;
 
             var type = ResolveOverrideType(override_type);
@@ -108,7 +108,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Volume GameObject name, path, or instance ID")] string target,
             [ToolParam("Effect type name (e.g. 'Bloom')")] string override_type)
         {
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
             if (!TryResolveProfile(target, out var profile, out var err)) return err;
 
             var type = ResolveOverrideType(override_type);
@@ -133,7 +133,7 @@ namespace GameWright.Editor.Tools.Builtins
             [ToolParam("Parameter field name (e.g. 'intensity', 'threshold')")] string property,
             [ToolParam("Value: number, true/false, enum name, or 'r,g,b,a'")] string value)
         {
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
             if (!TryResolveProfile(target, out var profile, out var err)) return err;
 
             var type = ResolveOverrideType(override_type);
@@ -171,7 +171,7 @@ namespace GameWright.Editor.Tools.Builtins
 #endif
         }
 
-#if GAMEWRIGHT_URP
+#if KITWRIGHT_URP
         internal static Type ResolveOverrideType(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return null;

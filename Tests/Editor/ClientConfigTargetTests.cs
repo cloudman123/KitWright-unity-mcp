@@ -1,12 +1,12 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.IO;
 using System.Linq;
-using GameWright.Editor.MCP.Server;
+using KitWright.Editor.MCP.Server;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public class ClientConfigTargetTests
     {

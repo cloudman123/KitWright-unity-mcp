@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Helpers
+namespace KitWright.Editor.Tools.Helpers
 {
     /// <summary>
     /// Standardized response wrapper for MCP tool returns. Tools that return
@@ -49,7 +49,7 @@ namespace GameWright.Editor.Tools.Helpers
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright] Failed to serialize tool error response: {ex.Message}");
+                Debug.LogWarning($"[KitWright] Failed to serialize tool error response: {ex.Message}");
                 return JsonConvert.SerializeObject(Response.Error(code, new { serialization_error = ex.Message }));
             }
         }

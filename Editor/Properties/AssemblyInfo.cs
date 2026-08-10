@@ -1,7 +1,7 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("GameWright.Editor.Tests")]
-[assembly: InternalsVisibleTo("GameWright.Editor.InputSystem")]
-[assembly: InternalsVisibleTo("GameWright.Editor.Pro")]
+[assembly: InternalsVisibleTo("KitWright.Editor.Tests")]
+[assembly: InternalsVisibleTo("KitWright.Editor.InputSystem")]
+[assembly: InternalsVisibleTo("KitWright.Editor.Pro")]

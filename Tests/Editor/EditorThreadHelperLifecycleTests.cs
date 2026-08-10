@@ -1,10 +1,10 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System.Threading.Tasks;
-using GameWright.Editor.Threading;
+using KitWright.Editor.Threading;
 using NUnit.Framework;
 
-namespace GameWright.Editor
+namespace KitWright.Editor
 {
     public sealed class EditorThreadHelperLifecycleTests
     {

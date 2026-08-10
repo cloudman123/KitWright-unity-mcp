@@ -1,12 +1,12 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Settings;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class PluginSettingsPanel : IMCPWindowPanel
     {
@@ -37,7 +37,7 @@ namespace GameWright.Editor.MCP.Server
             _container.Clear();
 
             _container.Add(MCPSection.PanelTitle("MCP Settings"));
-            _container.Add(MCPSection.PanelHint("Project-level settings for the GameWright MCP for Unity plugin. Safety checks and debug logging are stored per project."));
+            _container.Add(MCPSection.PanelHint("Project-level settings for the KitWright MCP for Unity plugin. Safety checks and debug logging are stored per project."));
 
             var (settingsSection, settingsFoldout) = MCPSection.Create(
                 "Settings", "Settings", labelColor: new Color(0.55f, 0.7f, 0.9f));

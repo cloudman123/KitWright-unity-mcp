@@ -1,22 +1,22 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Threading.Tasks;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.DI;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Services;
-using GameWright.Editor.State;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.DI;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Services;
+using KitWright.Editor.State;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Compilation")]
     internal static class CompilationFunctions
     {
-        private const string ExternalSyncPendingKey = "GameWright_ExternalSync_Pending";
-        private const string ExternalSyncStartedAtKey = "GameWright_ExternalSync_StartedAt";
+        private const string ExternalSyncPendingKey = "KitWright_ExternalSync_Pending";
+        private const string ExternalSyncStartedAtKey = "KitWright_ExternalSync_StartedAt";
         private const double ExternalSyncRecoveryMaxAgeSeconds = 120;
 
         [Description("Force Unity to refresh and wait until script compilation is complete without blocking the editor thread. " +

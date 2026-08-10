@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
-using GameWright.Editor.MCP.Server;
-using GameWright.Editor.Settings;
-using GameWright.Editor.Services.UnityLogs;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Settings;
+using KitWright.Editor.Services.UnityLogs;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.DI
+namespace KitWright.Editor.DI
 {
     [InitializeOnLoad]
     internal static class RootScopeServices
@@ -20,7 +20,7 @@ namespace GameWright.Editor.DI
         {
             if (Application.isBatchMode)
             {
-                PluginDebugLogger.Log("[GameWright] Root services skipped in Unity batch mode process.");
+                PluginDebugLogger.Log("[KitWright] Root services skipped in Unity batch mode process.");
                 return;
             }
 
@@ -35,7 +35,7 @@ namespace GameWright.Editor.DI
                 var services = new ServiceCollection();
                 services.RegisterServices();
                 _serviceProvider = services.BuildServiceProvider();
-                PluginDebugLogger.Log("[GameWright] Root services initialized.");
+                PluginDebugLogger.Log("[KitWright] Root services initialized.");
 
                 var unityLogsRepository =
                     _serviceProvider.GetService(typeof(UnityLogsRepository)) as UnityLogsRepository;
@@ -57,7 +57,7 @@ namespace GameWright.Editor.DI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Failed to initialize root services: {ex}");
+                Debug.LogError($"[KitWright] Failed to initialize root services: {ex}");
             }
         }
 
@@ -71,7 +71,7 @@ namespace GameWright.Editor.DI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Error disposing root services: {ex}");
+                Debug.LogError($"[KitWright] Error disposing root services: {ex}");
             }
         }
     }

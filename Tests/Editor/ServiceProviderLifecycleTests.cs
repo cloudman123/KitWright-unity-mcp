@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
-using GameWright.Editor.DI;
+using KitWright.Editor.DI;
 using NUnit.Framework;
 
-namespace GameWright.Editor
+namespace KitWright.Editor
 {
     public sealed class ServiceProviderLifecycleTests
     {

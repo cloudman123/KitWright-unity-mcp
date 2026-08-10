@@ -133,4 +133,4 @@ profiler_start → profiler_status(9个recorder,运行中) → get_frame_timing(
 
 #### MCP 工具发现的一个坑点
 
-有一个操作层面的坑点值得记录下来,方便本地测试这个 PR 的人:新增一个 `[ToolProvider]` 类之后,即便 `request_recompile` 确认 0 编译错误、经历了多次域重载,运行中的 MCP server 的工具清单也**没有**自动被已连接 the AI 客户端拿到。需要两步:①在 GameWright 的 **MCP Server → Tool Exposure** 面板里,手动勾选新工具并点 **Save**(面板"`full` 默认暴露所有已注册工具"这条行为在这里没生效,因为暴露列表之前某个时间点已经被自定义过、偏离了默认状态)——这会重启正在运行 the server;②AI 客户端需要重新连接(这次是重启了 Claude Code 会话)才能对着修好的 server 重新做一次 `tools/list` 握手。这不是这个 PR 代码本身的 bug,但确实是"为什么我的 AI 助手看不到新工具"的一个真实陷阱,值得写进文档,给之后扩展这个包的人提个醒。
+有一个操作层面的坑点值得记录下来,方便本地测试这个 PR 的人:新增一个 `[ToolProvider]` 类之后,即便 `request_recompile` 确认 0 编译错误、经历了多次域重载,运行中的 MCP server 的工具清单也**没有**自动被已连接 the AI 客户端拿到。需要两步:①在 KitWright 的 **MCP Server → Tool Exposure** 面板里,手动勾选新工具并点 **Save**(面板"`full` 默认暴露所有已注册工具"这条行为在这里没生效,因为暴露列表之前某个时间点已经被自定义过、偏离了默认状态)——这会重启正在运行 the server;②AI 客户端需要重新连接(这次是重启了 Claude Code 会话)才能对着修好的 server 重新做一次 `tools/list` 握手。这不是这个 PR 代码本身的 bug,但确实是"为什么我的 AI 助手看不到新工具"的一个真实陷阱,值得写进文档,给之后扩展这个包的人提个醒。

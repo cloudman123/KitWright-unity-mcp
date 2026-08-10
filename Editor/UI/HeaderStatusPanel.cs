@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
-using GameWright.Editor.Services;
-using GameWright.Editor.Settings;
+using KitWright.Editor.Services;
+using KitWright.Editor.Settings;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace GameWright.Editor.MCP.Server
+namespace KitWright.Editor.MCP.Server
 {
     internal sealed class HeaderStatusPanel
     {
@@ -39,7 +39,7 @@ namespace GameWright.Editor.MCP.Server
             }
             else
             {
-                var title = new Label("GameWright");
+                var title = new Label("KitWright");
                 title.style.fontSize = 18;
                 title.style.unityFontStyleAndWeight = FontStyle.Bold;
                 title.style.color = Color.white;

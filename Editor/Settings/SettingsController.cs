@@ -1,13 +1,13 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using GameWright.Editor.Services;
+using KitWright.Editor.Services;
 using UnityEngine;
 
-namespace GameWright.Editor.Settings
+namespace KitWright.Editor.Settings
 {
     internal interface ISettingsController
     {
@@ -36,7 +36,7 @@ namespace GameWright.Editor.Settings
     internal class SettingsController : ISettingsController
     {
         private const string SettingsDirectoryName = "UserSettings";
-        private const string SettingsFileName = "GameWrightMcpSettings.json";
+        private const string SettingsFileName = "KitWrightMcpSettings.json";
         private const int DefaultPort = 8765;
         private const string DefaultToolExportProfile = "core";
         private const string DefaultSelectedConfigTarget = "Claude Code";
@@ -370,7 +370,7 @@ namespace GameWright.Editor.Settings
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameWright] Failed to read MCP settings file '{_settingsPath}': {ex.Message}");
+                Debug.LogWarning($"[KitWright] Failed to read MCP settings file '{_settingsPath}': {ex.Message}");
             }
 
             var defaults = CreateDefaultSettings();
@@ -391,7 +391,7 @@ namespace GameWright.Editor.Settings
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameWright] Failed to write MCP settings file '{_settingsPath}': {ex.Message}");
+                Debug.LogError($"[KitWright] Failed to write MCP settings file '{_settingsPath}': {ex.Message}");
             }
         }
 

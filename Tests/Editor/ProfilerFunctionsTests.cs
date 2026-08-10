@@ -1,14 +1,14 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
 using System.Linq;
-using GameWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Profiling;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class ProfilerFunctionsTests
     {
@@ -25,7 +25,7 @@ namespace GameWright.Editor.Tests
         public void ProfilerTools_ReturnUsableSessionTimingAndMemoryResults()
         {
             var originalProfilerEnabled = Profiler.enabled;
-            var objectName = "GameWrightProfilerObject_" + Guid.NewGuid().ToString("N");
+            var objectName = "KitWrightProfilerObject_" + Guid.NewGuid().ToString("N");
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = objectName;
 
@@ -67,7 +67,7 @@ namespace GameWright.Editor.Tests
         [Test]
         public void MemorySnapshotTools_CreateListCompareAndCleanUpJsonSnapshots()
         {
-            var prefix = "GameWrightProfilerSnapshot_" + Guid.NewGuid().ToString("N");
+            var prefix = "KitWrightProfilerSnapshot_" + Guid.NewGuid().ToString("N");
             var snapshotDir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "MemoryCaptures/mcp-snapshots"));
 
             try

@@ -1,4 +1,4 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using System.Reflection;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
-namespace GameWright.Editor.Interop
+namespace KitWright.Editor.Interop
 {
     /// <summary>
     /// Reflection-only integration with SingularityGroup Hot Reload.

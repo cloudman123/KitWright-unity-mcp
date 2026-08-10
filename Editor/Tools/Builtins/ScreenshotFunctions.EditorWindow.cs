@@ -1,15 +1,15 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     internal static partial class ScreenshotFunctions
     {
@@ -179,8 +179,8 @@ namespace GameWright.Editor.Tools.Builtins
 
         private static int ResolveEditorWindowScreenshotSize()
         {
-            var settings = GameWright.Editor.DI.RootScopeServices.Services?.GetService(typeof(GameWright.Editor.Settings.ISettingsController))
-                as GameWright.Editor.Settings.ISettingsController;
+            var settings = KitWright.Editor.DI.RootScopeServices.Services?.GetService(typeof(KitWright.Editor.Settings.ISettingsController))
+                as KitWright.Editor.Settings.ISettingsController;
             return settings?.EditorWindowScreenshotSize ?? 512;
         }
     }

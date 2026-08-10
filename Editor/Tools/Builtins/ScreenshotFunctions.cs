@@ -1,19 +1,19 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.IO;
 
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using Newtonsoft.Json;
 using UnityEngine;
 
-namespace GameWright.Editor.Tools.Builtins
+namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Screenshot")]
     internal static partial class ScreenshotFunctions
     {
         private const string ImagePrefix = "data:image/png;base64,";
         private const int MultiviewMaxAngles = 36;
-        private const string ScreenshotDirRelative = "Library/GameWrightMcp/Screenshots";
+        private const string ScreenshotDirRelative = "Library/KitWrightMcp/Screenshots";
 
         private const string SaveToFileParamDescription =
             "Save the PNG to disk and return its file path instead of base64 image data. " +

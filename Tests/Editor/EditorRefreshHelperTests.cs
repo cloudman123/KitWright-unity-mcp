@@ -1,11 +1,11 @@
-// Copyright (C) GameWright. Licensed under MIT.
+// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
-using GameWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 
-namespace GameWright.Editor.Tests
+namespace KitWright.Editor.Tests
 {
     public sealed class EditorRefreshHelperTests
     {
@@ -105,7 +105,7 @@ namespace GameWright.Editor.Tests
             var temp = CreateTempDirectory();
             try
             {
-                var staleOutput = Path.Combine(temp, "ScriptAssemblies", "GameWright.Editor.dll");
+                var staleOutput = Path.Combine(temp, "ScriptAssemblies", "KitWright.Editor.dll");
                 var source = Path.Combine(temp, "MCPServerService.cs");
                 Directory.CreateDirectory(Path.GetDirectoryName(staleOutput));
                 File.WriteAllText(staleOutput, "old compiled copy");
@@ -131,7 +131,7 @@ namespace GameWright.Editor.Tests
 
         private static string CreateTempDirectory()
         {
-            var path = Path.Combine(Path.GetTempPath(), "GameWrightEditorRefreshTests_" + Guid.NewGuid().ToString("N"));
+            var path = Path.Combine(Path.GetTempPath(), "KitWrightEditorRefreshTests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(path);
             return path;
         }
