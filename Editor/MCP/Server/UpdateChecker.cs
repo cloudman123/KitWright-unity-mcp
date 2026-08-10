@@ -102,7 +102,7 @@ namespace KitWright.Editor.MCP.Server
                 var currentVersion = PackageVersionUtility.CurrentVersion;
                 var installContext = ResolveInstallContext();
                 RecordAutoCheckAttempt();
-                var latestRelease = await FetchLatestReleaseAsync();
+                var latestRelease = await FetchLatestReleaseAsync(interactive);
                 if (latestRelease == null)
                 {
                     _statusMessage = "Update check failed.";
@@ -240,7 +240,7 @@ namespace KitWright.Editor.MCP.Server
                 NotifyStateChanged();
                 EditorUtility.DisplayProgressBar("KitWright MCP", "Preparing update...", _progress);
 
-                latestRelease = await FetchLatestReleaseAsync();
+                latestRelease = await FetchLatestReleaseAsync(true);
                 if (latestRelease == null)
                 {
                     _statusMessage = "Update failed: could not fetch latest release.";
@@ -575,7 +575,10 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        private static async Task<GitHubReleaseResponse> FetchLatestReleaseAsync()
+        // logFailures stays off for the 6-hourly background check: no published release
+        // yet, a rate-limited GitHub API or an offline machine would otherwise drop
+        // warnings into the console of someone who never asked for an update check.
+        private static async Task<GitHubReleaseResponse> FetchLatestReleaseAsync(bool logFailures)
         {
             using (var request = UnityWebRequest.Get(LatestReleaseApiUrl))
             {
@@ -589,7 +592,8 @@ namespace KitWright.Editor.MCP.Server
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Debug.LogWarning($"[KitWright MCP] Update check failed: {request.error}");
+                    if (logFailures)
+                        Debug.LogWarning($"[KitWright MCP] Update check failed: {request.error}");
                     return null;
                 }
 

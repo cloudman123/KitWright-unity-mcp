@@ -2,8 +2,9 @@
 
 using System.IO;
 using System.Text.RegularExpressions;
-using UnityEditor.PackageManager;
+using UnityEditor;
 using UnityEngine;
+using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace KitWright.Editor.Services
 {
@@ -12,6 +13,7 @@ namespace KitWright.Editor.Services
         private const string PackageName = "com.kitwright.unity.mcp";
         private const string AssetInstallRoot = "Assets/unity-mcp";
         private const string PackageInstallRoot = "Packages/com.kitwright.unity.mcp";
+        private const string FallbackVersion = "0.0.0";
         private static string _cachedVersion;
 
         public static string CurrentVersion
@@ -21,8 +23,13 @@ namespace KitWright.Editor.Services
                 if (!string.IsNullOrEmpty(_cachedVersion))
                     return _cachedVersion;
 
-                _cachedVersion = ResolveVersion();
-                return _cachedVersion;
+                var version = ResolveVersion();
+                // Never cache the fallback: an early call can run before the asset
+                // database is queryable, and caching it would pin 0.0.0 for the session.
+                if (version != FallbackVersion)
+                    _cachedVersion = version;
+
+                return version;
             }
         }
 
@@ -40,6 +47,29 @@ namespace KitWright.Editor.Services
                     return resolvedVersion;
             }
 
+            // Installed from the Asset Store the package sits under Assets/ at a path the
+            // buyer can rename, so ask the asset database for our own package.json instead
+            // of guessing install roots.
+            try
+            {
+                foreach (var guid in AssetDatabase.FindAssets("package"))
+                {
+                    var assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!assetPath.EndsWith("/package.json", System.StringComparison.Ordinal))
+                        continue;
+
+                    if (!File.Exists(assetPath) || !File.ReadAllText(assetPath).Contains("\"" + PackageName + "\""))
+                        continue;
+
+                    var ownVersion = TryReadVersionFromPackageJson(assetPath);
+                    if (!string.IsNullOrEmpty(ownVersion))
+                        return ownVersion;
+                }
+            }
+            catch
+            {
+            }
+
             var candidates = new[]
             {
                 Path.Combine(projectRoot, AssetInstallRoot, "package.json"),
@@ -54,7 +84,7 @@ namespace KitWright.Editor.Services
                     return version;
             }
 
-            return "0.0.0";
+            return FallbackVersion;
         }
 
         private static string TryReadVersionFromPackageJson(string path)

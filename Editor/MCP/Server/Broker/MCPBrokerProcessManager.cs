@@ -18,18 +18,34 @@ namespace KitWright.Editor.MCP.Server
         private const int StartProbeAttempts = 40;
         private const int StartProbeDelayMs = 125;
         private static readonly object Gate = new object();
-        private static readonly MCPBrokerRuntimePaths DefaultPaths;
+        private static readonly string ProjectRoot;
+        private static readonly string RuntimeDirectory;
+        private static MCPBrokerRuntimePaths _defaultPaths;
+
+        // The asset database cannot be queried from the static constructor, so the broker
+        // source path is resolved on first real use and cached only once it is found.
+        private static MCPBrokerRuntimePaths DefaultPaths
+        {
+            get
+            {
+                if (_defaultPaths == null || string.IsNullOrEmpty(_defaultPaths.SourcePath))
+                {
+                    _defaultPaths = new MCPBrokerRuntimePaths(
+                        Path.Combine(RuntimeDirectory, "broker.pid"),
+                        RuntimeDirectory,
+                        ResolveBrokerSourcePath(ProjectRoot));
+                }
+
+                return _defaultPaths;
+            }
+        }
 
         public static string LastError { get; private set; }
 
         static MCPBrokerProcessManager()
         {
-            var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
-            var runtimeDir = Path.Combine(projectRoot, "Library", "KitWrightMcp", "Broker");
-            DefaultPaths = new MCPBrokerRuntimePaths(
-                Path.Combine(runtimeDir, "broker.pid"),
-                runtimeDir,
-                ResolveBrokerSourcePath(projectRoot));
+            ProjectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
+            RuntimeDirectory = Path.Combine(ProjectRoot, "Library", "KitWrightMcp", "Broker");
 
             EditorApplication.quitting += Stop;
         }
@@ -411,6 +427,22 @@ namespace KitWright.Editor.MCP.Server
                     var path = Path.Combine(package.resolvedPath, "Editor", "MCP", "Server", "Broker", "keepalive-broker.cs.txt");
                     if (File.Exists(path))
                         return path;
+                }
+            }
+            catch
+            {
+            }
+
+            // Installed from the Asset Store the package lives under Assets/ at a path
+            // the buyer can rename or move, so PackageInfo returns null and guessing
+            // folder names cannot work. Ask the asset database where the file actually is.
+            try
+            {
+                foreach (var guid in AssetDatabase.FindAssets("keepalive-broker"))
+                {
+                    var assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                    if (assetPath.EndsWith("/keepalive-broker.cs.txt", StringComparison.Ordinal))
+                        return Path.GetFullPath(assetPath);
                 }
             }
             catch
