@@ -104,10 +104,11 @@ jobs:
                   # Manifest – declare empty dependencies (package is linked separately)
                   echo '{ "dependencies": {} }' > UnityProject/Packages/manifest.json
 
-                  # Symlink the whole package repo into Packages/ using the name from package.json
+                  # Copy the package into Packages/ (a symlink breaks inside the game-ci
+                  # docker container: the absolute host path does not exist there).
                   PKG_NAME=$(python3 -c "import json; print(json.load(open('package.json'))['name'])")
-                  ln -s "$(pwd)" "UnityProject/Packages/${PKG_NAME}"
-                  echo "Package '${PKG_NAME}' linked into UnityProject/Packages/"
+                  rsync -a --exclude UnityProject --exclude .git --exclude .github ./ "UnityProject/Packages/${PKG_NAME}/"
+                  echo "Package '${PKG_NAME}' copied into UnityProject/Packages/"
 
             - name: Run EditMode tests
               uses: game-ci/unity-test-runner@v4
