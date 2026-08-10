@@ -30,9 +30,9 @@ Describe your game in one sentence — your AI assistant builds it in Unity thro
 > Your AI assistant handles it through KitWright MCP for Unity: creates the scene, generates all scripts, sets up the UI, and configures the game logic — all from a single prompt.
 
 <p align="center">
-  <img src="./Documentation~/demo.gif" alt="KitWright MCP for Unity — 16s demo" width="100%">
+  <img src="./Documentation~/demo.gif" alt="KitWright MCP for Unity — demo" width="100%">
 </p>
-<p align="center"><em>16-second demo — AI generates a 3D model and integrates it into the scene end-to-end. <a href="https://github.com/kitwright/unity-mcp/raw/main/Documentation~/demo.mp4">Watch HD MP4</a>.</em></p>
+<p align="center"><em>Demo — AI searches project prefabs and builds a city scene through MCP tools. <a href="https://github.com/kitwright/unity-mcp/raw/main/Documentation~/demo.mp4">Watch HD MP4</a>.</em></p>
 
 ## Quick Start
 
