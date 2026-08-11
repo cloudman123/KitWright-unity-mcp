@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Build a .unitypackage from this UPM repo without opening Unity.
 
+WORK IN PROGRESS - the file this produces still makes Unity throw a
+NullReferenceException in PackageImportTreeView on import, so do not ship its
+output. Asset Store releases are exported through Asset Store Publishing Tools
+instead. To finish this, diff the output against a real Unity export.
+
 Format: gzipped tar, one directory per asset named by its GUID, containing
   asset       - raw file bytes (omitted for folders)
   asset.meta  - the .meta file
