@@ -83,6 +83,16 @@ openupm add com.kitwright.unity.mcp
 
 如果之前是用 Git URL 安装的，先移除 Git dependency，再从 OpenUPM 安装。Git 来源的包在 Unity 中只会显示当前解析到的 Git 版本，不会显示 registry 提供的完整 Version History。
 
+### 可选方案：从 Unity Asset Store 安装
+
+导入 Asset Store 包时会弹出 **This Unity Package has Package Manager dependencies** 对话框，请选择 **Install/Upgrade**。本包需要 `com.unity.nuget.newtonsoft-json`，跳过该提示会导致项目缺少该依赖，KitWright 的所有脚本都无法编译。
+
+如果已经点了 Skip，插件会在下一次域重载时询问是否自动安装该依赖；你也可以自己从 **Window → Package Manager → + → Add package by name** 添加：
+
+```
+com.unity.nuget.newtonsoft-json
+```
+
 ### 2. 启动 MCP Server
 
 **菜单：KitWright → MCP Server** 启动服务。
@@ -430,7 +440,7 @@ MCP Server (HTTP JSON-RPC 2.0)
 ## 环境要求
 
 - Unity 2022.3 或更高版本
-- .NET / Mono + `Newtonsoft.Json`
+- `com.unity.nuget.newtonsoft-json` —— UPM 和 OpenUPM 安装会自动拉取；Asset Store 导入时会在 Package Manager 依赖对话框中提示安装
 
 ## 参与贡献
 

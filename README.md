@@ -83,6 +83,16 @@ Or add the scoped registry manually in `Packages/manifest.json`:
 
 If you installed from a Git URL before, remove the Git dependency first, then install from OpenUPM. Git-installed packages only show the resolved Git version in Unity and do not get the registry-backed Version History list.
 
+### Optional: Install from the Unity Asset Store
+
+Importing the Asset Store package shows a **This Unity Package has Package Manager dependencies** dialog. Choose **Install/Upgrade** — the package needs `com.unity.nuget.newtonsoft-json`, and skipping the prompt leaves the project without it, which stops every KitWright script from compiling.
+
+If you already chose Skip, the package offers to install the dependency for you on the next domain reload; you can also add it yourself from **Window → Package Manager → + → Add package by name**:
+
+```
+com.unity.nuget.newtonsoft-json
+```
+
 ### 2. Start the MCP Server
 
 **Menu: KitWright → MCP Server** to start the server.
@@ -428,7 +438,7 @@ External AI Client → HTTP Request → MCPRequestHandler → MCPExecutionBridge
 ## Requirements
 
 - Unity 2022.3 or later
-- .NET / Mono with `Newtonsoft.Json`
+- `com.unity.nuget.newtonsoft-json` — pulled in automatically by UPM and OpenUPM installs; Asset Store imports offer it in the Package Manager dependency dialog
 
 ## Contributing
 
