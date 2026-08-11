@@ -54,6 +54,8 @@ https://github.com/kitwright/unity-mcp.git
 
 ### 可选方案：通过 OpenUPM 安装
 
+> ⏳ 等待中 —— 本包[已提交到 OpenUPM](https://github.com/openupm/openupm/pull/6778)，下面的命令要等该 PR 合并后才可用。在此之前请使用上面的 Git URL 安装。
+
 如果你希望 Unity Package Manager 显示 registry 提供的完整“版本历史记录”并能选择历史版本，可以改用 OpenUPM 安装。
 
 使用 OpenUPM CLI：

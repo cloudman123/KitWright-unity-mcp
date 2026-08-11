@@ -54,6 +54,8 @@ https://github.com/kitwright/unity-mcp.git
 
 ### Optional: Install via OpenUPM
 
+> ⏳ Pending — the package is [submitted to OpenUPM](https://github.com/openupm/openupm/pull/6778) and the commands below start working once that pull request is merged. Until then, install from the Git URL above.
+
 If you want Unity Package Manager to show registry-backed package version history and allow version selection, install from OpenUPM instead of Git.
 
 Using the OpenUPM CLI:
