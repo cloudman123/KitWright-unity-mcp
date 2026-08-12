@@ -153,6 +153,77 @@ namespace KitWright.Editor.Tools.Scripting
         }
     }
 
+    internal static class ScriptCompilerReferences
+    {
+        // CSharpCodeProvider cannot resolve type-forwarding, so referencing netstandard.dll next
+        // to these makes types like List<T> resolve in several assemblies and every snippet fails.
+        private static readonly HashSet<string> CodeDomDuplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "mscorlib",
+            "System.Runtime",
+            "System.Private.CoreLib",
+            "System.Collections"
+        };
+
+        private static string[] _loadedPaths;
+        private static string[] _codeDomPaths;
+
+        // Statics die with every domain reload, which is also the only moment the loaded
+        // assembly set can change, so no explicit invalidation is needed.
+        internal static string[] GetLoadedPaths()
+        {
+            if (_loadedPaths != null)
+                return _loadedPaths;
+
+            var best = new Dictionary<string, KeyValuePair<Version, string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (assembly.IsDynamic)
+                    continue;
+
+                try
+                {
+                    var location = assembly.Location;
+                    if (string.IsNullOrEmpty(location) || !File.Exists(location))
+                        continue;
+
+                    var name = assembly.GetName();
+                    var version = name.Version ?? new Version();
+                    if (best.TryGetValue(name.Name, out var current) && current.Key >= version)
+                        continue;
+
+                    best[name.Name] = new KeyValuePair<Version, string>(version, location);
+                }
+                catch
+                {
+                }
+            }
+
+            _loadedPaths = best.Values
+                .Select(entry => entry.Value)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            return _loadedPaths;
+        }
+
+        internal static string[] GetCodeDomPaths()
+        {
+            return _codeDomPaths ?? (_codeDomPaths = FilterForCodeDom(GetLoadedPaths()));
+        }
+
+        internal static string[] FilterForCodeDom(string[] paths)
+        {
+            var hasNetstandard = paths.Any(path =>
+                string.Equals(Path.GetFileNameWithoutExtension(path), "netstandard", StringComparison.OrdinalIgnoreCase));
+            if (!hasNetstandard)
+                return paths;
+
+            return paths
+                .Where(path => !CodeDomDuplicates.Contains(Path.GetFileNameWithoutExtension(path)))
+                .ToArray();
+        }
+    }
+
     internal sealed class RoslynCscScriptCompiler : IScriptCompiler
     {
         private const int DefaultTimeoutMilliseconds = 15000;
@@ -366,34 +437,14 @@ namespace KitWright.Editor.Tools.Scripting
         private static IEnumerable<string> GetReferencePaths(string monoLibRoot)
         {
             var references = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                if (assembly.IsDynamic)
-                    continue;
-
-                try
-                {
-                    var location = assembly.Location;
-                    if (string.IsNullOrEmpty(location) || !File.Exists(location))
-                        continue;
-
-                    var identity = assembly.GetName().FullName;
-                    if (!string.IsNullOrEmpty(identity) && !references.ContainsKey(identity))
-                        references.Add(identity, location);
-                }
-                catch
-                {
-                }
-            }
+            foreach (var path in ScriptCompilerReferences.GetLoadedPaths())
+                references[Path.GetFileName(path)] = path;
 
             AddProfileReferenceIfMissing(references, monoLibRoot, "mscorlib.dll");
             AddProfileReferenceIfMissing(references, monoLibRoot, "System.dll");
             AddProfileReferenceIfMissing(references, monoLibRoot, "System.Core.dll");
 
             return references.Values
-                .Where(path => !string.IsNullOrEmpty(path) && File.Exists(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
@@ -403,11 +454,8 @@ namespace KitWright.Editor.Tools.Scripting
             string monoLibRoot,
             string fileName)
         {
-            if (references.Values.Any(path =>
-                    string.Equals(Path.GetFileName(path), fileName, StringComparison.OrdinalIgnoreCase)))
-            {
+            if (references.ContainsKey(fileName))
                 return;
-            }
 
             var path = Path.Combine(monoLibRoot, fileName);
             if (File.Exists(path))
@@ -594,22 +642,8 @@ namespace KitWright.Editor.Tools.Scripting
                 var referencedAssemblies = referencedAssembliesProperty?.GetValue(parameters, null);
                 var addMethod = referencedAssemblies?.GetType().GetMethod("Add", new[] { typeof(string) });
 
-                var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    if (assembly.IsDynamic)
-                        continue;
-
-                    try
-                    {
-                        var location = assembly.Location;
-                        if (!string.IsNullOrEmpty(location) && File.Exists(location) && referenced.Add(location))
-                            addMethod?.Invoke(referencedAssemblies, new object[] { location });
-                    }
-                    catch
-                    {
-                    }
-                }
+                foreach (var location in ScriptCompilerReferences.GetCodeDomPaths())
+                    addMethod?.Invoke(referencedAssemblies, new object[] { location });
 
                 var compileMethod = _providerType.GetMethod("CompileAssemblyFromSource", new[] { _paramsType, typeof(string[]) });
                 var results = compileMethod?.Invoke(provider, new object[] { parameters, new[] { code } });

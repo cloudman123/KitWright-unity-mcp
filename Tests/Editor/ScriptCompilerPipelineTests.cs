@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using KitWright.Editor.Tools.Builtins;
@@ -195,6 +196,35 @@ public class CommandSyntax : IKitWrightCommand
                     Assert.AreEqual("boom from test", GetProperty<string>(data, "message"));
                     Assert.AreEqual("Roslyn", GetProperty<string>(data, "compiler"));
                 });
+        }
+
+        [Test]
+        public void CodeDomFilter_DropsForwardedAssembliesOnlyWithNetstandard()
+        {
+            var withNetstandard = new[]
+            {
+                @"C:\lib\netstandard.dll",
+                @"C:\lib\mscorlib.dll",
+                @"C:\lib\System.Collections.dll",
+                @"C:\lib\UnityEngine.dll"
+            };
+
+            Assert.AreEqual(
+                new[] { @"C:\lib\netstandard.dll", @"C:\lib\UnityEngine.dll" },
+                ScriptCompilerReferences.FilterForCodeDom(withNetstandard));
+
+            var withoutNetstandard = new[] { @"C:\lib\mscorlib.dll", @"C:\lib\UnityEngine.dll" };
+            Assert.AreEqual(withoutNetstandard, ScriptCompilerReferences.FilterForCodeDom(withoutNetstandard));
+        }
+
+        [Test]
+        public void LoadedPaths_AreCachedAndDeduplicatedBySimpleName()
+        {
+            var first = ScriptCompilerReferences.GetLoadedPaths();
+            Assert.AreSame(first, ScriptCompilerReferences.GetLoadedPaths());
+            CollectionAssert.IsNotEmpty(first);
+            CollectionAssert.AllItemsAreUnique(
+                first.Select(path => System.IO.Path.GetFileNameWithoutExtension(path).ToLowerInvariant()).ToArray());
         }
 
         private static IEnumerator ExecuteCodeAndAssert(string code, Action<object> assert, bool skipRefresh = false)
