@@ -280,7 +280,10 @@ namespace KitWright.Editor.MCP.Server
 
                 EditorUtility.DisplayDialog(
                     "Project Skills Configuration",
-                    "Project skills configuration updated successfully.\n\n" +
+                    (selectedPlatforms.Count > 0
+                        ? "Project skills configuration updated successfully."
+                        : "No platform is enabled, so no skill files were written. Turn on \"Enable skills for current platform\" first.") +
+                    "\n\n" +
                     $"Manifest:\n{ProjectSkillsManager.GetManifestPath(projectRoot)}",
                     "OK");
 
