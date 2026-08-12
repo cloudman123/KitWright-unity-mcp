@@ -54,8 +54,10 @@ namespace KitWright.Editor.Services
                 if (LastRefreshResult.ScriptChangesStillPending)
                     return false;
 
+                // Nothing stale means nothing will compile, so skip waiting for a start.
                 if (!LastRefreshResult.CompilationOrImportStarted &&
-                    !await WaitForCompilationToStartAsync(timeoutSeconds).ConfigureAwait(false))
+                    (!LastRefreshResult.LatestScriptState.HasPendingScriptChanges ||
+                     !await WaitForCompilationToStartAsync(timeoutSeconds).ConfigureAwait(false)))
                 {
                     return true;
                 }

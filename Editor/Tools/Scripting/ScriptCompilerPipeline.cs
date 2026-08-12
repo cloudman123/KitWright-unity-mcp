@@ -9,7 +9,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using KitWright.Editor.Settings;
 using UnityEditor;
 using UnityEngine;
@@ -232,18 +231,15 @@ namespace KitWright.Editor.Tools.Scripting
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    var deadline = DateTime.UtcNow.AddMilliseconds(_timeoutMilliseconds);
-                    while (!process.HasExited && DateTime.UtcNow < deadline)
-                        Thread.Sleep(25);
-
-                    if (!process.HasExited)
+                    if (!process.WaitForExit(_timeoutMilliseconds))
                     {
                         try { process.Kill(); }
                         catch { }
                         return ScriptCompilationResult.Unavailable(Name, $"Roslyn csc timed out after {_timeoutMilliseconds} ms.");
                     }
 
-                    Thread.Sleep(25);
+                    // Lets the async output readers flush; bounded so it cannot hang the editor thread.
+                    process.WaitForExit(500);
 
                     var compilerOutput = (stdout.ToString() + stderr.ToString()).Trim();
                     if (process.ExitCode != 0)
@@ -346,6 +342,12 @@ namespace KitWright.Editor.Tools.Scripting
 
         private static bool TryResolvePreferredCompilerHost(out string compilerHostPath, out string cscPath)
         {
+            // dotnet first: newer Roslyn, and its host starts far faster than mono JITting csc.exe.
+            compilerHostPath = FindFirstExisting(GetDotnetCandidates());
+            cscPath = FindFirstExisting(GetCscDllCandidates());
+            if (!string.IsNullOrEmpty(compilerHostPath) && !string.IsNullOrEmpty(cscPath))
+                return true;
+
             foreach (var root in GetUnityToolRoots())
             {
                 var monoPath = Path.Combine(root, "MonoBleedingEdge", "bin", MonoExecutableName());
@@ -358,9 +360,7 @@ namespace KitWright.Editor.Tools.Scripting
                 }
             }
 
-            compilerHostPath = FindFirstExisting(GetDotnetCandidates());
-            cscPath = FindFirstExisting(GetCscDllCandidates());
-            return !string.IsNullOrEmpty(compilerHostPath) && !string.IsNullOrEmpty(cscPath);
+            return false;
         }
 
         private static IEnumerable<string> GetReferencePaths(string monoLibRoot)

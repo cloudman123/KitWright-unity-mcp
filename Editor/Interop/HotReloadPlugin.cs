@@ -51,6 +51,9 @@ namespace KitWright.Editor.Interop
             }
         }
 
+        // Assemblies stay loaded after the user stops the plugin, and a stopped plugin detours nothing.
+        public static bool IsSuppressingCompilation => IsLoaded && (TryGetServerHealthy() ?? true);
+
         public static object GetStatus()
         {
             var loaded = IsLoaded;
@@ -60,7 +63,7 @@ namespace KitWright.Editor.Interop
                 display_name = DisplayName,
                 loaded,
                 server_healthy = TryGetServerHealthy(),
-                suppresses_compilation = loaded,
+                suppresses_compilation = IsSuppressingCompilation,
                 timeline = loaded ? ReadTimeline() : null
             };
         }

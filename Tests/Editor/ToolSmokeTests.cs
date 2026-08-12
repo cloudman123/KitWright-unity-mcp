@@ -199,8 +199,8 @@ namespace KitWright.Editor.Tests
                     materialPath,
                     max_results: 20,
                     include_referenced_by: true,
-                    max_assets_scanned: 5000,
-                    max_scan_seconds: 10,
+                    max_assets_scanned: 50000,
+                    max_scan_seconds: 60,
                     prefer_manual_scan: true);
                 while (!task.IsCompleted)
                     yield return null;

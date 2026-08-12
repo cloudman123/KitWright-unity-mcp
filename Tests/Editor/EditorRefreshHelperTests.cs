@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
+using UnityEditor;
 
 namespace KitWright.Editor.Tests
 {
@@ -127,6 +128,51 @@ namespace KitWright.Editor.Tests
             {
                 DeleteTempDirectory(temp);
             }
+        }
+
+        [Test]
+        public void AnalyzeScriptChangeState_PackageCacheSourceNewerThanAssembly_IsNotPending()
+        {
+            var temp = CreateTempDirectory();
+            try
+            {
+                var output = Path.Combine(temp, "Zego.Advertisement.Max.dll");
+                var source = Path.Combine(temp, "Library", "PackageCache", "com.vendor.sdk@abc123", "SdkVersion.generated.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(source));
+                File.WriteAllText(output, "compiled");
+                File.WriteAllText(source, "class SdkVersion {}");
+                File.SetLastWriteTimeUtc(output, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+                File.SetLastWriteTimeUtc(source, new DateTime(2026, 1, 1, 0, 1, 0, DateTimeKind.Utc));
+
+                var state = EditorRefreshHelper.AnalyzeScriptChangeState(
+                    new[] { new ScriptCompilationArtifact(output, new[] { source }) },
+                    Array.Empty<string>(),
+                    TimeSpan.FromSeconds(1));
+
+                Assert.IsFalse(state.HasPendingScriptChanges,
+                    "A regenerated PackageCache source must not force a recompile, or every refresh escalates and regenerates it again.");
+                Assert.AreEqual(0, state.OutOfDateSourceCount);
+            }
+            finally
+            {
+                DeleteTempDirectory(temp);
+            }
+        }
+
+        [Test]
+        public void RefreshAndRequestCompilation_NothingStale_SkipsCompileStartDetection()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+                Assert.Ignore("Editor is busy, so compile-start detection short-circuits regardless.");
+
+            var task = EditorRefreshHelper.RefreshAndRequestCompilationAsync(forceUpdate: false);
+
+            if (task.IsCompleted && task.Result.LatestScriptState.HasPendingScriptChanges)
+                Assert.Ignore("Project has genuinely stale scripts, so waiting for a compile start is correct here.");
+
+            Assert.IsTrue(task.IsCompleted,
+                "With nothing stale and an idle editor there is no compilation to wait for, so the refresh must not burn the detection timeout.");
+            Assert.IsFalse(task.Result.ScriptChangesStillPending);
         }
 
         private static string CreateTempDirectory()

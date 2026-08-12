@@ -22,12 +22,12 @@ namespace KitWright.Editor.Tools.Builtins
         {
             try
             {
-                var loaded = HotReload.IsLoaded;
+                var suppressed = HotReload.IsSuppressingCompilation;
                 return Response.Success(
-                    loaded
+                    suppressed
                         ? "A code-patching plugin is active: Unity compile pipeline is suppressed; structural changes (new classes/fields/signatures) will NOT apply until it is stopped and a real recompile runs."
                         : "No code-patching plugin is suppressing the Unity compile pipeline.",
-                    new { compile_pipeline_suppressed = loaded, plugins = new[] { HotReload.GetStatus() } });
+                    new { compile_pipeline_suppressed = suppressed, plugins = new[] { HotReload.GetStatus() } });
             }
             catch (Exception ex)
             {

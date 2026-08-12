@@ -23,10 +23,14 @@ namespace KitWright.Editor.Tools.Helpers
         {
             var result = new EditorRefreshResult
             {
-                KnownHotReloadDetected = IsKnownHotReloadLoaded()
+                KnownHotReloadDetected = Interop.HotReload.IsSuppressingCompilation,
+                PlayModeActive = EditorApplication.isPlaying
             };
 
-            if (verifyScriptChanges)
+            // Escalating a recompile or script reload mid-play destroys runtime state.
+            var escalationBlocked = result.KnownHotReloadDetected || result.PlayModeActive;
+
+            if (verifyScriptChanges && !escalationBlocked)
                 result.ScriptStateBefore = CaptureScriptChangeState(scanForUnknownProjectScripts: false);
 
             try
@@ -39,14 +43,19 @@ namespace KitWright.Editor.Tools.Helpers
                 result.PrimaryRefreshError = ex.Message;
             }
 
+            // No compilation can start that we may wait for, so the detection timeout would be dead time.
+            var busy = EditorApplication.isCompiling || EditorApplication.isUpdating;
+            if (escalationBlocked || (verifyScriptChanges && !result.ScriptStateBefore.HasPendingScriptChanges && !busy))
+            {
+                result.CompilationOrImportStarted = busy;
+                return result;
+            }
+
             if (await WaitForEditorBusyAsync(startDetectionTimeout ?? DefaultStartDetectionTimeout))
             {
                 result.CompilationOrImportStarted = true;
                 return result;
             }
-
-            if (result.KnownHotReloadDetected)
-                return result;
 
             if (verifyScriptChanges)
                 result.ScriptStateAfterPrimary = CaptureScriptChangeState(scanForUnknownProjectScripts: true);
@@ -181,7 +190,7 @@ namespace KitWright.Editor.Tools.Helpers
                 foreach (var sourcePath in artifact.SourceFiles ?? Array.Empty<string>())
                 {
                     var normalizedSource = NormalizePath(sourcePath);
-                    if (string.IsNullOrEmpty(normalizedSource))
+                    if (string.IsNullOrEmpty(normalizedSource) || IsPackageCachePath(normalizedSource))
                         continue;
 
                     knownSources.Add(normalizedSource);
@@ -375,6 +384,12 @@ namespace KitWright.Editor.Tools.Helpers
             }
         }
 
+        // Regenerated on refresh, so their mtime always outruns a dll Unity never rebuilds.
+        private static bool IsPackageCachePath(string normalizedPath)
+        {
+            return normalizedPath.IndexOf("/Library/PackageCache/", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static bool IsUnityIgnoredScriptPath(string path)
         {
             var normalized = NormalizePath(path);
@@ -403,11 +418,6 @@ namespace KitWright.Editor.Tools.Helpers
                 return Directory.GetCurrentDirectory();
 
             return Directory.GetParent(dataPath)?.FullName ?? Directory.GetCurrentDirectory();
-        }
-
-        private static bool IsKnownHotReloadLoaded()
-        {
-            return Interop.HotReload.IsLoaded;
         }
 
         private static string NormalizePath(string path)
@@ -445,6 +455,7 @@ namespace KitWright.Editor.Tools.Helpers
         public bool ScriptReloadRequested;
         public bool CompilationOrImportStarted;
         public bool KnownHotReloadDetected;
+        public bool PlayModeActive;
         public string PrimaryRefreshError;
         public string MenuRefreshError;
         public string ScriptCompilationRequestError;
@@ -467,7 +478,9 @@ namespace KitWright.Editor.Tools.Helpers
             }
         }
 
-        public bool ScriptChangesStillPending => !KnownHotReloadDetected && !CompilationOrImportStarted && LatestScriptState.HasPendingScriptChanges;
+        public bool ScriptChangesStillPending =>
+            !KnownHotReloadDetected && !PlayModeActive && !CompilationOrImportStarted &&
+            LatestScriptState.HasPendingScriptChanges;
 
         public string BuildStrategySummary()
         {
