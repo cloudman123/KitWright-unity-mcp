@@ -94,9 +94,9 @@ namespace KitWright.Editor.Tools.Builtins
             if (refreshResult.KnownHotReloadDetected && !refreshResult.CompilationOrImportStarted)
             {
                 ClearExternalSyncPending();
-                return $"Code-patching plugin active ({Interop.HotReload.DisplayName}): Unity compilation was NOT run — the plugin detours refresh/compile and hot-patches method bodies instead. " +
-                       "Method-body edits are applied automatically; structural changes (new classes/fields/methods, signature changes, asmdef edits) are NOT applied. " +
-                       "Call get_code_patching_status to verify your edit was patched, or stop the plugin and rerun request_recompile for a real compile.";
+                return $"Code-patching plugin active ({Interop.HotReload.DisplayName}): this call did not start a Unity compilation — the plugin detours refresh/compile and hot-patches method bodies instead. " +
+                       "Ordinary method-body edits are patched live, in editor assemblies too; a change it cannot patch (const values, signatures, new types, lambda closures, attributes, field initializers) makes it run its own full recompile instead. " +
+                       "Either way the outcome is in get_code_patching_status: an AppliedChange naming your member means it is live, PartiallySupportedChange/UnsupportedChange/CompileError means it is not.";
             }
 
             if (refreshResult.ScriptChangesStillPending)

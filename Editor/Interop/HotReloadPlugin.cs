@@ -21,7 +21,9 @@ namespace KitWright.Editor.Interop
         public const string DisplayName = "Hot Reload (SingularityGroup)";
 
         private const string AssemblyPrefix = "SingularityGroup.HotReload";
-        private const string EditorAssembly = "SingularityGroup.HotReload.Editor";
+        internal const string EditorAssembly = "SingularityGroup.HotReload.Editor";
+        internal const string DetourerType = "SingularityGroup.HotReload.Editor.CompileMethodDetourer";
+        internal const string DetourField = "detouredMethod";
         private const string TimelineRelativePath = "Library/com.singularitygroup.hotreload/eventEntries.json";
         private const int MaxTimelineEntries = 20;
 
@@ -51,8 +53,18 @@ namespace KitWright.Editor.Interop
             }
         }
 
-        // Assemblies stay loaded after the user stops the plugin, and a stopped plugin detours nothing.
-        public static bool IsSuppressingCompilation => IsLoaded && (TryGetServerHealthy() ?? true);
+        /// <summary>
+        /// True only while the detour is actually installed. The plugin applies it from
+        /// <c>EditorCodePatcher.CheckAssetDatabaseRefresh</c> when its own
+        /// <c>disableCompilingFromEditorScripts</c> setting is on AND the server is healthy, so a
+        /// healthy server on its own proves nothing — with that setting off Unity still compiles
+        /// normally. Falls back to the old guess only when the field cannot be read.
+        /// </summary>
+        public static bool IsSuppressingCompilation =>
+            ResolveSuppression(IsLoaded, TryGetDetourInstalled(), TryGetServerHealthy());
+
+        internal static bool ResolveSuppression(bool loaded, bool? detourInstalled, bool? serverHealthy) =>
+            loaded && (detourInstalled ?? (serverHealthy ?? true));
 
         public static object GetStatus()
         {
@@ -63,9 +75,26 @@ namespace KitWright.Editor.Interop
                 display_name = DisplayName,
                 loaded,
                 server_healthy = TryGetServerHealthy(),
+                compile_detour_installed = TryGetDetourInstalled(),
                 suppresses_compilation = IsSuppressingCompilation,
                 timeline = loaded ? ReadTimeline() : null
             };
+        }
+
+        /// <summary>CompileMethodDetourer.detouredMethod via reflection; null when unavailable.</summary>
+        private static bool? TryGetDetourInstalled()
+        {
+            try
+            {
+                var field = FindEditorType(DetourerType)
+                    ?.GetField(DetourField, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
+
+                return field?.GetValue(null) as bool?;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>ServerHealthCheck.I.IsServerHealthy via reflection; null when unavailable.</summary>

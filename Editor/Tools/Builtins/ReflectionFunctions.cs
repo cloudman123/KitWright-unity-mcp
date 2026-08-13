@@ -119,7 +119,7 @@ namespace KitWright.Editor.Tools.Builtins
             }));
         }
 
-        private static object DescribeMember(Type type, string member, bool includeNonPublic)
+        private static object DescribeMember(Type type, string member, bool includeNonPublic, string alsoNamed)
         {
             var signatures = Signatures(type, member, WithVisibility(DeclaredMembers, includeNonPublic));
             var inherited = signatures.Length == 0;
@@ -133,7 +133,7 @@ namespace KitWright.Editor.Tools.Builtins
                     .ToArray();
 
                 if (extensions.Length > 0)
-                    return Response.Success($"{extensions.Length} extension signature(s) for '{type.Name}.{member}'.", new
+                    return Response.Success($"{extensions.Length} extension signature(s) for '{type.Name}.{member}'.{alsoNamed}", new
                     {
                         type = type.FullName,
                         member,
@@ -150,7 +150,7 @@ namespace KitWright.Editor.Tools.Builtins
                 });
             }
 
-            return Response.Success($"{signatures.Length} signature(s) for '{type.Name}.{member}'.", new
+            return Response.Success($"{signatures.Length} signature(s) for '{type.Name}.{member}'.{alsoNamed}", new
             {
                 type = type.FullName,
                 member,
