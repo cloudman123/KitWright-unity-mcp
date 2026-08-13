@@ -385,6 +385,8 @@ KitWright MCP for Unity 当前提供 **150 个工具函数**，覆盖 35 个模�
 | **相机** | `get_camera_properties`, `set_camera_projection`, `set_camera_settings`, `set_camera_culling_mask` |
 | **截图** | `capture_game_view`, `capture_simulator_view`, `capture_scene_view`, `capture_multiview`, `capture_editor_window` |
 | **脚本执行** | `execute_code`, `get_execute_code_history`, `replay_execute_code`, `clear_execute_code_history` |
+| **反射** | `reflect_api` |
+| **工具暴露** | `set_tool_profile` |
 | **输入模拟** | `simulate_key_press`, `simulate_key_combo`, `simulate_mouse_click`, `simulate_mouse_drag` |
 | **性能分析** | `get_performance_snapshot`, `analyze_scene_complexity` |
 | **Profiler** | `profiler_start`, `profiler_stop`, `profiler_status`, `get_frame_timing`, `get_counters`, `get_object_memory`, `get_top_memory_objects`, `memory_take_snapshot`, `memory_list_snapshots`, `memory_compare_snapshots`, `frame_debugger_enable`, `frame_debugger_disable`, `frame_debugger_get_events` |

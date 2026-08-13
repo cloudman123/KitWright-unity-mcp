@@ -58,6 +58,13 @@ namespace KitWright.Editor.MCP.Server
                     ["description"] = MCPToolExportPolicy.BuildDescriptionPrefix(tool.function.name, profile) + description,
                     ["inputSchema"] = ConvertParametersToJsonSchema(tool.function.parameters, compact)
                 };
+
+                // readOnlyHint lets clients skip an approval prompt for tools that cannot change the
+                // project. Only the true case is emitted: the MCP default for an absent hint is
+                // "not read-only", which is already the safe answer for everything else.
+                if (tool.function.readOnly == true)
+                    mcpTool["annotations"] = new Dictionary<string, object> { ["readOnlyHint"] = true };
+
                 mcpTools.Add(mcpTool);
             }
 

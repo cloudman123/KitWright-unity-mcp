@@ -27,7 +27,8 @@ namespace KitWright.Editor.MCP.Server
             "get_compilation_errors",
             "find_game_objects",
             "set_component_property",
-            "capture_game_view"
+            "capture_game_view",
+            "set_tool_profile"
         };
 
         private static readonly HashSet<string> CoreTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -66,6 +67,8 @@ namespace KitWright.Editor.MCP.Server
             "get_component_properties",
             "set_component_property",
             "set_component_properties",
+            "reflect_api",
+            "set_tool_profile",
             "execute_menu_item"
         };
 

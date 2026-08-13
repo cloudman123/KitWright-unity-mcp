@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- `reflect_api` — inspect the live C# API by reflection before writing an `execute_code` snippet. Without `member` it lists the declared public members of a type by name (enum values for enums); with `member` it returns full signatures including parameter names, falling back to inherited members when the type does not declare it. Unresolved names come back with candidate suggestions, so a misremembered API costs one read-only call instead of a failed compile. Short names that hit more than one loaded type return `AMBIGUOUS_TYPE` with the fully qualified matches rather than silently picking one. Exposed in the `core` profile.
+
+- `set_tool_profile` — switch the exposed tool profile (`minimal` / `core` / `extended` / `full`) from the client instead of from the Unity window. Connected clients are told to refresh via `notifications/tools/list_changed`, so an agent that needs a tool the current profile hides no longer needs the user to change a setting, and neither the editor nor the server restarts. Exposed in the `minimal` and `core` profiles, and toggleable from the Tool Exposure panel like any other tool.
+- Read-only tools now advertise `annotations.readOnlyHint` in `tools/list`. The `[ReadOnlyTool]` marker already existed on 100 tool functions and reached `ToolFunctionDef.readOnly`, but the MCP exporter dropped it, so clients had no way to tell `get_hierarchy` from `delete_asset` and prompted for approval on both.
+
 ### Changed
 - `execute_code` now compiles with Unity's `dotnet` + `DotNetSdkRoslyn/csc.dll` toolchain in preference to `mono` + `MonoBleedingEdge` `csc.exe`, falling back to mono when it is absent. Both ship with the editor, but mono JIT-compiles csc.exe on every call: measured 1019 ms mean per compile against 211 ms for the dotnet host. It is also a newer Roslyn (4.3.1 vs 3.7.0), so snippets can use C# 10/11 syntax — `record struct`, raw string literals and list patterns previously failed to compile.
 - `execute_code` resolves its compiler references once per domain instead of rescanning the AppDomain and stat-ing several hundred assembly files on every call, and keeps a single assembly per simple name (highest version) so two loaded versions of the same library cannot make snippet types ambiguous.
