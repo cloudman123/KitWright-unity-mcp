@@ -22,9 +22,18 @@ namespace KitWright.Editor.Tools.Builtins
         private const int MaxChars = 20000;
 
         // Pages are immutable per Unity version, so one fetch per domain reload is enough.
-        private static readonly Dictionary<string, string> PageCache =
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, DocPage> PageCache =
+            new Dictionary<string, DocPage>(StringComparer.OrdinalIgnoreCase);
 
+        private sealed class DocPage
+        {
+            public string Text;
+            public string[] Examples;
+        }
+
+        private static readonly Regex CodeExampleRegex =
+            new Regex(@"<pre[^>]*\bclass=""[^""]*codeExample[^""]*""[^>]*>(.*?)</pre>",
+                RegexOptions.Singleline | RegexOptions.IgnoreCase);
         private static readonly Regex ScriptOrStyleRegex =
             new Regex(@"<(script|style)\b[^>]*>.*?</\1>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         private static readonly Regex BlockBreakRegex =
@@ -98,9 +107,9 @@ namespace KitWright.Editor.Tools.Builtins
                 }
 
                 var url = isManual ? ManualUrl(name) : ScriptReferenceUrl(name);
-                var text = await GetPageTextAsync(url);
+                var page = await GetPageAsync(url);
 
-                if (text == null)
+                if (page == null)
                 {
                     results.Add(new
                     {
@@ -121,8 +130,11 @@ namespace KitWright.Editor.Tools.Builtins
                     page = entry,
                     url,
                     found = true,
-                    truncated = text.Length > limit,
-                    text = text.Length > limit ? text.Substring(0, limit) : text
+                    truncated = page.Text.Length > limit,
+                    // Kept separate from text so a caller after a working snippet does not have to
+                    // find the code inside the prose -- and survives truncation, which cuts prose first.
+                    examples = page.Examples,
+                    text = page.Text.Length > limit ? page.Text.Substring(0, limit) : page.Text
                 });
             }
 
@@ -134,7 +146,7 @@ namespace KitWright.Editor.Tools.Builtins
             });
         }
 
-        private static async Task<string> GetPageTextAsync(string url)
+        private static async Task<DocPage> GetPageAsync(string url)
         {
             lock (PageCache)
             {
@@ -159,12 +171,25 @@ namespace KitWright.Editor.Tools.Builtins
             if (html == null)
                 return null;
 
-            var text = HtmlToText(html);
+            var page = new DocPage { Text = HtmlToText(html), Examples = ExtractExamples(html) };
             lock (PageCache)
             {
-                PageCache[url] = text;
+                PageCache[url] = page;
             }
-            return text;
+            return page;
+        }
+
+        // ScriptReference wraps every runnable snippet in <pre class="codeExampleCS">.
+        internal static string[] ExtractExamples(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return new string[0];
+
+            return CodeExampleRegex.Matches(html)
+                .Cast<Match>()
+                .Select(m => WebUtility.HtmlDecode(TagRegex.Replace(m.Groups[1].Value, string.Empty))
+                    .Replace("\r\n", "\n").Trim())
+                .Where(snippet => snippet.Length > 0)
+                .ToArray();
         }
 
         private static string ScriptReferenceUrl(string symbol)
@@ -216,9 +241,14 @@ namespace KitWright.Editor.Tools.Builtins
                     body = body.Remove(feedbackIndex, resumeIndex - feedbackIndex);
             }
 
+            // Cut at the '<' that opens the footer element, not at the class attribute inside it:
+            // stopping mid-tag leaves a "<div " fragment that the tag stripper cannot match.
             var footerIndex = body.IndexOf("class=\"footer", StringComparison.OrdinalIgnoreCase);
             if (footerIndex > 0)
-                body = body.Substring(0, footerIndex);
+            {
+                var tagStart = body.LastIndexOf('<', footerIndex);
+                body = body.Substring(0, tagStart > 0 ? tagStart : footerIndex);
+            }
 
             body = BlockBreakRegex.Replace(body, "\n");
             body = TagRegex.Replace(body, string.Empty);

@@ -95,6 +95,42 @@ namespace KitWright.Editor.Tests
             StringAssert.Contains("Body text.", text);
         }
 
+        // The footer anchor sits inside the tag, so cutting at it used to leave a "<div " fragment
+        // the tag stripper could not match, and it surfaced at the end of every page's text.
+        [Test]
+        public void HtmlToText_CutsAtTheFooterTagNotTheAttributeInsideIt()
+        {
+            const string html = "<h1>Mathf</h1><p>Body.</p><div class=\"footer\">Copyright</div>";
+
+            var text = DocsFunctions.HtmlToText(html);
+
+            StringAssert.Contains("Body.", text);
+            Assert.IsFalse(text.Contains("<div"), "Footer tag fragment leaked into the text: " + text);
+        }
+
+        [Test]
+        public void ExtractExamples_ReturnsEachCodeBlockDecodedAndTagFree()
+        {
+            const string html =
+                "<h1>Physics.Raycast</h1>" +
+                "<pre class=\"codeExampleCS\">if (a &lt; b)\n    <span class=\"kw\">return</span>;</pre>" +
+                "<p>prose</p>" +
+                "<pre class=\"codeExampleCS\">Debug.Log(&quot;hi&quot;);</pre>";
+
+            var examples = DocsFunctions.ExtractExamples(html);
+
+            Assert.AreEqual(2, examples.Length);
+            Assert.AreEqual("if (a < b)\n    return;", examples[0]);
+            Assert.AreEqual("Debug.Log(\"hi\");", examples[1]);
+        }
+
+        [Test]
+        public void ExtractExamples_IgnoresMarkupWithNoCodeBlocks()
+        {
+            Assert.IsEmpty(DocsFunctions.ExtractExamples("<h1>Mathf</h1><p>No code here.</p>"));
+            Assert.IsEmpty(DocsFunctions.ExtractExamples(null));
+        }
+
         // Markup that never reaches the trimming anchors: no heading to cut to, or nothing at all.
         [Test]
         public void HtmlToText_HandlesDegenerateInput()
