@@ -4,7 +4,7 @@ using System;
 namespace KitWright.Editor.Tools
 {
     [AttributeUsage(AttributeTargets.Parameter)]
-    internal class ToolParamAttribute : Attribute
+    public class ToolParamAttribute : Attribute
     {
         public string Description { get; }
         public bool Required { get; set; } = true;

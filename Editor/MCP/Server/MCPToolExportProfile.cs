@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using KitWright.Editor.Tools;
 
 namespace KitWright.Editor.MCP.Server
 {
@@ -68,6 +69,7 @@ namespace KitWright.Editor.MCP.Server
             "set_component_property",
             "set_component_properties",
             "reflect_api",
+            "fetch_docs",
             "set_tool_profile",
             "execute_menu_item"
         };
@@ -134,7 +136,7 @@ namespace KitWright.Editor.MCP.Server
             if (profileConfigured)
                 return ContainsTool(profileTools, toolName);
 
-            return IsInDefaultSet(toolName, profile);
+            return IsInDefaultSet(toolName, profile) || ToolRegistry.IsCustomTool(toolName);
         }
 
         private static bool IsInDefaultSet(string toolName, MCPToolExportProfile profile)
@@ -167,7 +169,8 @@ namespace KitWright.Editor.MCP.Server
             IEnumerable<string> allToolNames)
         {
             return (allToolNames ?? Enumerable.Empty<string>())
-                .Where(name => !string.IsNullOrWhiteSpace(name) && IsInDefaultSet(name, profile));
+                .Where(name => !string.IsNullOrWhiteSpace(name)
+                               && (IsInDefaultSet(name, profile) || ToolRegistry.IsCustomTool(name)));
         }
 
         private static bool ContainsTool(IEnumerable<string> tools, string toolName)

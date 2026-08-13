@@ -20,6 +20,7 @@ namespace KitWright.Editor.Tools
         private static readonly object _lock = new object();
         private static volatile List<Type> _providerTypes;
         private static volatile Dictionary<string, MethodInfo> _methodCache;
+        private static volatile HashSet<string> _customToolNames;
 
         /// <summary>
         /// Manually registered tools from external plugins.
@@ -67,6 +68,7 @@ namespace KitWright.Editor.Tools
         {
             _providerTypes = new List<Type>();
             _methodCache = new Dictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
+            _customToolNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try
             {
@@ -95,6 +97,8 @@ namespace KitWright.Editor.Tools
                                 if (!_methodCache.ContainsKey(snakeName))
                                 {
                                     _methodCache[snakeName] = method;
+                                    if (!IsPackageAssembly(assembly))
+                                        _customToolNames.Add(snakeName);
                                 }
                                 else
                                 {
@@ -113,6 +117,35 @@ namespace KitWright.Editor.Tools
             {
                 Debug.LogError($"[KitWright] Error scanning assemblies for tool functions: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// True when the tool was declared outside this package — i.e. by project or
+        /// third-party code marked with [ToolProvider]. Those tools are exposed regardless of
+        /// the active profile, since the project author opted in by writing them.
+        /// </summary>
+        public static bool IsCustomTool(string snakeCaseName)
+        {
+            if (string.IsNullOrEmpty(snakeCaseName)) return false;
+            if (_customToolNames == null)
+                lock (_lock) { if (_customToolNames == null) ScanAssemblies(); }
+            return _customToolNames.Contains(snakeCaseName);
+        }
+
+        // Listed explicitly rather than matched on a "KitWright." prefix, so a project that happens
+        // to name an assembly KitWright.Something does not get its tools silently treated as built-in.
+        private static readonly HashSet<string> PackageAssemblyNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "KitWright.Editor",
+            "KitWright.Editor.Bootstrap",
+            "KitWright.Editor.InputSystem",
+            "KitWright.Editor.Pro"
+        };
+
+        internal static bool IsPackageAssembly(Assembly assembly)
+        {
+            var name = assembly?.GetName().Name;
+            return name != null && PackageAssemblyNames.Contains(name);
         }
 
         public static MethodInfo GetMethod(string snakeCaseName)

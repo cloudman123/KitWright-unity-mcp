@@ -8,5 +8,5 @@ namespace KitWright.Editor.Tools
     /// Functions with this attribute do not modify the scene or project.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ReadOnlyToolAttribute : Attribute { }
+    public class ReadOnlyToolAttribute : Attribute { }
 }
