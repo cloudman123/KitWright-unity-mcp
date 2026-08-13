@@ -7,7 +7,6 @@ namespace KitWright.Editor.State
     internal enum KitWrightState
     {
         Initialized,
-        ExecutingAllFunctions,
         ExecutingFunction
     }
 

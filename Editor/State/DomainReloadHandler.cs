@@ -289,7 +289,6 @@ namespace KitWright.Editor.State
                 switch (State)
                 {
                     case KitWrightState.ExecutingFunction:
-                    case KitWrightState.ExecutingAllFunctions:
                         return "Function execution was interrupted by script recompilation.";
                     default:
                         return "Operation was interrupted by script recompilation.";
