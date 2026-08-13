@@ -35,6 +35,7 @@ Thumbs.db
 *.apk
 *.aab
 *.unitypackage
+*.unitypackage.meta
 *.app
 
 # Local private release/agent files

@@ -268,7 +268,11 @@ namespace KitWright.Editor.MCP.Server
 
             if (!_settings.MCPBrokerModeEnabled)
             {
-                _brokerStatus.text = "Transport: Direct HTTP.";
+                // The port field shows the configured port; a start that had to fall forward
+                // binds a different one, and the client must be pointed at the bound port.
+                _brokerStatus.text = _server != null && _server.IsRunning && _server.Port != _settings.MCPServerPort
+                    ? "Transport: Direct HTTP on port " + _server.Port + " (configured port was in use)."
+                    : "Transport: Direct HTTP.";
                 return;
             }
 

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -118,11 +119,12 @@ namespace KitWright.Editor.MCP.Server
                     ct.ThrowIfCancellationRequested();
 
                     if (attempt == 1 && ConsumeOrphanReclaimArm())
-                        CloseOrphanedActiveListener();
+                        CloseActiveListener(_listener);
 
                     _listener = new TcpListener(IPAddress.Loopback, _port);
                     _listener.Server.NoDelay = true;
                     _listener.Start();
+                    DisableHandleInheritance(_listener.Server);
 
                     lock (s_activeListenerLock)
                         s_activeListener = _listener;
@@ -734,7 +736,25 @@ namespace KitWright.Editor.MCP.Server
             try { _listener.Stop(); } catch { }
         }
 
-        private void CloseOrphanedActiveListener()
+        [DllImport("kernel32.dll")]
+        private static extern void SetHandleInformation(IntPtr handle, int mask, int flags);
+
+        // Mono binds listening sockets with the inherit flag set, so every process Unity spawns
+        // afterwards (other MCP servers, compiler workers, node) receives a duplicate of this
+        // handle. The port then stays bound after Unity exits, for as long as any of those
+        // children lives, and the next editor has to fall forward to a different port.
+        internal static void DisableHandleInheritance(Socket socket)
+        {
+            if (Application.platform != RuntimePlatform.WindowsEditor)
+                return;
+
+            try { SetHandleInformation(socket.Handle, 0x1 /* HANDLE_FLAG_INHERIT */, 0); } catch { }
+        }
+
+        // Two callers, same job: a start reclaiming a listener a hot-patch leaked, and a domain
+        // reload closing whatever is still bound. The reload path must not go through the service,
+        // which reports not-running while a start is mid-flight even though the listener is bound.
+        internal static void CloseActiveListener(TcpListener except = null)
         {
             TcpListener orphan;
             lock (s_activeListenerLock)
@@ -743,13 +763,13 @@ namespace KitWright.Editor.MCP.Server
                 s_activeListener = null;
             }
 
-            if (orphan == null || ReferenceEquals(orphan, _listener))
+            if (orphan == null || ReferenceEquals(orphan, except))
                 return;
 
             try
             {
                 orphan.Stop();
-                Debug.LogWarning("[KitWright MCP Server] Closed an orphaned listener left behind by a hot-patched transport.");
+                Debug.LogWarning("[KitWright MCP Server] Closed a listener left bound by a previous transport.");
             }
             catch { }
         }

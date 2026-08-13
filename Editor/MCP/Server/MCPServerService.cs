@@ -47,6 +47,8 @@ namespace KitWright.Editor.MCP.Server
         private bool _restartInProgress;
         private string _toolExposureSetting;
         private string _transportSetting;
+        // Reconnect hint for the next start only, set by the post-reload restart.
+        internal static int PreferredStartupPort;
 
         public bool IsRunning
         {
@@ -176,11 +178,12 @@ namespace KitWright.Editor.MCP.Server
             var assigned = false;
             try
             {
-                var startupPort = ResolveStartupPort(NormalizePort(_settings.MCPServerPort));
+                var startupPort = ResolveStartupPort(SelectStartupBasePort(_settings.MCPServerPort));
                 var toolExposureSetting = BuildToolExposureSetting();
                 PluginDebugLogger.Log("[KitWright MCP Server] Starting server...");
 
-                var serverName = "KitWright MCP Server - " + Application.productName;
+                var projectName = Application.productName;
+                var serverName = "KitWright MCP Server - " + projectName;
                 var projectIdentity = ProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
                 transport = CreateTransport(startupPort, projectIdentity);
                 var toolExporter = new MCPToolExporter(_settings);
@@ -245,6 +248,7 @@ namespace KitWright.Editor.MCP.Server
                     {
                         PluginDebugLogger.Log($"[KitWright] MCP Server started on http://127.0.0.1:{Port}/ If this tool saves you time, please consider giving it a Star on GitHub: https://github.com/kitwright/unity-mcp");
                     }
+                    MCPInstanceRegistry.Publish(Port, _applicationPaths.ProjectPath, projectName, projectIdentity);
                     MCPClientConfigAutoRewrite.Schedule(Port);
                     ExternalSyncRecoveryTracker.TryCompletePendingRecovery();
                     CheckForInterruptedExecution();
@@ -359,6 +363,10 @@ namespace KitWright.Editor.MCP.Server
             }
 
             resourceProviderToDispose?.Dispose();
+
+            if (hadState)
+                MCPInstanceRegistry.Remove(_applicationPaths.ProjectPath);
+
             return hadState;
         }
 
@@ -449,16 +457,14 @@ namespace KitWright.Editor.MCP.Server
         {
             if (_disposed) return;
 
-            var portChanged = _settings.MCPServerPort != Port;
             var toolExposureSetting = BuildToolExposureSetting();
             var transportSetting = BuildTransportSetting();
             var toolExposureChanged = !string.Equals(toolExposureSetting, _toolExposureSetting, StringComparison.Ordinal);
             var transportChanged = !string.Equals(transportSetting, _transportSetting, StringComparison.Ordinal);
 
-            if ((portChanged || toolExposureChanged || transportChanged) && _isRunning)
+            if ((toolExposureChanged || transportChanged) && _isRunning)
             {
                 PluginDebugLogger.Log("[KitWright MCP Server] Server settings changed, restarting MCP transport...");
-                Port = _settings.MCPServerPort;
                 _toolExposureSetting = toolExposureSetting;
                 _transportSetting = transportSetting;
                 ScheduleRestart();
@@ -466,6 +472,16 @@ namespace KitWright.Editor.MCP.Server
         }
 
         private const int PortFallbackRange = 10;
+
+        // Reconnect hint for the next start only. Persisting a fallback port into settings
+        // instead would ratchet the configured port upward on every reload that had to fall
+        // forward, so the base port must stay whatever the user configured.
+        internal static int SelectStartupBasePort(int configuredPort)
+        {
+            var preferred = PreferredStartupPort;
+            PreferredStartupPort = 0;
+            return preferred > 0 ? preferred : NormalizePort(configuredPort);
+        }
 
         // Multi-editor support: when the configured port is held by another process
         // (another Unity editor's MCP server, or an orphaned listener from a previous
@@ -548,9 +564,12 @@ namespace KitWright.Editor.MCP.Server
 
         private string BuildTransportSetting()
         {
+            // Carries the configured port, not the bound one: a fallback start leaves Port ahead
+            // of the setting, and restarting on that difference would fire on every settings write.
             return string.Join("|",
                 _settings.MCPBrokerModeEnabled ? "broker=on" : "broker=off",
-                _settings.MCPBrokerMonoPath ?? string.Empty);
+                _settings.MCPBrokerMonoPath ?? string.Empty,
+                _settings.MCPServerPort.ToString());
         }
 
         internal static MCPResponse TryCreateBrokerRedeliveryResponse(MCPRequest request)

@@ -8,6 +8,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -434,6 +435,89 @@ namespace KitWright.Editor
             catch
             {
                 // Listener shutdown during test cleanup.
+            }
+        }
+
+        private static bool IsBindable(int port)
+        {
+            try
+            {
+                var probe = new TcpListener(IPAddress.Loopback, port);
+                probe.Start();
+                probe.Stop();
+                return true;
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
+        }
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetHandleInformation(IntPtr handle, out int flags);
+
+        // Regression: the post-reload port used to be written back into settings, so every reload
+        // that fell forward raised the configured base permanently (8765 -> 8767 -> ...).
+        [Test]
+        public void SelectStartupBasePort_HintIsConsumedOnceAndLeavesConfiguredPortIntact()
+        {
+            MCPServerService.PreferredStartupPort = 8770;
+
+            Assert.AreEqual(8770, MCPServerService.SelectStartupBasePort(8765));
+            Assert.AreEqual(8765, MCPServerService.SelectStartupBasePort(8765));
+        }
+
+        // A P/Invoke that silently no-ops looks exactly like a working one: the port only leaks
+        // once Unity exits with a child process still holding the inherited handle.
+        [Test]
+        public void DisableHandleInheritance_ClearsTheInheritFlagOnTheListeningSocket()
+        {
+            if (Application.platform != RuntimePlatform.WindowsEditor)
+                Assert.Ignore("Handle inheritance is a Windows-only concern.");
+
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            try
+            {
+                Assert.IsTrue(GetHandleInformation(listener.Server.Handle, out var before));
+                Assume.That(before & 0x1, Is.EqualTo(0x1),
+                    "Runtime already binds sockets non-inheritable; the production call is then a no-op.");
+
+                HttpMCPTransport.DisableHandleInheritance(listener.Server);
+
+                Assert.IsTrue(GetHandleInformation(listener.Server.Handle, out var after));
+                Assert.AreEqual(0, after & 0x1,
+                    "Listening socket is still inheritable, so children will keep the port bound.");
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        // The leak this guards against only shows up when the reload lands mid-start, so the
+        // service-level stop is not enough: the transport must be closed off its own static.
+        [UnityTest]
+        public IEnumerator CloseActiveListener_FreesAPortTheServiceNeverMarkedRunning()
+        {
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port);
+
+            try
+            {
+                var start = transport.StartAsync();
+                yield return WaitForTask(start);
+                Assert.IsTrue(start.Result, "Transport failed to bind a free port.");
+                Assert.IsFalse(IsBindable(port), "Port should be held while the transport is up.");
+
+                HttpMCPTransport.CloseActiveListener();
+
+                Assert.IsTrue(IsBindable(port), "Listener survived the reload hook and orphaned the port.");
+            }
+            finally
+            {
+                transport.Dispose();
             }
         }
 

@@ -72,6 +72,12 @@ namespace KitWright.Editor.MCP.Server
             {
                 Debug.LogError($"[KitWright MCP Server] Error in OnBeforeReload: {ex.Message}");
             }
+            finally
+            {
+                // Runs even when the stop above was skipped or threw: a listener left bound here
+                // survives the reload as an orphan and pushes the next domain onto another port.
+                HttpMCPTransport.CloseActiveListener();
+            }
         }
 
         /// <summary>
@@ -139,7 +145,6 @@ namespace KitWright.Editor.MCP.Server
                 return;
 
             var mcpServer = services.GetService(typeof(MCPServerService)) as MCPServerService;
-            var settings = services.GetService(typeof(ISettingsController)) as ISettingsController;
             if (mcpServer == null)
                 return;
 
@@ -148,8 +153,8 @@ namespace KitWright.Editor.MCP.Server
             try
             {
                 int savedPort = SessionState.GetInt(PortKey, -1);
-                if (savedPort > 0 && settings != null && settings.MCPServerPort != savedPort)
-                    settings.MCPServerPort = savedPort;
+                if (savedPort > 0)
+                    MCPServerService.PreferredStartupPort = savedPort;
 
                 if (!mcpServer.IsRunning)
                 {
