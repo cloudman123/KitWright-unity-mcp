@@ -241,11 +241,11 @@ namespace KitWright.Editor.Tools.Builtins
                 parsed.Add(new CSharpMemberEditor.MemberEdit
                 {
                     Op = (string)token["op"],
-                    ClassName = (string)(token["class_name"] ?? token["className"]),
-                    MethodName = (string)(token["method_name"] ?? token["methodName"]),
+                    ClassName = (string)token["class_name"],
+                    MethodName = (string)token["method_name"],
                     Replacement = (string)token["replacement"],
                     Position = (string)token["position"],
-                    AnchorMethod = (string)(token["anchor_method"] ?? token["anchorMethod"])
+                    AnchorMethod = (string)token["anchor_method"]
                 });
             }
 

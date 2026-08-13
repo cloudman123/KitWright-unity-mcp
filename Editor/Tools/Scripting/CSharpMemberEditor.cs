@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -31,8 +32,8 @@ namespace KitWright.Editor.Tools.Scripting
             public string ClassName;
             public string MethodName;
             public string Replacement;
-            public string Position;      // insert_method: start | end | after | before
-            public string AnchorMethod;  // insert_method with position after/before
+            public string Position;
+            public string AnchorMethod;
         }
 
         internal sealed class EditOutcome
@@ -46,16 +47,11 @@ namespace KitWright.Editor.Tools.Scripting
 
         public static EditOutcome Apply(string source, IReadOnlyList<MemberEdit> edits)
         {
-            if (source == null)
-                return Fail("EMPTY_SOURCE", "The file is empty.");
-            if (edits == null || edits.Count == 0)
-                return Fail("NO_EDITS", "No edits were supplied.");
-
             var current = source;
             for (var i = 0; i < edits.Count; i++)
             {
-                // Re-masked per edit rather than tracking offsets through the previous one: an edit
-                // shifts every position after it, and a stale offset silently cuts the wrong span.
+                // Re-masked per edit rather than carrying offsets across one: an edit shifts every
+                // position after it, and a stale offset silently cuts the wrong span.
                 var outcome = ApplyOne(current, edits[i]);
                 if (!outcome.Success)
                 {
@@ -69,9 +65,9 @@ namespace KitWright.Editor.Tools.Scripting
             return new EditOutcome { Success = true, Source = MatchLineEndings(source, current) };
         }
 
-        // Edits are assembled with '\n'. On a file that is uniformly CRLF that would leave the edited
-        // members as the only LF lines in it; a file that already mixes the two is left alone, since
-        // rewriting it would touch lines no edit asked for.
+        // Edits are assembled with '\n', which would leave them as the only LF lines in a CRLF file.
+        // A file that already mixes the two is left alone: rewriting it would touch lines no edit
+        // asked for.
         private static string MatchLineEndings(string original, string edited)
         {
             if (original.IndexOf("\r\n", StringComparison.Ordinal) < 0) return edited;
@@ -112,8 +108,8 @@ namespace KitWright.Editor.Tools.Scripting
             var found = ResolveSingleMethod(source, mask, bodyOpen, bodyClose, edit.MethodName, out var failure);
             if (found == null) return failure;
 
-            var indent = IndentOfLineAt(source, found.Start);
-            return Replaced(source, found.Start, found.End, Reindent(edit.Replacement, indent));
+            return Replaced(source, found.Start, found.End,
+                Reindent(edit.Replacement, IndentOfLineAt(source, found.Start)));
         }
 
         private static EditOutcome Delete(string source, string mask, int bodyOpen, int bodyClose, MemberEdit edit)
@@ -121,14 +117,10 @@ namespace KitWright.Editor.Tools.Scripting
             var found = ResolveSingleMethod(source, mask, bodyOpen, bodyClose, edit.MethodName, out var failure);
             if (found == null) return failure;
 
-            // Take the member's own line break and the blank line that usually follows it, so a
-            // delete leaves the gap between its neighbours looking like every other gap.
-            var end = ConsumeLineBreak(source, found.End);
-            var afterBlank = ConsumeLineBreak(source, SkipSpacesAndTabs(source, end));
-            if (afterBlank > end && source.Substring(end, afterBlank - end).Trim().Length == 0)
-                end = afterBlank;
-
-            return Replaced(source, LineStart(source, found.Start), end, string.Empty);
+            // Takes the member's own line break and the blank line after it, so the gap left behind
+            // looks like every other gap between members.
+            var trailing = Regex.Match(source.Substring(found.End), @"^\r?\n([ \t]*\r?\n)?").Length;
+            return Replaced(source, LineStart(source, found.Start), found.End + trailing, string.Empty);
         }
 
         private static EditOutcome Insert(string source, string mask, int bodyOpen, int bodyClose, MemberEdit edit)
@@ -137,42 +129,33 @@ namespace KitWright.Editor.Tools.Scripting
                 return Fail("INVALID_EDIT", "replacement is required for " + OpInsert + ".");
 
             var position = string.IsNullOrWhiteSpace(edit.Position) ? "end" : edit.Position.Trim().ToLowerInvariant();
-            int at;
-            string indent;
 
+            MethodSpan anchor = null;
             if (position == "after" || position == "before")
             {
                 if (string.IsNullOrWhiteSpace(edit.AnchorMethod))
                     return Fail("INVALID_EDIT", $"anchor_method is required when position is '{position}'.");
 
-                var anchor = ResolveSingleMethod(source, mask, bodyOpen, bodyClose, edit.AnchorMethod, out var failure);
+                anchor = ResolveSingleMethod(source, mask, bodyOpen, bodyClose, edit.AnchorMethod, out var failure);
                 if (anchor == null) return failure;
-
-                indent = IndentOfLineAt(source, anchor.Start);
-                at = position == "after" ? anchor.End : LineStart(source, anchor.Start);
-            }
-            else if (position == "start" || position == "end")
-            {
-                indent = MemberIndent(source, bodyOpen, bodyClose);
-                at = position == "start" ? bodyOpen + 1 : LineStart(source, bodyClose);
-            }
-            else
-            {
-                return Fail("INVALID_EDIT", $"Unknown position '{edit.Position}'. Expected start, end, after or before.");
             }
 
-            // Each anchor lands on a different side of an existing line break, so the padding that
-            // leaves exactly one blank line between members differs per position.
-            var body = Reindent(edit.Replacement, indent);
-            string text;
+            var body = Reindent(edit.Replacement, anchor != null
+                ? IndentOfLineAt(source, anchor.Start)
+                : MemberIndent(source, bodyOpen, bodyClose));
+
+            // Each position lands on a different side of an existing line break, so the padding that
+            // leaves exactly one blank line between members differs per case.
             switch (position)
             {
-                case "after": text = "\n\n" + body; break;
-                case "before": text = body + "\n\n"; break;
-                default: text = "\n" + body + "\n"; break; // start and end insert at a line boundary
+                case "after": return Inserted(source, anchor.End, "\n\n" + body);
+                case "before": return Inserted(source, LineStart(source, anchor.Start), body + "\n\n");
+                case "start": return Inserted(source, bodyOpen + 1, "\n" + body + "\n");
+                case "end": return Inserted(source, LineStart(source, bodyClose), "\n" + body + "\n");
+                default:
+                    return Fail("INVALID_EDIT",
+                        $"Unknown position '{edit.Position}'. Expected start, end, after or before.");
             }
-
-            return Replaced(source, at, at, text);
         }
 
         private sealed class MethodSpan
@@ -198,26 +181,21 @@ namespace KitWright.Editor.Tools.Scripting
             {
                 failure = Fail("METHOD_NOT_FOUND",
                     $"No method named '{methodName}' directly inside that type.",
-                    MethodNames(source, mask, bodyOpen, bodyClose));
+                    MethodNames(mask, bodyOpen, bodyClose));
                 return null;
             }
 
             if (matches.Count > 1)
             {
-                var signatures = new string[matches.Count];
-                for (var i = 0; i < matches.Count; i++) signatures[i] = matches[i].Signature;
-
                 failure = Fail("AMBIGUOUS_METHOD",
                     $"'{methodName}' is overloaded {matches.Count} times here; this tool addresses a member by name, " +
                     "so it cannot tell them apart. Use patch_script for one overload.",
-                    signatures);
+                    matches.Select(m => m.Signature).ToArray());
                 return null;
             }
 
             return matches[0];
         }
-
-        // ----- source scanning -----
 
         /// <summary>
         /// A copy of the source with every string, char literal and comment blanked to spaces, and
@@ -227,9 +205,8 @@ namespace KitWright.Editor.Tools.Scripting
         internal static string Mask(string source) => Mask(source, out _);
 
         /// <param name="unterminated">
-        /// The construct still open at end of file (a block comment or a verbatim string), or null.
-        /// Everything after it was blanked, so a caller that only counts braces would report the
-        /// wrong problem without this.
+        /// The construct still open at end of file, or null. Everything after it was blanked, so a
+        /// caller that only counts braces would otherwise report the wrong problem.
         /// </param>
         internal static string Mask(string source, out string unterminated)
         {
@@ -237,21 +214,20 @@ namespace KitWright.Editor.Tools.Scripting
             if (string.IsNullOrEmpty(source)) return source ?? string.Empty;
 
             var masked = new char[source.Length];
-            bool inString = false, inVerbatim = false, inInterpolated = false, inChar = false;
+            bool inString = false, inVerbatim = false, inChar = false;
             bool inLineComment = false, inBlockComment = false;
 
             for (var i = 0; i < source.Length; i++)
             {
                 char c = source[i];
                 char next = i + 1 < source.Length ? source[i + 1] : '\0';
-                bool hidden = inString || inChar || inLineComment || inBlockComment;
 
                 if (c == '\n')
                 {
                     inLineComment = false;
-                    // A non-verbatim string cannot span lines; treat the newline as closing it so one
-                    // stray quote does not blank the rest of the file.
-                    if (inString && !inVerbatim) { inString = false; inInterpolated = false; }
+                    // A non-verbatim string cannot span lines; closing it here stops one stray quote
+                    // from blanking the rest of the file.
+                    if (inString && !inVerbatim) inString = false;
                     masked[i] = c;
                     continue;
                 }
@@ -261,7 +237,7 @@ namespace KitWright.Editor.Tools.Scripting
                 if (inBlockComment)
                 {
                     masked[i] = ' ';
-                    if (c == '*' && next == '/') { inBlockComment = false; masked[i] = ' '; if (i + 1 < source.Length) { masked[++i] = ' '; } }
+                    if (c == '*' && next == '/' && i + 1 < source.Length) { inBlockComment = false; masked[++i] = ' '; }
                     continue;
                 }
 
@@ -271,12 +247,12 @@ namespace KitWright.Editor.Tools.Scripting
                     if (inVerbatim)
                     {
                         if (c == '"' && next == '"') { masked[++i] = ' '; continue; }
-                        if (c == '"') { inString = false; inVerbatim = false; inInterpolated = false; }
+                        if (c == '"') { inString = false; inVerbatim = false; }
                     }
                     else
                     {
                         if (c == '\\' && i + 1 < source.Length) { masked[++i] = ' '; continue; }
-                        if (c == '"') { inString = false; inInterpolated = false; }
+                        if (c == '"') inString = false;
                     }
                     continue;
                 }
@@ -293,17 +269,17 @@ namespace KitWright.Editor.Tools.Scripting
                 if (c == '/' && next == '*') { inBlockComment = true; masked[i] = ' '; continue; }
 
                 if (c == '@' && next == '"') { inString = true; inVerbatim = true; masked[i] = ' '; masked[++i] = ' '; continue; }
-                if (c == '$' && next == '"') { inString = true; inInterpolated = true; masked[i] = ' '; masked[++i] = ' '; continue; }
+                if (c == '$' && next == '"') { inString = true; masked[i] = ' '; masked[++i] = ' '; continue; }
                 if (c == '$' && next == '@' && i + 2 < source.Length && source[i + 2] == '"')
                 {
-                    inString = true; inVerbatim = true; inInterpolated = true;
+                    inString = true; inVerbatim = true;
                     masked[i] = ' '; masked[++i] = ' '; masked[++i] = ' ';
                     continue;
                 }
                 if (c == '"') { inString = true; masked[i] = ' '; continue; }
                 if (c == '\'') { inChar = true; masked[i] = ' '; continue; }
 
-                masked[i] = hidden ? ' ' : c;
+                masked[i] = c;
             }
 
             if (inBlockComment) unterminated = "block comment";
@@ -312,7 +288,7 @@ namespace KitWright.Editor.Tools.Scripting
             return new string(masked);
         }
 
-        internal static bool TryFindTypeBody(string mask, string typeName, out int bodyOpen, out int bodyClose)
+        private static bool TryFindTypeBody(string mask, string typeName, out int bodyOpen, out int bodyClose)
         {
             bodyOpen = bodyClose = -1;
 
@@ -326,29 +302,11 @@ namespace KitWright.Editor.Tools.Scripting
                 if (mask.IndexOf(';', match.Index + match.Length, open - match.Index - match.Length) >= 0)
                     continue;
 
-                if (!TryMatchBrace(mask, open, out var close)) continue;
+                if (!TryMatchPair(mask, open, '{', '}', out var close)) continue;
 
                 bodyOpen = open;
                 bodyClose = close;
                 return true;
-            }
-
-            return false;
-        }
-
-        internal static bool TryMatchBrace(string mask, int open, out int close)
-        {
-            close = -1;
-            var depth = 0;
-
-            for (var i = open; i < mask.Length; i++)
-            {
-                if (mask[i] == '{') depth++;
-                else if (mask[i] == '}')
-                {
-                    depth--;
-                    if (depth == 0) { close = i; return true; }
-                }
             }
 
             return false;
@@ -365,24 +323,22 @@ namespace KitWright.Editor.Tools.Scripting
                 if (DepthBetween(mask, bodyOpen, match.Index) != 1) continue;
 
                 var afterName = SkipWhitespace(mask, match.Index + match.Length);
-                // A generic method: the type parameter list sits between the name and the arguments.
                 if (afterName < mask.Length && mask[afterName] == '<')
                 {
-                    if (!TryMatchAngle(mask, afterName, out var closeAngle)) continue;
+                    if (!TryMatchPair(mask, afterName, '<', '>', out var closeAngle)) continue;
                     afterName = SkipWhitespace(mask, closeAngle + 1);
                 }
 
                 if (afterName >= mask.Length || mask[afterName] != '(') continue;
-                if (!TryMatchParen(mask, afterName, out var closeParen)) continue;
+                if (!TryMatchPair(mask, afterName, '(', ')', out var closeParen)) continue;
                 if (!LooksLikeDeclaration(mask, bodyOpen, match.Index)) continue;
 
                 var end = FindMemberEnd(mask, closeParen + 1);
                 if (end < 0) continue;
 
-                var start = DeclarationStart(source, mask, bodyOpen, match.Index);
                 results.Add(new MethodSpan
                 {
-                    Start = start,
+                    Start = DeclarationStart(source, mask, bodyOpen, match.Index),
                     End = end,
                     Signature = Collapse(source.Substring(match.Index, closeParen + 1 - match.Index))
                 });
@@ -418,7 +374,7 @@ namespace KitWright.Editor.Tools.Scripting
                 if (char.IsWhiteSpace(c)) continue;
 
                 if (c == '{')
-                    return TryMatchBrace(mask, i, out var close) ? close + 1 : -1;
+                    return TryMatchPair(mask, i, '{', '}', out var close) ? close + 1 : -1;
 
                 if (c == ';')
                     return i + 1;
@@ -433,7 +389,7 @@ namespace KitWright.Editor.Tools.Scripting
             return -1;
         }
 
-        // Attributes and the doc comment above a member are part of it: leaving them behind would
+        // Attributes and the comment above a member are part of it: leaving them behind would
         // duplicate whatever the replacement carries.
         private static int DeclarationStart(string source, string mask, int bodyOpen, int nameIndex)
         {
@@ -474,12 +430,6 @@ namespace KitWright.Editor.Tools.Scripting
             return depth;
         }
 
-        private static bool TryMatchParen(string mask, int open, out int close) =>
-            TryMatchPair(mask, open, '(', ')', out close);
-
-        private static bool TryMatchAngle(string mask, int open, out int close) =>
-            TryMatchPair(mask, open, '<', '>', out close);
-
         private static bool TryMatchPair(string mask, int open, char openChar, char closeChar, out int close)
         {
             close = -1;
@@ -487,27 +437,24 @@ namespace KitWright.Editor.Tools.Scripting
 
             for (var i = open; i < mask.Length; i++)
             {
+                // A type parameter list never spans a statement; bailing stops a stray '<' from
+                // running away through the rest of the file.
+                if (openChar == '<' && (mask[i] == '{' || mask[i] == ';')) return false;
+
                 if (mask[i] == openChar) depth++;
                 else if (mask[i] == closeChar)
                 {
                     depth--;
                     if (depth == 0) { close = i; return true; }
                 }
-                else if (mask[i] == '{' || mask[i] == ';')
-                {
-                    // A generic argument list never spans a statement; bail rather than run away
-                    // through the rest of the file on a stray '<'.
-                    if (openChar == '<') return false;
-                }
             }
 
             return false;
         }
 
-        private static string[] MethodNames(string source, string mask, int bodyOpen, int bodyClose)
+        private static string[] MethodNames(string mask, int bodyOpen, int bodyClose)
         {
             var names = new List<string>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (Match match in new Regex(@"\b([A-Za-z_]\w*)\s*(<[^;{}]*>)?\s*\(").Matches(mask))
             {
@@ -515,23 +462,15 @@ namespace KitWright.Editor.Tools.Scripting
                 if (DepthBetween(mask, bodyOpen, match.Index) != 1) continue;
                 if (!LooksLikeDeclaration(mask, bodyOpen, match.Index)) continue;
 
-                var name = match.Groups[1].Value;
-                if (seen.Add(name)) names.Add(name);
+                names.Add(match.Groups[1].Value);
             }
 
-            return names.ToArray();
+            return names.Distinct().ToArray();
         }
 
-        private static string[] DeclaredTypeNames(string mask)
-        {
-            var names = new List<string>();
-            foreach (Match match in new Regex(@"\b(?:class|struct|interface|record)\s+([A-Za-z_]\w*)").Matches(mask))
-                names.Add(match.Groups[1].Value);
-
-            return names.ToArray();
-        }
-
-        // ----- text helpers -----
+        private static string[] DeclaredTypeNames(string mask) =>
+            new Regex(@"\b(?:class|struct|interface|record)\s+([A-Za-z_]\w*)")
+                .Matches(mask).Cast<Match>().Select(m => m.Groups[1].Value).ToArray();
 
         private static int LineStart(string source, int index)
         {
@@ -547,45 +486,35 @@ namespace KitWright.Editor.Tools.Scripting
             return source.Substring(start, end - start);
         }
 
-        // The indentation members of this type already use, so an inserted one lines up with them.
         private static string MemberIndent(string source, int bodyOpen, int bodyClose)
         {
             for (var i = bodyOpen + 1; i < bodyClose; i++)
             {
-                if (source[i] == '\n') continue;
-                if (char.IsWhiteSpace(source[i])) continue;
-                return IndentOfLineAt(source, i);
+                if (!char.IsWhiteSpace(source[i]))
+                    return IndentOfLineAt(source, i);
             }
 
             return IndentOfLineAt(source, bodyOpen) + "    ";
         }
 
         /// <summary>
-        /// Re-indents a block to sit at <paramref name="indent"/>, keeping its internal shape: the
-        /// caller writes a method the way it reads, not the way it has to line up at this nesting.
+        /// Re-indents a block to sit at <paramref name="indent"/>, keeping its internal shape, so the
+        /// caller writes a method the way it reads rather than the way it lines up at this nesting.
         /// </summary>
         internal static string Reindent(string text, string indent)
         {
             var lines = text.Replace("\r\n", "\n").Trim('\n').Split('\n');
-            var common = int.MaxValue;
-
-            foreach (var line in lines)
-            {
-                if (line.Trim().Length == 0) continue;
-                var leading = 0;
-                while (leading < line.Length && (line[leading] == ' ' || line[leading] == '\t')) leading++;
-                common = Math.Min(common, leading);
-            }
-
-            if (common == int.MaxValue) common = 0;
+            var common = lines.Where(l => l.Trim().Length > 0)
+                .Select(l => l.Length - l.TrimStart(' ', '\t').Length)
+                .DefaultIfEmpty(0)
+                .Min();
 
             var builder = new StringBuilder();
             for (var i = 0; i < lines.Length; i++)
             {
                 if (i > 0) builder.Append('\n');
-                var line = lines[i];
-                if (line.Trim().Length == 0) continue;
-                builder.Append(indent).Append(line.Substring(Math.Min(common, line.Length)).TrimEnd());
+                if (lines[i].Trim().Length == 0) continue;
+                builder.Append(indent).Append(lines[i].Substring(common).TrimEnd());
             }
 
             return builder.ToString();
@@ -597,21 +526,10 @@ namespace KitWright.Editor.Tools.Scripting
             return index;
         }
 
-        private static int SkipSpacesAndTabs(string source, int index)
-        {
-            while (index < source.Length && (source[index] == ' ' || source[index] == '\t')) index++;
-            return index;
-        }
-
-        private static int ConsumeLineBreak(string source, int index)
-        {
-            if (index < source.Length && source[index] == '\r') index++;
-            if (index < source.Length && source[index] == '\n') index++;
-            return index;
-        }
-
         private static string Collapse(string text) =>
             Regex.Replace(text.Replace('\n', ' ').Replace('\r', ' '), @"\s+", " ").Trim();
+
+        private static EditOutcome Inserted(string source, int at, string text) => Replaced(source, at, at, text);
 
         private static EditOutcome Replaced(string source, int start, int end, string text) =>
             new EditOutcome { Success = true, Source = source.Substring(0, start) + text + source.Substring(end) };
@@ -625,8 +543,7 @@ namespace KitWright.Editor.Tools.Scripting
     /// the authoritative answer is Unity's own, via request_recompile + get_compilation_errors, which
     /// builds the whole assembly with its real define symbols and its sibling files. Compiling one
     /// file on its own — which is what a per-file validator has to do — misreports every partial
-    /// class and every <c>#if</c> branch whose symbol it does not know. What is checked here is what
-    /// can be checked reliably from one file, and it is the class of damage an edit actually causes.
+    /// class and every <c>#if</c> branch whose symbol it does not know.
     /// </summary>
     internal static class CSharpSyntaxCheck
     {
@@ -639,7 +556,7 @@ namespace KitWright.Editor.Tools.Scripting
             if (unterminated != null)
                 return $"Unterminated {unterminated}: it is still open at end of file.";
 
-            var openers = new Stack<int>();
+            var openers = new Stack<KeyValuePair<char, int>>();
             var line = 1;
 
             for (var i = 0; i < mask.Length; i++)
@@ -649,7 +566,7 @@ namespace KitWright.Editor.Tools.Scripting
 
                 if (c == '{' || c == '(' || c == '[')
                 {
-                    openers.Push(i);
+                    openers.Push(new KeyValuePair<char, int>(c, line));
                     continue;
                 }
 
@@ -658,28 +575,16 @@ namespace KitWright.Editor.Tools.Scripting
                 if (openers.Count == 0)
                     return $"Line {line}: '{c}' closes nothing.";
 
-                var opener = mask[openers.Pop()];
+                var opener = openers.Pop().Key;
                 var expected = opener == '{' ? '}' : opener == '(' ? ')' : ']';
                 if (expected != c)
                     return $"Line {line}: '{c}' does not close the '{opener}' it was matched with; expected '{expected}'.";
             }
 
-            if (openers.Count > 0)
-            {
-                var index = openers.Pop();
-                return $"Line {LineOf(mask, index)}: '{mask[index]}' is never closed.";
-            }
+            if (openers.Count == 0) return null;
 
-            return null;
-        }
-
-        private static int LineOf(string text, int index)
-        {
-            var line = 1;
-            for (var i = 0; i < index && i < text.Length; i++)
-                if (text[i] == '\n') line++;
-
-            return line;
+            var unclosed = openers.Pop();
+            return $"Line {unclosed.Value}: '{unclosed.Key}' is never closed.";
         }
     }
 }
