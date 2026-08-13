@@ -91,7 +91,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             try
             {
-                var result = CompileAndExecute(fullCode, actualClassName);
+                var result = CompileAndExecute(fullCode, actualClassName, effectiveSafetyChecks);
                 AppendHistory(code, IsSuccess(result), SummarizeResult(result));
                 return result;
             }
@@ -284,7 +284,7 @@ namespace KitWright.Editor.Tools.Builtins
             return s.Substring(0, max) + "…";
         }
 
-        private static object CompileAndExecute(string code, string className)
+        private static object CompileAndExecute(string code, string className, bool safetyChecks)
         {
             var compilation = ScriptCompilerPipeline.Compile(code);
             if (compilation.Status == ScriptCompilationStatus.CompilationFailed)
@@ -305,6 +305,18 @@ namespace KitWright.Editor.Tools.Builtins
                     compiler = compilation.CompilerName,
                     message = compilation.Message,
                     compiler_attempts = compilation.Attempts
+                });
+            }
+
+            if (safetyChecks &&
+                CompiledCodeGuard.TryFindViolation(compilation.Assembly, ResolveStrictFilesystemSafety(), out var reference, out var guardReason))
+            {
+                return Response.Error("SAFETY_CHECK_BLOCKED", new
+                {
+                    reference,
+                    reason = guardReason,
+                    stage = "compiled",
+                    hint = "Detected in the compiled assembly's metadata, so aliasing or building the name at runtime does not get around it. Pass safety_checks=false for trusted local calls."
                 });
             }
 

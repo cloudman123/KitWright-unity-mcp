@@ -1,0 +1,181 @@
+// Copyright (C) KitWright. Licensed under MIT.
+
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEngine;
+
+namespace KitWright.Editor.Tools.Scripting
+{
+    /// <summary>
+    /// Second safety pass, run after the snippet compiles and before it is invoked.
+    /// <see cref="ExecuteCodeSafetyPolicy"/> matches patterns in source, which any alias, string
+    /// concatenation or reflection hop defeats; this walks the compiled assembly's TypeRef and
+    /// MemberRef tables instead, so what gets checked is what the snippet actually binds to.
+    /// </summary>
+    internal static class CompiledCodeGuard
+    {
+        // Metadata table prefixes (ECMA-335 II.22): TypeRef rows are 0x01xxxxxx, MemberRef 0x0Axxxxxx.
+        private const int TypeRefTable = 0x01000000;
+        private const int MemberRefTable = 0x0A000000;
+        private const int MaxRows = 20000;
+
+        private static readonly string[] BlockedTypes =
+        {
+            "System.Diagnostics.Process",
+            "System.IO.FileSystemWatcher"
+        };
+
+        private static readonly string[] BlockedMembers =
+        {
+            "System.IO.File.Delete",
+            "System.IO.File.Replace",
+            "System.IO.Directory.Delete",
+            "System.IO.Directory.Move",
+            "System.Environment.Exit",
+            "System.Environment.FailFast",
+            "UnityEditor.AssetDatabase.DeleteAsset",
+            "UnityEditor.AssetDatabase.DeleteAssets",
+            "UnityEditor.FileUtil.DeleteFileOrDirectory"
+        };
+
+        private static readonly string[] StrictTypes =
+        {
+            "System.IO.FileStream",
+            "System.IO.StreamWriter",
+            "System.IO.BinaryWriter",
+            "System.IO.FileInfo",
+            "System.IO.DirectoryInfo",
+            "System.Net.WebClient",
+            "System.Net.WebRequest",
+            "System.Net.Http.HttpClient",
+            "System.Net.Sockets.Socket",
+            "System.Net.Sockets.TcpClient"
+        };
+
+        private static readonly string[] StrictMembers =
+        {
+            "System.IO.File.WriteAllText",
+            "System.IO.File.WriteAllBytes",
+            "System.IO.File.WriteAllLines",
+            "System.IO.File.AppendAllText",
+            "System.IO.File.Create",
+            "System.IO.File.Copy",
+            "System.IO.File.Move",
+            "System.IO.Directory.CreateDirectory"
+        };
+
+        public static bool TryFindViolation(Assembly assembly, bool strict, out string reference, out string reason)
+        {
+            reference = null;
+            reason = null;
+
+            foreach (var module in assembly.GetModules())
+            {
+                if (ScanTypeRefs(module, strict, ref reference, ref reason) ||
+                    ScanMemberRefs(module, strict, ref reference, ref reason))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool ScanTypeRefs(Module module, bool strict, ref string reference, ref string reason)
+        {
+            for (var row = 1; row <= MaxRows; row++)
+            {
+                if (!TryResolve(() => module.ResolveType(TypeRefTable | row), out Type type, out var exhausted))
+                {
+                    if (exhausted)
+                        return false;
+                    continue;
+                }
+
+                var name = type?.FullName;
+                if (name == null)
+                    continue;
+
+                if (Matches(name, BlockedTypes) || (strict && Matches(name, StrictTypes)))
+                {
+                    reference = name;
+                    reason = $"The compiled snippet references '{name}', which execute_code refuses to run.";
+                    return true;
+                }
+            }
+
+            WarnScanTruncated(module, "TypeRef");
+            return false;
+        }
+
+        private static bool ScanMemberRefs(Module module, bool strict, ref string reference, ref string reason)
+        {
+            for (var row = 1; row <= MaxRows; row++)
+            {
+                if (!TryResolve(() => module.ResolveMember(MemberRefTable | row), out MemberInfo member, out var exhausted))
+                {
+                    if (exhausted)
+                        return false;
+                    continue;
+                }
+
+                var declaring = member?.DeclaringType?.FullName;
+                if (declaring == null)
+                    continue;
+
+                var name = $"{declaring}.{member.Name}";
+                if (Matches(name, BlockedMembers) || (strict && Matches(name, StrictMembers)))
+                {
+                    reference = name;
+                    reason = $"The compiled snippet calls '{name}', which execute_code refuses to run.";
+                    return true;
+                }
+            }
+
+            WarnScanTruncated(module, "MemberRef");
+            return false;
+        }
+
+        // Only reached when the row cap ran out before the table ended: the snippet is allowed
+        // through, so say that the check was incomplete rather than letting silence read as clean.
+        private static void WarnScanTruncated(Module module, string table)
+        {
+            Debug.LogWarning(
+                $"[KitWright] execute_code safety scan stopped after {MaxRows} {table} rows in '{module.Name}'; " +
+                "references past that point were not checked.");
+        }
+
+        // Mono reports a row past the end of the table as ArgumentOutOfRangeException; anything else
+        // (a reference this domain cannot load) is skipped rather than treated as the end of the table.
+        private static bool TryResolve<T>(Func<T> resolve, out T value, out bool exhausted) where T : class
+        {
+            value = null;
+            exhausted = false;
+
+            try
+            {
+                value = resolve();
+                return value != null;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                exhausted = true;
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private static bool Matches(string candidate, IEnumerable<string> blocked)
+        {
+            foreach (var entry in blocked)
+            {
+                if (string.Equals(candidate, entry, StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+}
