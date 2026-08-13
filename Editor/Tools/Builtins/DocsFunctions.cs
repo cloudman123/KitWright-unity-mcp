@@ -45,27 +45,23 @@ namespace KitWright.Editor.Tools.Builtins
         [Description("Get the Unity documentation URL for a scripting API type or member. Returns the ScriptReference link for the current Unity version (e.g. 'Rigidbody', 'GameObject.SetActive', 'AI.NavMeshAgent'). " +
                      "Builds the link offline and fetches nothing — use fetch_docs instead when you want to read the page.")]
         [ReadOnlyTool]
-        public static object GetScriptReferenceUrl(
+        public static string GetScriptReferenceUrl(
             [ToolParam("Type or member, e.g. 'Rigidbody' or 'Transform.Rotate'. Namespace dots are stripped except the member separator.")] string symbol)
         {
-            if (string.IsNullOrWhiteSpace(symbol)) return Response.Error("EMPTY_SYMBOL");
+            if (string.IsNullOrWhiteSpace(symbol)) return ToolResultFormatter.Error("EMPTY_SYMBOL");
 
-            var url = ScriptReferenceUrl(symbol);
-
-            return Response.Success($"ScriptReference URL for '{symbol}'.", new { symbol, url, unityVersion = Application.unityVersion });
+            return $"ScriptReference URL for '{symbol}' (Unity {Application.unityVersion}):\n<{ScriptReferenceUrl(symbol)}>";
         }
 
         [Description("Get a Unity Manual search URL for a topic (e.g. 'lightmapping', 'addressables'). Returns a docs.unity3d.com Manual search link for the current Unity version. " +
                      "Use this when the Manual slug is unknown; fetch_docs reads a page once you have the slug.")]
         [ReadOnlyTool]
-        public static object SearchManual(
+        public static string SearchManual(
             [ToolParam("Topic or keyword to search the Unity Manual for")] string query)
         {
-            if (string.IsNullOrWhiteSpace(query)) return Response.Error("EMPTY_QUERY");
+            if (string.IsNullOrWhiteSpace(query)) return ToolResultFormatter.Error("EMPTY_QUERY");
 
-            var url = ManualSearchUrl(query);
-
-            return Response.Success($"Manual search URL for '{query}'.", new { query, url, unityVersion = Application.unityVersion });
+            return $"Manual search URL for '{query}' (Unity {Application.unityVersion}):\n<{ManualSearchUrl(query)}>";
         }
 
         [Description("Fetch Unity documentation pages and return them as plain text, so usage notes and code examples arrive without a separate web fetch. " +
