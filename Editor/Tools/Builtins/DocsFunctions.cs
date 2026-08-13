@@ -1,38 +1,234 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System;
+using System.Collections.Generic;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using KitWright.Editor.Tools.Helpers;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace KitWright.Editor.Tools.Builtins
 {
     [ToolProvider("Docs")]
     internal static class DocsFunctions
     {
-        [Description("Get the Unity documentation URL for a scripting API type or member. Returns the ScriptReference link for the current Unity version (e.g. 'Rigidbody', 'GameObject.SetActive', 'AI.NavMeshAgent').")]
+        private const int MaxPagesPerCall = 10;
+        private const int MinChars = 500;
+        private const int MaxChars = 20000;
+
+        // Pages are immutable per Unity version, so one fetch per domain reload is enough.
+        private static readonly Dictionary<string, string> PageCache =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly Regex ScriptOrStyleRegex =
+            new Regex(@"<(script|style)\b[^>]*>.*?</\1>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        private static readonly Regex BlockBreakRegex =
+            new Regex(@"</(p|div|li|tr|h[1-6]|pre|table|ul|ol)\s*>|<br\s*/?>", RegexOptions.IgnoreCase);
+        private static readonly Regex TagRegex = new Regex("<[^>]+>", RegexOptions.Singleline);
+        private static readonly Regex HorizontalSpaceRegex = new Regex(@"[ \t]+");
+        private static readonly Regex BlankLinesRegex = new Regex(@"\n{3,}");
+
+        [Description("Get the Unity documentation URL for a scripting API type or member. Returns the ScriptReference link for the current Unity version (e.g. 'Rigidbody', 'GameObject.SetActive', 'AI.NavMeshAgent'). " +
+                     "Builds the link offline and fetches nothing — use fetch_docs instead when you want to read the page.")]
         [ReadOnlyTool]
         public static object GetScriptReferenceUrl(
             [ToolParam("Type or member, e.g. 'Rigidbody' or 'Transform.Rotate'. Namespace dots are stripped except the member separator.")] string symbol)
         {
             if (string.IsNullOrWhiteSpace(symbol)) return Response.Error("EMPTY_SYMBOL");
 
-            var page = symbol.Trim().Replace("UnityEngine.", "").Replace("UnityEditor.", "");
-            var url = $"https://docs.unity3d.com/{DocVersion()}/Documentation/ScriptReference/{page}.html";
+            var url = ScriptReferenceUrl(symbol);
 
             return Response.Success($"ScriptReference URL for '{symbol}'.", new { symbol, url, unityVersion = Application.unityVersion });
         }
 
-        [Description("Get a Unity Manual search URL for a topic (e.g. 'lightmapping', 'addressables'). Returns a docs.unity3d.com Manual search link for the current Unity version.")]
+        [Description("Get a Unity Manual search URL for a topic (e.g. 'lightmapping', 'addressables'). Returns a docs.unity3d.com Manual search link for the current Unity version. " +
+                     "Use this when the Manual slug is unknown; fetch_docs reads a page once you have the slug.")]
         [ReadOnlyTool]
         public static object SearchManual(
             [ToolParam("Topic or keyword to search the Unity Manual for")] string query)
         {
             if (string.IsNullOrWhiteSpace(query)) return Response.Error("EMPTY_QUERY");
 
-            var encoded = UnityEngine.Networking.UnityWebRequest.EscapeURL(query.Trim());
-            var url = $"https://docs.unity3d.com/{DocVersion()}/Documentation/Manual/30_search.html?q={encoded}";
+            var url = ManualSearchUrl(query);
 
             return Response.Success($"Manual search URL for '{query}'.", new { query, url, unityVersion = Application.unityVersion });
+        }
+
+        [Description("Fetch Unity documentation pages and return them as plain text, so usage notes and code examples arrive without a separate web fetch. " +
+                     "Accepts a comma-separated list (up to 10) for batch lookup: a bare name hits the ScriptReference " +
+                     "('Physics.Raycast', 'AI.NavMeshAgent'), a 'manual:' prefix hits the Unity Manual by slug ('manual:execution-order'). " +
+                     "Docs are for the editor's own Unity version. Pair with reflect_api: reflect_api confirms a member exists on this version, " +
+                     "fetch_docs explains how to use it. A page that does not exist comes back with found=false and a search URL to try instead.")]
+        [ReadOnlyTool]
+        public static async Task<object> FetchDocs(
+            [ToolParam("Comma-separated pages, e.g. 'Physics.Raycast,Transform.Rotate' or 'manual:execution-order'")] string pages,
+            [ToolParam("Maximum characters of text kept per page (default 4000, clamped to 500-20000)", Required = false)] int max_chars = 4000)
+        {
+            if (string.IsNullOrWhiteSpace(pages)) return Response.Error("EMPTY_PAGES");
+
+            var requested = pages.Split(',')
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (requested.Count == 0) return Response.Error("EMPTY_PAGES");
+
+            var dropped = Math.Max(0, requested.Count - MaxPagesPerCall);
+            if (dropped > 0) requested = requested.Take(MaxPagesPerCall).ToList();
+
+            var limit = Mathf.Clamp(max_chars, MinChars, MaxChars);
+            var results = new List<object>();
+            var found = 0;
+
+            foreach (var entry in requested)
+            {
+                bool isManual = entry.StartsWith("manual:", StringComparison.OrdinalIgnoreCase);
+                var name = isManual ? entry.Substring("manual:".Length).Trim() : entry;
+
+                if (name.Length == 0)
+                {
+                    results.Add(new { page = entry, found = false, error = "EMPTY_PAGE_NAME" });
+                    continue;
+                }
+
+                var url = isManual ? ManualUrl(name) : ScriptReferenceUrl(name);
+                var text = await GetPageTextAsync(url);
+
+                if (text == null)
+                {
+                    results.Add(new
+                    {
+                        page = entry,
+                        url,
+                        found = false,
+                        search_url = isManual ? ManualSearchUrl(name) : ScriptReferenceSearchUrl(name),
+                        hint = isManual
+                            ? "No Manual page at that slug. Try the search URL, or a different slug."
+                            : "No ScriptReference page at that symbol. Check the name with reflect_api, or try the search URL."
+                    });
+                    continue;
+                }
+
+                found++;
+                results.Add(new
+                {
+                    page = entry,
+                    url,
+                    found = true,
+                    truncated = text.Length > limit,
+                    text = text.Length > limit ? text.Substring(0, limit) : text
+                });
+            }
+
+            return Response.Success($"Fetched {found}/{requested.Count} page(s).", new
+            {
+                pages = results,
+                dropped_pages = dropped,
+                unityVersion = Application.unityVersion
+            });
+        }
+
+        private static async Task<string> GetPageTextAsync(string url)
+        {
+            lock (PageCache)
+            {
+                if (PageCache.TryGetValue(url, out var cached))
+                    return cached;
+            }
+
+            string html = null;
+            using (var request = UnityWebRequest.Get(url))
+            {
+                request.timeout = 20;
+                request.SetRequestHeader("User-Agent", "KitWright-Unity-MCP");
+
+                var operation = request.SendWebRequest();
+                while (!operation.isDone)
+                    await Task.Delay(50);
+
+                if (request.result == UnityWebRequest.Result.Success)
+                    html = request.downloadHandler.text;
+            }
+
+            if (html == null)
+                return null;
+
+            var text = HtmlToText(html);
+            lock (PageCache)
+            {
+                PageCache[url] = text;
+            }
+            return text;
+        }
+
+        private static string ScriptReferenceUrl(string symbol)
+        {
+            var page = symbol.Trim().Replace("UnityEngine.", "").Replace("UnityEditor.", "");
+            return $"https://docs.unity3d.com/{DocVersion()}/Documentation/ScriptReference/{page}.html";
+        }
+
+        private static string ManualUrl(string slug)
+        {
+            var page = slug.Trim();
+            if (page.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                page = page.Substring(0, page.Length - 5);
+            return $"https://docs.unity3d.com/{DocVersion()}/Documentation/Manual/{page}.html";
+        }
+
+        private static string ManualSearchUrl(string query)
+        {
+            var encoded = UnityWebRequest.EscapeURL(query.Trim());
+            return $"https://docs.unity3d.com/{DocVersion()}/Documentation/Manual/30_search.html?q={encoded}";
+        }
+
+        private static string ScriptReferenceSearchUrl(string query)
+        {
+            var encoded = UnityWebRequest.EscapeURL(query.Trim());
+            return $"https://docs.unity3d.com/{DocVersion()}/Documentation/ScriptReference/30_search.html?q={encoded}";
+        }
+
+        // Docs pages put the nav ahead of the article and the legal boilerplate after it, so the
+        // first <h1> and the copyright line bound the part worth sending to a model.
+        internal static string HtmlToText(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return string.Empty;
+
+            var body = ScriptOrStyleRegex.Replace(html, " ");
+
+            var headingIndex = body.IndexOf("<h1", StringComparison.OrdinalIgnoreCase);
+            if (headingIndex > 0)
+                body = body.Substring(headingIndex);
+
+            // ScriptReference pages wedge the "Leave feedback" suggestion form between the heading and
+            // the first subsection. Both anchors sit at the same offset inside a <div ...> tag, so
+            // splicing them together leaves valid markup. Manual pages carry no such form.
+            var feedbackIndex = body.IndexOf("class=\"scrollToFeedback", StringComparison.OrdinalIgnoreCase);
+            if (feedbackIndex > 0)
+            {
+                var resumeIndex = body.IndexOf("class=\"subsection", feedbackIndex, StringComparison.OrdinalIgnoreCase);
+                if (resumeIndex > feedbackIndex)
+                    body = body.Remove(feedbackIndex, resumeIndex - feedbackIndex);
+            }
+
+            var footerIndex = body.IndexOf("class=\"footer", StringComparison.OrdinalIgnoreCase);
+            if (footerIndex > 0)
+                body = body.Substring(0, footerIndex);
+
+            body = BlockBreakRegex.Replace(body, "\n");
+            body = TagRegex.Replace(body, string.Empty);
+            body = WebUtility.HtmlDecode(body);
+
+            var builder = new StringBuilder(body.Length);
+            foreach (var line in body.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+                builder.Append(HorizontalSpaceRegex.Replace(line, " ").Trim()).Append('\n');
+
+            return BlankLinesRegex.Replace(builder.ToString(), "\n\n").Trim();
         }
 
         internal static string DocVersion(string unityVersion)

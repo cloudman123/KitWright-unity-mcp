@@ -25,5 +25,83 @@ namespace KitWright.Editor.Tests
         {
             Assert.AreEqual("2022", DocsFunctions.DocVersion("2022"));
         }
+
+        [Test]
+        public void HtmlToText_DropsNavBeforeHeadingAndFooterAfter()
+        {
+            const string html =
+                "<html><body><div class=\"sidebar\"><a href=\"x\">Scripting API</a><a href=\"y\">Transform</a></div>" +
+                "<h1>Physics.Raycast</h1><p>Casts a ray.</p>" +
+                "<div class=\"footer\">Copyright Unity Technologies</div></body></html>";
+
+            var text = DocsFunctions.HtmlToText(html);
+
+            StringAssert.Contains("Physics.Raycast", text);
+            StringAssert.Contains("Casts a ray.", text);
+            Assert.IsFalse(text.Contains("Scripting API"), "Left nav should be dropped.");
+            Assert.IsFalse(text.Contains("Copyright"), "Footer should be dropped.");
+        }
+
+        [Test]
+        public void HtmlToText_RemovesScriptAndStyleBlocks()
+        {
+            const string html =
+                "<h1>Rigidbody</h1><script>var nav = 1;</script><style>.x{color:red}</style><p>Control via physics.</p>";
+
+            var text = DocsFunctions.HtmlToText(html);
+
+            StringAssert.Contains("Control via physics.", text);
+            Assert.IsFalse(text.Contains("var nav"), "Script body should be dropped.");
+            Assert.IsFalse(text.Contains("color:red"), "Style body should be dropped.");
+        }
+
+        [Test]
+        public void HtmlToText_DecodesEntitiesAndCollapsesWhitespace()
+        {
+            const string html = "<h1>Mathf</h1><p>a &lt; b &amp;&amp; b &gt; c</p>\n\n\n\n<p>done</p>";
+
+            var text = DocsFunctions.HtmlToText(html);
+
+            StringAssert.Contains("a < b && b > c", text);
+            Assert.IsFalse(text.Contains("\n\n\n"), "Blank line runs should collapse.");
+        }
+
+        [Test]
+        public void HtmlToText_DropsScriptReferenceFeedbackForm()
+        {
+            const string html =
+                "<h1>Physics.Raycast</h1>" +
+                "<div class=\"scrollToFeedback\"><a>Leave feedback</a></div>" +
+                "<div class=\"suggest\"><p>Thank you for helping us improve the quality of Unity Documentation.</p>" +
+                "<button>Submit suggestion</button></div>" +
+                "<div class=\"subsection\"><p>Casts a ray.</p></div>";
+
+            var text = DocsFunctions.HtmlToText(html);
+
+            StringAssert.Contains("Physics.Raycast", text);
+            StringAssert.Contains("Casts a ray.", text);
+            Assert.IsFalse(text.Contains("Leave feedback"), "Feedback form should be dropped.");
+            Assert.IsFalse(text.Contains("Submit suggestion"), "Suggestion form should be dropped.");
+        }
+
+        [Test]
+        public void HtmlToText_KeepsFeedbackRegionWhenNoSubsectionFollows()
+        {
+            const string html =
+                "<h1>Some.Page</h1><div class=\"scrollToFeedback\"><a>Leave feedback</a></div><p>Body text.</p>";
+
+            var text = DocsFunctions.HtmlToText(html);
+
+            StringAssert.Contains("Body text.", text);
+        }
+
+        // Markup that never reaches the trimming anchors: no heading to cut to, or nothing at all.
+        [Test]
+        public void HtmlToText_HandlesDegenerateInput()
+        {
+            StringAssert.Contains("No heading here.", DocsFunctions.HtmlToText("<p>No heading here.</p>"));
+            Assert.AreEqual(string.Empty, DocsFunctions.HtmlToText(null));
+            Assert.AreEqual(string.Empty, DocsFunctions.HtmlToText(string.Empty));
+        }
     }
 }
