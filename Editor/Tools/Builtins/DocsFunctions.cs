@@ -71,14 +71,20 @@ namespace KitWright.Editor.Tools.Builtins
         [Description("Fetch Unity documentation pages and return them as plain text, so usage notes and code examples arrive without a separate web fetch. " +
                      "Accepts a comma-separated list (up to 10) for batch lookup: a bare name hits the ScriptReference " +
                      "('Physics.Raycast', 'AI.NavMeshAgent'), a 'manual:' prefix hits the Unity Manual by slug ('manual:execution-order'). " +
-                     "Docs are for the editor's own Unity version. Pair with reflect_api: reflect_api confirms a member exists on this version, " +
-                     "fetch_docs explains how to use it. A page that does not exist comes back with found=false and a search URL to try instead.")]
+                     "Docs are for the editor's own Unity version. Each page comes back as a markdown section: its URL, the page prose, " +
+                     "then every code example repeated in its own fenced block, so the runnable code is still there when max_chars truncates the prose. " +
+                     "Pair with reflect_api: reflect_api confirms a member exists on this version, fetch_docs explains how to use it. " +
+                     "A page that does not exist is reported as NOT FOUND with a search URL to try instead.")]
+        // Returns plain text, not the usual JSON envelope: the payload is mostly prose and code, so
+        // JSON would escape every newline and quote in it, and a client that linkifies the raw result
+        // swallows the closing quote and the next field into the URL. On its own line, a URL ends
+        // where the line ends.
         [ReadOnlyTool]
-        public static async Task<object> FetchDocs(
+        public static async Task<string> FetchDocs(
             [ToolParam("Comma-separated pages, e.g. 'Physics.Raycast,Transform.Rotate' or 'manual:execution-order'")] string pages,
             [ToolParam("Maximum characters of text kept per page (default 4000, clamped to 500-20000)", Required = false)] int max_chars = 4000)
         {
-            if (string.IsNullOrWhiteSpace(pages)) return Response.Error("EMPTY_PAGES");
+            if (string.IsNullOrWhiteSpace(pages)) return ToolResultFormatter.Error("EMPTY_PAGES");
 
             var requested = pages.Split(',')
                 .Select(p => p.Trim())
@@ -86,13 +92,13 @@ namespace KitWright.Editor.Tools.Builtins
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (requested.Count == 0) return Response.Error("EMPTY_PAGES");
+            if (requested.Count == 0) return ToolResultFormatter.Error("EMPTY_PAGES");
 
             var dropped = Math.Max(0, requested.Count - MaxPagesPerCall);
             if (dropped > 0) requested = requested.Take(MaxPagesPerCall).ToList();
 
             var limit = Mathf.Clamp(max_chars, MinChars, MaxChars);
-            var results = new List<object>();
+            var report = new StringBuilder();
             var found = 0;
 
             foreach (var entry in requested)
@@ -102,7 +108,7 @@ namespace KitWright.Editor.Tools.Builtins
 
                 if (name.Length == 0)
                 {
-                    results.Add(new { page = entry, found = false, error = "EMPTY_PAGE_NAME" });
+                    report.Append($"\n## {entry} — NOT FOUND\nEmpty page name.\n");
                     continue;
                 }
 
@@ -111,39 +117,34 @@ namespace KitWright.Editor.Tools.Builtins
 
                 if (page == null)
                 {
-                    results.Add(new
-                    {
-                        page = entry,
-                        url,
-                        found = false,
-                        search_url = isManual ? ManualSearchUrl(name) : ScriptReferenceSearchUrl(name),
-                        hint = isManual
-                            ? "No Manual page at that slug. Try the search URL, or a different slug."
-                            : "No ScriptReference page at that symbol. Check the name with reflect_api, or try the search URL."
-                    });
+                    report.Append($"\n## {entry} — NOT FOUND\n<{url}>\n\nSearch instead:\n")
+                        .Append($"<{(isManual ? ManualSearchUrl(name) : ScriptReferenceSearchUrl(name))}>")
+                        .Append(isManual
+                            ? "\n\nNo Manual page at that slug. Try the search URL, or a different slug.\n"
+                            : "\n\nNo ScriptReference page at that symbol. Check the name with reflect_api, or try the search URL.\n");
                     continue;
                 }
 
                 found++;
-                results.Add(new
-                {
-                    page = entry,
-                    url,
-                    found = true,
-                    truncated = page.Text.Length > limit,
-                    // Kept separate from text so a caller after a working snippet does not have to
-                    // find the code inside the prose -- and survives truncation, which cuts prose first.
-                    examples = page.Examples,
-                    text = page.Text.Length > limit ? page.Text.Substring(0, limit) : page.Text
-                });
+                var truncated = page.Text.Length > limit;
+                // Angle-bracketed: the result reaches the client inside a JSON envelope, and a client
+                // that linkifies the raw text runs a bare URL straight into the escaped characters
+                // that follow it. '>' is not a URL character, so the link ends where it should.
+                report.Append($"\n## {entry}\n<{url}>\n\n")
+                    .Append(truncated ? page.Text.Substring(0, limit) : page.Text)
+                    .Append(truncated ? $"\n[truncated to {limit} chars; raise max_chars for the rest]\n" : "\n");
+
+                // Repeated after the prose so a caller after a working snippet does not have to find
+                // the code inside it -- and so the examples survive truncation, which cuts prose first.
+                for (var i = 0; i < page.Examples.Length; i++)
+                    report.Append($"\n### Example {i + 1}\n```csharp\n{page.Examples[i]}\n```\n");
             }
 
-            return Response.Success($"Fetched {found}/{requested.Count} page(s).", new
-            {
-                pages = results,
-                dropped_pages = dropped,
-                unityVersion = Application.unityVersion
-            });
+            var header = $"Fetched {found}/{requested.Count} page(s) for Unity {Application.unityVersion}.";
+            if (dropped > 0)
+                header += $" {dropped} page(s) past the {MaxPagesPerCall}-per-call limit were dropped.";
+
+            return header + "\n" + report;
         }
 
         private static async Task<DocPage> GetPageAsync(string url)
