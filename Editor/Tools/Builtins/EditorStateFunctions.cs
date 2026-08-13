@@ -19,12 +19,19 @@ namespace KitWright.Editor.Tools.Builtins
     [ToolProvider("EditorState")]
     internal static class EditorStateFunctions
     {
-        [Description("Get high-level editor runtime state: play mode, paused, compiling, updating, time-since-startup.")]
+        [Description("Get high-level editor runtime state: which project this editor has open, play mode, paused, compiling, updating, time-since-startup. " +
+                     "Call this first when several editors may be running to confirm which project the server is attached to.")]
         [ReadOnlyTool]
         public static object GetEditorState()
         {
+            // Name alone does not identify an editor -- two clones of the same project share it,
+            // which is why the transport's project pin is a hash of the path rather than the name.
+            var projectPath = System.IO.Path.GetDirectoryName(Application.dataPath)?.Replace('\\', '/');
+
             return Response.Success("Editor state", new
             {
+                projectName = Application.productName,
+                projectPath,
                 isPlaying = EditorApplication.isPlaying,
                 isPaused = EditorApplication.isPaused,
                 isCompiling = EditorApplication.isCompiling,
