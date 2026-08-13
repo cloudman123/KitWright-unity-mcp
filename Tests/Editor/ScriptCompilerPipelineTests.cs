@@ -60,6 +60,34 @@ namespace KitWright.Editor.Tests
                 });
         }
 
+        // The generated Run() used to be declared `string`, so a bare body returning anything else
+        // failed to compile -- the shortest snippet form only worked for one return type.
+        [UnityTest]
+        public IEnumerator ExecuteCode_BareBody_ReturnsANonStringValue()
+        {
+            return ExecuteCodeAndAssert(
+                "return 1 + 2;",
+                result =>
+                {
+                    AssertSuccess(result);
+                    Assert.AreEqual("3", GetProperty<string>(GetProperty<object>(result, "data"), "result"));
+                },
+                skipRefresh: true);
+        }
+
+        [UnityTest]
+        public IEnumerator ExecuteCode_BareBodyWithNoReturn_StillSucceeds()
+        {
+            return ExecuteCodeAndAssert(
+                "var unused = UnityEngine.Application.unityVersion;",
+                result =>
+                {
+                    AssertSuccess(result);
+                    Assert.AreEqual("OK", GetProperty<string>(GetProperty<object>(result, "data"), "result"));
+                },
+                skipRefresh: true);
+        }
+
         [UnityTest]
         public IEnumerator ExecuteCode_SkipRefresh_RunsWithRoslyn()
         {

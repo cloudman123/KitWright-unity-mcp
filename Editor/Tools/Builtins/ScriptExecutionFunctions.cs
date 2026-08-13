@@ -28,11 +28,13 @@ namespace KitWright.Editor.Tools.Builtins
 
         [Description("Primary high-flexibility execution tool. Compiles a C# snippet with Unity's Roslyn csc first " +
                      "while preserving the in-memory compilation/execution flow, then runs the compiled assembly on the editor thread. " +
-                     "Two templates are supported:\n" +
-                     "  1) Recommended: implement IKitWrightCommand on a class — receives an ExecutionContext (ctx) " +
+                     "Three templates are supported:\n" +
+                     "  1) Shortest: a bare method body, no class — the common usings (UnityEngine, UnityEditor, System.Linq, " +
+                     "SceneManagement, ...) are added for you, and `return <anything>` becomes the response message.\n" +
+                     "  2) Recommended for edits: implement IKitWrightCommand on a class — receives an ExecutionContext (ctx) " +
                      "with RegisterObjectCreation/RegisterObjectModification/DestroyObject (auto-Undo + tracked) and " +
                      "Log/LogWarning/LogError (returned in the response).\n" +
-                     "  2) Legacy: any class with `public static string Run()` — return value becomes the response message.\n" +
+                     "  3) Legacy: any class with `public static` Run() — return value becomes the response message.\n" +
                      "Before compiling, the editor's AssetDatabase is refreshed and pending compilation is awaited, " +
                      "so external file edits are picked up automatically without a separate request_recompile " +
                      "(pass skip_refresh=true to bypass this for read-only snippets or a live Play Mode session you must not disturb). " +
@@ -45,7 +47,7 @@ namespace KitWright.Editor.Tools.Builtins
                      "by default; add `using` directives in the snippet, or enable the ScriptAssemblies-based convenience toggle in the MCP Settings window. " +
                      "Every invocation is appended to a session-scoped history (see get_execute_code_history / replay_execute_code).")]
         public static async Task<object> ExecuteCode(
-            [ToolParam("C# code to execute. See description for IKitWrightCommand vs legacy Run() templates.")] string code,
+            [ToolParam("C# code to execute: a bare method body, or a full class (IKitWrightCommand or static Run()).")] string code,
             [ToolParam("If true, reject the call before compile when the code contains obviously dangerous patterns. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null,
             [ToolParam("If true, skip the pre-compile AssetDatabase.Refresh + wait-for-ready. Use only when the editor is already up to date -- e.g. a read-only inspection snippet, or during a live Play Mode session you must not disturb. The default refresh can trigger an import/domain reload (from your own OR another actor's pending changes in a shared editor) that wipes Play Mode runtime state. When skipped, external file edits made since the last compile are NOT picked up.", Required = false)] bool skip_refresh = false)
         {
@@ -463,10 +465,10 @@ using {KitWrightScriptingNamespace};
 {projectUsings}
 public static class {className}
 {{
-    public static string Run()
+    public static object Run()
     {{
         {code}
-        return ""OK"";
+        return null;
     }}
 }}";
         }
