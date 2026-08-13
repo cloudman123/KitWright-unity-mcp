@@ -23,7 +23,7 @@
 
 KitWright MCP for Unity 是一个采用 MIT 协议 of Unity 编辑器 MCP 服务器，让 Claude Code、Cursor、LM Studio、Windsurf、Codex、VS Code Copilot 等 AI 助手直接操作正在运行 of Unity 项目。
 
-一句话描述你的游戏 — AI 助手通过 KitWright MCP for Unity 的 150 个内置工具自动创建场景、编写脚本、验证运行态、模拟输入、分析性能并完成编辑器自动化，把所有逻辑串联起来。
+一句话描述你的游戏 — AI 助手通过 KitWright MCP for Unity 的 261 个内置工具自动创建场景、编写脚本、验证运行态、模拟输入、分析性能并完成编辑器自动化，把所有逻辑串联起来。
 
 > *"做一个贪吃蛇游戏，10x10 网格，食物随机生成，计分 UI，游戏结束界面"*
 >
@@ -250,7 +250,7 @@ url = "http://127.0.0.1:8765/"
 - 这是一个 **仅限 Editor** 的包，不会向最终构建产物添加运行时代码。
 - MCP Server 默认从 `http://127.0.0.1:8765/` 启动。
 - 本地 MCP Server 配置保存在 `UserSettings/KitWrightMcpSettings.json`。
-- 插件默认使用 `core` MCP 工具暴露配置，减少 AI 客户端的工具噪音；`core` 当前暴露 32 个高频工具，覆盖 `execute_code`、运行模式控制、输入模拟、截图、性能检查、日志、编译检查、结构化对象定位与组件编辑、编辑器选中与 prefab stage 状态读写，以及 `execute_menu_item` 兜底入口。如果你需要完整工具集，可在 MCP Server 窗口切换到 `full`，暴露全部 150 个工具。
+- 插件默认使用 `core` MCP 工具暴露配置，减少 AI 客户端的工具噪音；`core` 当前暴露 38 个高频工具，覆盖 `execute_code`、运行模式控制、输入模拟、截图、性能检查、日志、编译检查、结构化对象定位与组件编辑、编辑器选中与 prefab stage 状态读写，以及 `execute_menu_item` 兜底入口。如果你需要完整工具集，可在 MCP Server 窗口切换到 `full`，暴露全部 261 个工具。
 - `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **KitWright > MCP Settings** 设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径，但它不是完整沙箱。客户端仍可在单次调用中用可选 `safety_checks` 参数显式覆盖。
 - 插件 debug 日志默认关闭，也可在 **KitWright > MCP Settings** 中开启；Warning 和 Error 始终会输出到 Unity Console。
 - 所有已暴露的 MCP 工具都会直接执行，不再提供额外的 approval 开关。
@@ -262,13 +262,13 @@ url = "http://127.0.0.1:8765/"
 - **默认安全检查** — `execute_code` 现在有持久化、默认开启的 safety toggle，并包含更严格的文件系统 guard，适合 LM Studio 这类不明显暴露单次参数的客户端
 - **Play Mode 自动化闭环** — 进入运行模式、模拟键鼠输入、截图、查看日志、验证行为都能在同一 MCP 会话里完成
 - **内建项目上下文** — 直接提供项目状态、当前场景、选择对象、编译错误、控制台输出和 MCP 交互记录资源
-- **默认聚焦，必要时全量** — 默认 `core` 工具集更利于 AI 选工具，需要时可切到 `full` 暴露全部 150 个工具
+- **默认聚焦，必要时全量** — 默认 `core` 工具集更利于 AI 选工具，需要时可切到 `full` 暴露全部 261 个工具
 - **单 Unity 包落地** — 不需要额外 approval 开关，Unity 侧也不依赖单独 Python 守护进程
 - **可扩展** — 支持 Attribute 发现自定义工具，也支持连接外部 MCP 服务
 
 ## 核心特性
 
-- **150 个内置工具** — 覆盖场景编辑、脚本、资产、运行态控制、截图、性能分析、Prompts、Resources、结构化对象定位、SerializedObject 组件编辑、编辑器状态读写、菜单项兜底以及编辑器自动化，共 35 个模块
+- **261 个内置工具** — 覆盖场景编辑、脚本、资产、运行态控制、截图、性能分析、Prompts、Resources、结构化对象定位、SerializedObject 组件编辑、编辑器状态读写、菜单项兜底以及编辑器自动化，共 57 个模块
 - **结构化返回 + `instanceId` 链式调用** — 工具返回 `{success, message, data}` JSON 并附带稳定的 `instanceId`，agent 后续直接 `by_id` 调用，不再受重名困扰
 - **`execute_code` 的 `IKitWrightCommand` 模板** — 新模板自动 Undo（`ctx.RegisterObjectCreation/Modification/DestroyObject`）、结构化日志（`ctx.Log/LogWarning/LogError`），并把改动列表回传给 agent
 - **Resources 与 Prompts** — 暴露实时项目上下文、场景/选择/错误资源、资源模板，以及常见 Unity 工作流的可复用 MCP Prompt
@@ -324,6 +324,9 @@ public class CommandScript : IKitWrightCommand
 | 默认工具暴露 | 默认 `core` 精简工具集，可切 `full` | 公开文档强调广泛工具面 |
 | 上下文能力 | 内建项目资源、资源模板、工作流 prompts、交互历史 | 公开 README 主要强调 bridge/server 与工具族 |
 | Play Mode 验证 | 包内置运行模式控制、截图、日志、输入模拟 | 公开 README 强调广泛 Unity 管理与自动化能力 |
+| C# API 反射查询 | `reflect_api`：声明成员、单成员完整签名、扩展方法、过时成员、接口，以及按子串搜索类型（范围 `unity` / `packages` / `project` / `all`）；另有解析失败时的候选名、忽略大小写的成员匹配，以及 `include_non_public` 查看私有与内部成员 | `unity_reflect`：`get_type` / `get_member` / `search`，同样支持范围过滤、扩展方法解析、接口与过时成员清单；仅限公开成员，且名字解析不到时只返回 `found: false`，没有候选提示 |
+| 客户端切换工具集 | `set_tool_profile` 可从客户端切换 `minimal` / `core` / `extended` / `full`，并推送 `tools/list_changed` | `manage_tools` 按会话启用/停用工具组 |
+| 工具注解 | 只读工具输出 `annotations.readOnlyHint` | 已注解工具输出 `readOnlyHint` 与 `destructiveHint` |
 | 定位 | 轻量、直接、MIT 协议 of Unity MCP 服务器 | Coplay 维护 of 全功能 Unity bridge 方案 |
 
 Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp)
@@ -338,7 +341,7 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 | 协议 / License | MIT 开源 | Unity Terms of Service，私有 |
 | 部署 | Editor 内嵌 HTTP MCP server，纯本地 | Editor + 原生 Relay 子进程 + Unity Cloud 后端 |
 | 计费 | 免费，用户自带 AI 客户端 | Credits 点数制（Unity Dashboard）|
-| 工具暴露 | 150 工具 / 35 模块，`core` (32) / `full` profile | ~15 个 MCP 工具（多数为 `Manage*` 大粒度族）|
+| 工具暴露 | 261 工具 / 57 模块，`core` (38) / `full` profile | ~15 个 MCP 工具（多数为 `Manage*` 大粒度族）|
 | 通用逃生口 | `execute_code` — Roslyn 优先内存编译、`IKitWrightCommand` + Undo、无沙箱（客户端层审批）| `RunCommand` — 命名空间黑名单沙箱 |
 | Play Mode 验证 | 完整闭环：进入 / 模拟输入 / 截图 / 读日志 / 退出 | 仅进入/退出，无输入模拟 |
 | 资产生成器 | 不内建（通过 `execute_code` 组合外部 API）| 内建 Image / Mesh / PBR / Sound / Animation 五类生成器 |
@@ -351,14 +354,14 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 
 当前开源包有四层高价值能力：
 
-- **Tools** — `full` 下共 150 个工具，`core` 下 32 个高频工具
+- **Tools** — `full` 下共 261 个工具，`core` 下 38 个高频工具
 - **Primary execution** — `execute_code` 用于复杂编辑器/运行态编排
 - **Prompts** — 包括 `fix_compile_errors`、`runtime_validation`、`create_playable_prototype` 等工作流 Prompt
 - **Resources** — 项目上下文、场景摘要、选择状态、编译错误、控制台错误、MCP 交互记录，以及按对象/组件/资源路径展开的模板资源
 
 ## 内置工具
 
-KitWright MCP for Unity 当前提供 **150 个工具函数**，覆盖 35 个模块：
+KitWright MCP for Unity 当前提供 **261 个工具函数**，覆盖 57 个模块：
 
 | 分类 | 工具 |
 |------|------|
@@ -397,7 +400,7 @@ KitWright MCP for Unity 当前提供 **150 个工具函数**，覆盖 35 个模�
 | **编辑器状态** | `get_editor_state`, `get_selection`, `set_selection`, `get_prefab_stage`, `get_active_tool`, `set_active_tool`, `get_windows`, `get_tags`, `add_tag`, `remove_tag`, `get_layers`, `add_layer`, `get_build_settings` |
 | **项目设置** | `get_project_settings` |
 | **撤销/重做** | `undo`, `redo`, `get_undo_state` |
-| **菜单项** | `execute_menu_item`, `validate_menu_item` |
+| **菜单项** | `execute_menu_item` |
 | **可视化反馈** | `select_object`, `focus_on_object`, `ping_asset`, `log_message`, `show_dialog`, `get_console_logs` |
 
 > 📊 完整的 Profiler 工具参考、实现细节、已知限制和测试报告见 [PROFILER_TOOLS_CN.md](PROFILER_TOOLS_CN.md)。
@@ -432,7 +435,7 @@ MCP Server (HTTP JSON-RPC 2.0)
     └─ MCPRequestHandler (协议处理)
         └─ MCPExecutionBridge
             └─ FunctionInvokerController (反射式调用)
-                └─ Tool Functions (150 个内置工具，35 个模块)
+                └─ Tool Functions (261 个内置工具，57 个模块)
 ```
 
 ```
