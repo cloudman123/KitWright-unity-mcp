@@ -198,22 +198,27 @@ public class CommandSyntax : IKitWrightCommand
                 });
         }
 
+        // Paths are built with Path.Combine rather than written literally: a backslash is an
+        // ordinary filename character on Linux, so a hardcoded Windows path makes the filter see
+        // one long name and the test pass only on Windows.
+        private static string Lib(string file) => System.IO.Path.Combine("lib", file);
+
         [Test]
         public void CodeDomFilter_DropsForwardedAssembliesOnlyWithNetstandard()
         {
             var withNetstandard = new[]
             {
-                @"C:\lib\netstandard.dll",
-                @"C:\lib\mscorlib.dll",
-                @"C:\lib\System.Collections.dll",
-                @"C:\lib\UnityEngine.dll"
+                Lib("netstandard.dll"),
+                Lib("mscorlib.dll"),
+                Lib("System.Collections.dll"),
+                Lib("UnityEngine.dll")
             };
 
             Assert.AreEqual(
-                new[] { @"C:\lib\netstandard.dll", @"C:\lib\UnityEngine.dll" },
+                new[] { Lib("netstandard.dll"), Lib("UnityEngine.dll") },
                 ScriptCompilerReferences.FilterForCodeDom(withNetstandard));
 
-            var withoutNetstandard = new[] { @"C:\lib\mscorlib.dll", @"C:\lib\UnityEngine.dll" };
+            var withoutNetstandard = new[] { Lib("mscorlib.dll"), Lib("UnityEngine.dll") };
             Assert.AreEqual(withoutNetstandard, ScriptCompilerReferences.FilterForCodeDom(withoutNetstandard));
         }
 
