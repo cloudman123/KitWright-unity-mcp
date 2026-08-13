@@ -1,10 +1,13 @@
 // Copyright (C) KitWright. Licensed under MIT.
 using System;
+using System.Collections.Generic;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using KitWright.Editor.Tools.Helpers;
+using KitWright.Editor.Tools.Scripting;
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 
 namespace KitWright.Editor.Tools.Builtins
@@ -134,6 +137,119 @@ namespace KitWright.Editor.Tools.Builtins
                 : $"Replaced first occurrence (of {occurrences} total)";
 
             return $"Patched script at {path}. {replacedInfo}. (sha256: {ComputeSha256(newContent)})";
+        }
+
+        [Description("Edit a C# script one member at a time, addressing methods by name instead of by text. " +
+                     "Prefer this over patch_script for method-sized changes: patch_script needs old_text to match the file byte for byte, " +
+                     "so it breaks on indentation, a moved attribute or a comment you did not remember exactly, and a near-miss can overwrite " +
+                     "part of the next member. Here every span is found by matching braces, so an edit stops at the member's own closing brace.\n" +
+                     "Pass a JSON array of edits, applied in order and written only if all of them succeed:\n" +
+                     "  {\"op\":\"replace_method\",\"class_name\":\"Player\",\"method_name\":\"Jump\",\"replacement\":\"public void Jump() { ... }\"}\n" +
+                     "  {\"op\":\"insert_method\",\"class_name\":\"Player\",\"replacement\":\"void Land() { }\",\"position\":\"end\"}  // start | end | after | before\n" +
+                     "  {\"op\":\"insert_method\",\"class_name\":\"Player\",\"replacement\":\"void Land() { }\",\"position\":\"after\",\"anchor_method\":\"Jump\"}\n" +
+                     "  {\"op\":\"delete_method\",\"class_name\":\"Player\",\"method_name\":\"Land\"}\n" +
+                     "The replacement is re-indented to the target's nesting, so write it flat. Attributes and the comment directly above a " +
+                     "method count as part of it and are replaced with it. An overloaded name returns AMBIGUOUS_METHOD with the signatures, " +
+                     "since a name alone cannot pick an overload — use patch_script for that. The result is structurally validated before it " +
+                     "is written, and expected_sha256 rejects the write if the file changed since you read it.")]
+        public static string EditScriptMembers(
+            [ToolParam("Path to the script file")] string path,
+            [ToolParam("JSON array of edits; see the description for the shape of each op")] string edits,
+            [ToolParam("SHA256 from get_script_sha; the write is rejected with STALE_FILE if the file changed", Required = false)]
+            string expected_sha256 = null)
+        {
+            var fullPath = PathSafety.ResolveProjectPath(path);
+            if (!File.Exists(fullPath))
+                return ToolResultFormatter.Error("SCRIPT_NOT_FOUND", new { path });
+
+            List<CSharpMemberEditor.MemberEdit> parsed;
+            try
+            {
+                parsed = ParseEdits(edits);
+            }
+            catch (Exception ex)
+            {
+                return ToolResultFormatter.Error("INVALID_EDITS", new { path, message = ex.Message });
+            }
+
+            if (parsed.Count == 0)
+                return ToolResultFormatter.Error("INVALID_EDITS", new { path, message = "The edits array is empty." });
+
+            var original = File.ReadAllText(fullPath);
+            var staleError = CheckPrecondition(path, original, expected_sha256);
+            if (staleError != null) return staleError;
+
+            var outcome = CSharpMemberEditor.Apply(original, parsed);
+            if (!outcome.Success)
+                return ToolResultFormatter.Error(outcome.ErrorCode,
+                    new { path, message = outcome.Message, candidates = outcome.Candidates });
+
+            var problem = CSharpSyntaxCheck.FindProblem(outcome.Source);
+            if (problem != null && CSharpSyntaxCheck.FindProblem(original) == null)
+                return ToolResultFormatter.Error("INVALID_RESULT", new
+                {
+                    path,
+                    problem,
+                    hint = "The edit left the file structurally broken, so nothing was written. Re-read the file and resend."
+                });
+
+            File.WriteAllText(fullPath, outcome.Source);
+            AssetDatabase.Refresh();
+
+            return $"Applied {parsed.Count} member edit(s) to {path} (sha256: {ComputeSha256(outcome.Source)})";
+        }
+
+        [Description("Check that a C# file is structurally sound — balanced braces, parentheses and brackets, no unterminated string " +
+                     "or comment — reporting the line of the first problem. Pass content to check a proposed version before writing it, " +
+                     "or omit it to check what is on disk. This is a structural check, not a compile: for real compiler diagnostics call " +
+                     "request_recompile then get_compilation_errors, which is authoritative because Unity builds the whole assembly with " +
+                     "its own define symbols and sibling files. Validating one file in isolation cannot do that — it misreports every " +
+                     "partial class and every #if branch whose symbol it does not know.")]
+        [ReadOnlyTool]
+        public static string ValidateScript(
+            [ToolParam("Path to the script file")] string path,
+            [ToolParam("Content to check instead of the file on disk", Required = false)] string content = null)
+        {
+            string source;
+            if (content != null)
+            {
+                source = content;
+            }
+            else
+            {
+                var fullPath = PathSafety.ResolveProjectPath(path);
+                if (!File.Exists(fullPath))
+                    return ToolResultFormatter.Error("SCRIPT_NOT_FOUND", new { path });
+
+                source = File.ReadAllText(fullPath);
+            }
+
+            var problem = CSharpSyntaxCheck.FindProblem(source);
+            if (problem != null)
+                return ToolResultFormatter.Error("INVALID_SYNTAX", new { path, problem });
+
+            return $"{path} is structurally sound ({source.Length} chars). " +
+                   "Call request_recompile for the compiler's own verdict.";
+        }
+
+        private static List<CSharpMemberEditor.MemberEdit> ParseEdits(string edits)
+        {
+            var parsed = new List<CSharpMemberEditor.MemberEdit>();
+
+            foreach (var token in JArray.Parse(edits))
+            {
+                parsed.Add(new CSharpMemberEditor.MemberEdit
+                {
+                    Op = (string)token["op"],
+                    ClassName = (string)(token["class_name"] ?? token["className"]),
+                    MethodName = (string)(token["method_name"] ?? token["methodName"]),
+                    Replacement = (string)token["replacement"],
+                    Position = (string)token["position"],
+                    AnchorMethod = (string)(token["anchor_method"] ?? token["anchorMethod"])
+                });
+            }
+
+            return parsed;
         }
 
         // Optimistic-lock check: reject when the caller's snapshot no longer matches the file on disk.
