@@ -31,22 +31,29 @@ namespace KitWright.Editor.MCP.Server
 
             foreach (var target in ClientConfigPanel.GetAllTargets())
             {
-                try
+                // Sweep both scopes rather than the target's currently selected one: a client
+                // configured globally would otherwise keep a stale URL forever, because the
+                // selected scope resolves to the project file whenever one is possible.
+                // Repairing is safe in both places — an entry is only ever updated, never added.
+                foreach (var path in new[] { target.ProjectConfigPath, target.GlobalConfigPath })
                 {
-                    if (!File.Exists(target.ConfigPath))
-                        continue;
+                    try
+                    {
+                        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                            continue;
 
-                    var serverName = ClientConfigPanel.ServerEntryName;
-                    var changed = target.IsToml
-                        ? RewriteToml(target.ConfigPath, serverName, serverUrl)
-                        : RewriteJson(target, serverName, serverUrl);
+                        var serverName = ClientConfigPanel.ServerEntryName;
+                        var changed = target.IsToml
+                            ? RewriteToml(path, serverName, serverUrl)
+                            : RewriteJson(path, target.RootKey, serverName, serverUrl);
 
-                    if (changed)
-                        rewritten.Add($"{target.Name} ({target.ConfigPath})");
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning($"[KitWright MCP Server] Config auto-rewrite failed for {target.Name}: {ex.Message}");
+                        if (changed)
+                            rewritten.Add($"{target.Name} ({path})");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[KitWright MCP Server] Config auto-rewrite failed for {target.Name} ({path}): {ex.Message}");
+                    }
                 }
             }
 
@@ -54,14 +61,14 @@ namespace KitWright.Editor.MCP.Server
                 Debug.Log($"[KitWright MCP Server] Updated stale MCP config URL to {serverUrl} for:\n{string.Join("\n", rewritten)}\nRestart or reload the client(s) to reconnect.");
         }
 
-        private static bool RewriteJson(
-            ClientConfigPanel.MCPConfigTarget target, string serverName, string serverUrl)
+        internal static bool RewriteJson(
+            string configPath, string targetRootKey, string serverName, string serverUrl)
         {
-            var json = File.ReadAllText(target.ConfigPath);
+            var json = File.ReadAllText(configPath);
             if (!(SimpleJsonHelper.Deserialize(json) is Dictionary<string, object> root))
                 return false;
 
-            var rootKey = string.IsNullOrEmpty(target.RootKey) ? "mcpServers" : target.RootKey;
+            var rootKey = string.IsNullOrEmpty(targetRootKey) ? "mcpServers" : targetRootKey;
             if (!(root.TryGetValue(rootKey, out var serversObj) && serversObj is Dictionary<string, object> servers))
                 return false;
             if (!(servers.TryGetValue(serverName, out var entryObj) && entryObj is Dictionary<string, object> entry))
@@ -82,7 +89,7 @@ namespace KitWright.Editor.MCP.Server
             }
 
             if (changed)
-                File.WriteAllText(target.ConfigPath, SimpleJsonHelper.Serialize(root));
+                File.WriteAllText(configPath, SimpleJsonHelper.Serialize(root));
 
             return changed;
         }

@@ -49,5 +49,40 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(names.Length, names.Distinct().Count(),
                 "The dropdown selects a target by name, so duplicates would be unreachable.");
         }
+
+        // The sweep used to visit only the project-scoped file, so a client configured in the
+        // global file kept pointing at a port the server had already left. Sweeping both is only
+        // safe because a config without our entry must come back untouched.
+        [Test]
+        public void RewriteJson_RepairsTheGlobalFileAndLeavesAForeignOneAlone()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "KitWrightConfigRewrite_" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                var foreignJson = "{\"mcpServers\":{\"ai-game-developer\":{\"url\":\"http://localhost:23275/\"}}}";
+                var projectPath = Path.Combine(dir, "project.json");
+                var globalPath = Path.Combine(dir, "global.json");
+                File.WriteAllText(projectPath, foreignJson);
+                File.WriteAllText(globalPath,
+                    "{\"mcpServers\":{\"kitwright\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:8766/\"}}}");
+
+                var url = "http://127.0.0.1:8765/";
+                Assert.IsFalse(
+                    MCPClientConfigAutoRewrite.RewriteJson(projectPath, "mcpServers", "kitwright", url),
+                    "A config without our entry must not be reported as rewritten.");
+                Assert.AreEqual(foreignJson, File.ReadAllText(projectPath),
+                    "A config without our entry must not be modified.");
+
+                Assert.IsTrue(
+                    MCPClientConfigAutoRewrite.RewriteJson(globalPath, "mcpServers", "kitwright", url),
+                    "The global file holds the stale entry and must be repaired.");
+                StringAssert.Contains("8765", File.ReadAllText(globalPath));
+            }
+            finally
+            {
+                try { Directory.Delete(dir, true); } catch { }
+            }
+        }
     }
 }
