@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using KitWright.Editor.Settings;
 using UnityEditor;
 using UnityEngine;
@@ -19,21 +20,25 @@ namespace KitWright.Editor.MCP.Server
         private readonly ISettingsController _settings;
         private readonly MCPServerService _server;
         private readonly Action _refreshStatus;
+        private readonly Action _rebuildWindow;
         private Label _brokerStatus;
         private TextField _brokerMonoPathField;
         private Label _brokerMonoHint;
         private Button _connectButton;
         private Label _connectIcon;
         private Label _connectText;
+        private bool _connecting;
 
         public ServerControlsPanel(
             ISettingsController settings,
             MCPServerService server,
-            Action refreshStatus)
+            Action refreshStatus,
+            Action rebuildWindow)
         {
             _settings = settings;
             _server = server;
             _refreshStatus = refreshStatus;
+            _rebuildWindow = rebuildWindow;
         }
 
         public void AddTo(VisualElement parent)
@@ -52,9 +57,15 @@ namespace KitWright.Editor.MCP.Server
             portField.RegisterValueChangedCallback(evt =>
             {
                 _settings.MCPServerPort = evt.newValue;
+                // The config sweep otherwise only runs on server start, so a port edit made
+                // while stopped never reaches the client files. While running, the live port
+                // is still the correct one to advertise -- the next start sweeps it.
+                if (_server == null || !_server.IsRunning)
+                    MCPClientConfigAutoRewrite.Schedule(_settings.MCPServerPort);
 
-                EditorApplication.delayCall += () =>
-                    EditorApplication.delayCall += () => { UpdateBrokerStatus(); InvokeRefreshStatus(); };
+                // Rebuild rather than refresh: the Client Configuration snippet renders the
+                // port into a read-only field that is only ever built once.
+                EditorApplication.delayCall += () => _rebuildWindow();
             });
             portField.style.flexGrow = 1;
             portField.Shrinkable();
@@ -172,12 +183,21 @@ namespace KitWright.Editor.MCP.Server
             var enable = !_settings.MCPServerEnabled;
             _settings.MCPServerEnabled = enable;
             if (enable)
-                _ = _server.StartAsync();
-            else
             {
-                _ = _server.StopAsync();
-                MCPBrokerProcessManager.Stop();
+                _connecting = true;
+                UpdateConnectButton();
+
+                // StartAsync blocks until its first await (port probing, broker spawn), so yield
+                // a frame to let the button repaint, then rebuild once Port finally lands -- the
+                // Client Configuration snippet renders that port, not the setting.
+                EditorApplication.delayCall += () => _server.StartAsync().ContinueWith(
+                    _ => EditorApplication.delayCall += () => _rebuildWindow(),
+                    TaskScheduler.Default);
+                return;
             }
+
+            _ = _server.StopAsync();
+            MCPBrokerProcessManager.Stop();
 
             EditorApplication.delayCall += () =>
                 EditorApplication.delayCall += () =>
@@ -192,6 +212,18 @@ namespace KitWright.Editor.MCP.Server
         {
             if (_connectButton == null)
                 return;
+
+            // Starting takes a visible moment, so report the transition instead of looking dead.
+            // ◌ shares the ■ / ▶ Unicode block, so it renders in the editor's default font.
+            if (_connecting)
+            {
+                _connectText.text = "Connecting...";
+                _connectIcon.text = "◌";
+                _connectIcon.style.color = new Color(0.8f, 0.8f, 0.8f);
+                _connectButton.style.backgroundColor = new Color(0.28f, 0.28f, 0.30f);
+                _connectButton.SetEnabled(false);
+                return;
+            }
 
             var running = _settings.MCPServerEnabled;
             _connectText.text = running ? "Disconnect" : "Connect";
@@ -278,7 +310,8 @@ namespace KitWright.Editor.MCP.Server
 
             if (MCPBrokerProcessManager.IsRunning(out var pid, out var port))
             {
-                _brokerStatus.text = "Transport: Broker running (pid " + pid + ", port " + port + ").";
+                _brokerStatus.text = "Transport: Broker running (pid " + pid + ", port " + port + ")." +
+                    (port != _settings.MCPServerPort ? " Configured port was in use." : string.Empty);
                 return;
             }
 

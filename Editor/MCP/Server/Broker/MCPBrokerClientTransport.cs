@@ -308,7 +308,7 @@ namespace KitWright.Editor.MCP.Server
         {
             try
             {
-                var dict = SimpleJsonHelper.Deserialize(json) as Dictionary<string, object>;
+                var dict = JsonCodec.Deserialize(json) as Dictionary<string, object>;
                 if (dict == null)
                     return null;
 
@@ -350,7 +350,7 @@ namespace KitWright.Editor.MCP.Server
                 dict["result"] = response.Result;
             }
 
-            return SimpleJsonHelper.Serialize(dict);
+            return JsonCodec.Serialize(dict);
         }
 
         private static MCPResponse CreateError(object requestId, int code, string message)

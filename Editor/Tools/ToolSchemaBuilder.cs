@@ -47,14 +47,10 @@ namespace KitWright.Editor.Tools
 
             return new ToolDefinition
             {
-                type = "function",
-                function = new ToolFunctionDef
-                {
-                    name = functionName,
-                    description = description,
-                    parameters = parameters,
-                    readOnly = ToolRegistry.IsReadOnly(method)
-                }
+                name = functionName,
+                description = description,
+                parameters = parameters,
+                readOnly = ToolRegistry.IsReadOnly(method)
             };
         }
 

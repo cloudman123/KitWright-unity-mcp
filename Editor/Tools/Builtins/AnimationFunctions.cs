@@ -98,7 +98,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             return Response.Success($"Animator state on '{animator.gameObject.name}' (layer {layer}).", new
             {
-                gameObject = new { instanceId = ObjectIdHelper.GetSerializableId(animator.gameObject), name = animator.gameObject.name },
+                gameObject = new { instanceId = ObjectIdCodec.GetSerializableId(animator.gameObject), name = animator.gameObject.name },
                 controller = animator.runtimeAnimatorController != null ? animator.runtimeAnimatorController.name : null,
                 isActiveAndEnabled = animator.isActiveAndEnabled,
                 layer,
@@ -238,7 +238,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             return Response.Success($"Playing state '{state}' on '{animator.gameObject.name}' (layer {layer}).", new
             {
-                gameObject = new { instanceId = ObjectIdHelper.GetSerializableId(animator.gameObject), name = animator.gameObject.name },
+                gameObject = new { instanceId = ObjectIdCodec.GetSerializableId(animator.gameObject), name = animator.gameObject.name },
                 state,
                 layer = resolvedLayer,
                 requestedLayer = layer

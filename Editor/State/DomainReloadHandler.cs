@@ -61,7 +61,7 @@ namespace KitWright.Editor.State
                 ["functionName"] = functionCall.FunctionName ?? string.Empty
             };
 
-            SessionState.SetString(PendingFunctionKey, SimpleJsonHelper.Serialize(payload));
+            SessionState.SetString(PendingFunctionKey, JsonCodec.Serialize(payload));
         }
 
         public static void ClearPendingFunction()
@@ -91,7 +91,7 @@ namespace KitWright.Editor.State
                 ["timestamp"] = DateTime.Now.ToString("O")
             };
 
-            SessionState.SetString(LastRecoveryInfoKey, SimpleJsonHelper.Serialize(payload));
+            SessionState.SetString(LastRecoveryInfoKey, JsonCodec.Serialize(payload));
         }
 
         public static RecoveryInfo GetLastRecoveryInfo(bool consume = false)
@@ -105,7 +105,7 @@ namespace KitWright.Editor.State
 
             try
             {
-                var dict = SimpleJsonHelper.Deserialize(infoStr) as Dictionary<string, object>;
+                var dict = JsonCodec.Deserialize(infoStr) as Dictionary<string, object>;
                 if (dict == null)
                     return null;
 
@@ -255,7 +255,7 @@ namespace KitWright.Editor.State
 
             try
             {
-                var dict = SimpleJsonHelper.Deserialize(pendingFunctionStr) as Dictionary<string, object>;
+                var dict = JsonCodec.Deserialize(pendingFunctionStr) as Dictionary<string, object>;
                 if (dict == null)
                     return null;
 

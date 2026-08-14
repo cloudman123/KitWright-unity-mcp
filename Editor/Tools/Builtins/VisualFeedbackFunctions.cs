@@ -74,14 +74,21 @@ namespace KitWright.Editor.Tools.Builtins
             return $"Logged {log_type}: {message}";
         }
 
-        [Description("Display a dialog box to the user")]
+        // A modal dialog blocks the editor main loop, which stalls the MCP request pump until a
+        // human clicks it, so this shows a non-blocking Scene View notification instead.
+        [Description("Show a message to the user as a non-blocking notification in the Scene View (also written to the console)")]
         [ReadOnlyTool]
         public static string ShowDialog(
-            [ToolParam("Dialog title")] string title,
-            [ToolParam("Dialog message")] string message)
+            [ToolParam("Message title")] string title,
+            [ToolParam("Message body")] string message)
         {
-            EditorUtility.DisplayDialog(title, message, "OK");
-            return $"Displayed dialog: {title}";
+            EditorWindow window = SceneView.lastActiveSceneView;
+            if (window == null)
+                window = EditorWindow.focusedWindow;
+            if (window != null)
+                window.ShowNotification(new GUIContent($"{title}\n{message}"));
+            Debug.Log($"[KitWright] {title}: {message}");
+            return $"Showed notification: {title}";
         }
 
         [Description("Get recent console log messages from Unity. " +

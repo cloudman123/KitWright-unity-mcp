@@ -436,7 +436,7 @@ namespace KitWright.Editor
             var result = response.Result as Dictionary<string, object>;
             Assert.NotNull(result);
             Assert.AreEqual(false, result["isError"]);
-            Assert.That(SimpleJsonHelper.Serialize(result), Does.Contain("Compilation finished after reload."));
+            Assert.That(JsonCodec.Serialize(result), Does.Contain("Compilation finished after reload."));
         }
 
         [Test]
@@ -456,7 +456,7 @@ namespace KitWright.Editor
             var result = response.Result as Dictionary<string, object>;
             Assert.NotNull(result);
             Assert.AreEqual(true, result["isError"]);
-            Assert.That(SimpleJsonHelper.Serialize(result), Does.Contain("was not re-run automatically"));
+            Assert.That(JsonCodec.Serialize(result), Does.Contain("was not re-run automatically"));
         }
 
         [Test]

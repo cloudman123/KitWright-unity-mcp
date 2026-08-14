@@ -8,7 +8,7 @@ using UnityEditor;
 
 namespace KitWright.Editor.Tests
 {
-    public sealed class EditorRefreshHelperTests
+    public sealed class EditorRefreshPipelineTests
     {
         [Test]
         public void AnalyzeScriptChangeState_SourceNewerThanAssembly_IsPending()
@@ -23,7 +23,7 @@ namespace KitWright.Editor.Tests
                 File.SetLastWriteTimeUtc(output, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
                 File.SetLastWriteTimeUtc(source, new DateTime(2026, 1, 1, 0, 0, 5, DateTimeKind.Utc));
 
-                var state = EditorRefreshHelper.AnalyzeScriptChangeState(
+                var state = EditorRefreshPipeline.AnalyzeScriptChangeState(
                     new[] { new ScriptCompilationArtifact(output, new[] { source }) },
                     Array.Empty<string>(),
                     TimeSpan.FromSeconds(1));
@@ -54,7 +54,7 @@ namespace KitWright.Editor.Tests
                 File.SetLastWriteTimeUtc(knownSource, new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc));
                 File.SetLastWriteTimeUtc(newSource, new DateTime(2026, 1, 1, 0, 0, 5, DateTimeKind.Utc));
 
-                var state = EditorRefreshHelper.AnalyzeScriptChangeState(
+                var state = EditorRefreshPipeline.AnalyzeScriptChangeState(
                     new[] { new ScriptCompilationArtifact(output, new[] { knownSource }) },
                     new[] { knownSource, newSource },
                     TimeSpan.FromSeconds(1));
@@ -85,7 +85,7 @@ namespace KitWright.Editor.Tests
                 File.SetLastWriteTimeUtc(source, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
                 File.SetLastWriteTimeUtc(oldUnknownSource, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-                var state = EditorRefreshHelper.AnalyzeScriptChangeState(
+                var state = EditorRefreshPipeline.AnalyzeScriptChangeState(
                     new[] { new ScriptCompilationArtifact(output, new[] { source }) },
                     new[] { source, oldUnknownSource },
                     TimeSpan.FromSeconds(1));
@@ -115,7 +115,7 @@ namespace KitWright.Editor.Tests
                 File.SetLastWriteTimeUtc(source, new DateTime(2026, 1, 1, 0, 0, 5, DateTimeKind.Utc));
 
                 var resolvedOutputTime = new DateTime(2026, 1, 1, 0, 0, 10, DateTimeKind.Utc);
-                var state = EditorRefreshHelper.AnalyzeScriptChangeState(
+                var state = EditorRefreshPipeline.AnalyzeScriptChangeState(
                     new[] { new ScriptCompilationArtifact(staleOutput, new[] { source }, resolvedOutputTime) },
                     Array.Empty<string>(),
                     TimeSpan.FromSeconds(1));
@@ -144,7 +144,7 @@ namespace KitWright.Editor.Tests
                 File.SetLastWriteTimeUtc(output, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
                 File.SetLastWriteTimeUtc(source, new DateTime(2026, 1, 1, 0, 1, 0, DateTimeKind.Utc));
 
-                var state = EditorRefreshHelper.AnalyzeScriptChangeState(
+                var state = EditorRefreshPipeline.AnalyzeScriptChangeState(
                     new[] { new ScriptCompilationArtifact(output, new[] { source }) },
                     Array.Empty<string>(),
                     TimeSpan.FromSeconds(1));
@@ -165,7 +165,7 @@ namespace KitWright.Editor.Tests
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
                 Assert.Ignore("Editor is busy, so compile-start detection short-circuits regardless.");
 
-            var task = EditorRefreshHelper.RefreshAndRequestCompilationAsync(forceUpdate: false);
+            var task = EditorRefreshPipeline.RefreshAndRequestCompilationAsync(forceUpdate: false);
 
             if (task.IsCompleted && task.Result.LatestScriptState.HasPendingScriptChanges)
                 Assert.Ignore("Project has genuinely stale scripts, so waiting for a compile start is correct here.");

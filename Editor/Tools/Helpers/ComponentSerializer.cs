@@ -94,7 +94,7 @@ namespace KitWright.Editor.Tools.Helpers
                     var o = p.objectReferenceValue;
                     return o == null
                         ? null
-                        : (object)new { fileID = ObjectIdHelper.GetSerializableId(o), name = o.name, type = o.GetType().Name };
+                        : (object)new { fileID = ObjectIdCodec.GetSerializableId(o), name = o.name, type = o.GetType().Name };
                 case SerializedPropertyType.LayerMask:
                     return p.intValue;
                 case SerializedPropertyType.AnimationCurve:
@@ -303,7 +303,7 @@ namespace KitWright.Editor.Tools.Helpers
 
             UnityEngine.Object resolved = null;
             if (!string.IsNullOrWhiteSpace(instanceId))
-                resolved = ObjectIdHelper.ToObject(instanceId);
+                resolved = ObjectIdCodec.ToObject(instanceId);
             if (resolved == null && !string.IsNullOrEmpty(assetPath))
                 resolved = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
 
@@ -430,7 +430,7 @@ namespace KitWright.Editor.Tools.Helpers
                 string id = null;
                 if (token.Type == JTokenType.Integer) id = token.ToString();
                 else if (token is JObject jo && jo.TryGetValue("fileID", out var f)) id = f.ToString();
-                if (!string.IsNullOrWhiteSpace(id)) return ObjectIdHelper.ToObject(id);
+                if (!string.IsNullOrWhiteSpace(id)) return ObjectIdCodec.ToObject(id);
             }
             return token.ToObject(targetType);
         }

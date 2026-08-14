@@ -8,7 +8,7 @@ using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace KitWright.Editor.Services
 {
-    internal static class PackageVersionUtility
+    internal static class PackageVersion
     {
         private const string PackageName = "com.kitwright.unity.mcp";
         private const string AssetInstallRoot = "Assets/unity-mcp";
@@ -16,7 +16,7 @@ namespace KitWright.Editor.Services
         private const string FallbackVersion = "0.0.0";
         private static string _cachedVersion;
 
-        public static string CurrentVersion
+        public static string Current
         {
             get
             {
@@ -35,7 +35,7 @@ namespace KitWright.Editor.Services
 
         private static string ResolveVersion()
         {
-            var projectRoot = Path.GetDirectoryName(Application.dataPath) ?? Application.dataPath;
+            var projectRoot = ApplicationPaths.ProjectRoot;
             var packageInfo = PackageInfo.FindForAssetPath(PackageInstallRoot);
             if (packageInfo != null &&
                 string.Equals(packageInfo.name, PackageName, System.StringComparison.OrdinalIgnoreCase) &&

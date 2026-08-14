@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
+using KitWright.Editor.Services;
 using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -26,7 +27,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             // Name alone does not identify an editor -- two clones of the same project share it,
             // which is why the transport's project pin is a hash of the path rather than the name.
-            var projectPath = System.IO.Path.GetDirectoryName(Application.dataPath)?.Replace('\\', '/');
+            var projectPath = ApplicationPaths.ProjectRoot.Replace('\\', '/');
 
             return Response.Success("Editor state", new
             {
@@ -52,7 +53,7 @@ namespace KitWright.Editor.Tools.Builtins
             var gos = Selection.gameObjects ?? Array.Empty<GameObject>();
             var items = gos.Select(go => new
             {
-                instanceId = ObjectIdHelper.GetSerializableId(go),
+                instanceId = ObjectIdCodec.GetSerializableId(go),
                 name = go.name,
                 path = ObjectsHelper.GetGameObjectPath(go)
             }).ToList();
@@ -60,7 +61,7 @@ namespace KitWright.Editor.Tools.Builtins
             return Response.Success($"Selection contains {items.Count} object(s).", new
             {
                 count = items.Count,
-                activeInstanceId = ObjectIdHelper.GetSerializableId(Selection.activeGameObject),
+                activeInstanceId = ObjectIdCodec.GetSerializableId(Selection.activeGameObject),
                 items
             });
         }
@@ -98,7 +99,7 @@ namespace KitWright.Editor.Tools.Builtins
                 $"Selected {picked.Count} object(s){(missing.Count > 0 ? $", {missing.Count} not found" : string.Empty)}.",
                 new
                 {
-                    selected = picked.Select(g => new { instanceId = ObjectIdHelper.GetSerializableId(g), name = g.name }).ToList(),
+                    selected = picked.Select(g => new { instanceId = ObjectIdCodec.GetSerializableId(g), name = g.name }).ToList(),
                     notFound = missing
                 });
         }
@@ -118,7 +119,7 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 open = true,
                 assetPath = stage.assetPath,
-                rootInstanceId = ObjectIdHelper.GetSerializableId(root),
+                rootInstanceId = ObjectIdCodec.GetSerializableId(root),
                 rootName = root != null ? root.name : null,
                 mode = stage.mode.ToString(),
                 scene = stage.scene.IsValid() ? stage.scene.name : null

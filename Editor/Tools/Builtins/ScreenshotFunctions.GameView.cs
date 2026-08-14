@@ -56,10 +56,6 @@ namespace KitWright.Editor.Tools.Builtins
             }
         }
 
-        // Cap the auto-resolved Game View size so a full-res capture (e.g. 1080x2400) doesn't
-        // return a multi-hundred-KB PNG that blows up MCP token cost.
-        private const int GameViewAutoMaxDimension = 1024;
-
         private static int ResolveDefaultScreenshotSize()
         {
             var settings = KitWright.Editor.DI.RootScopeServices.Services?.GetService(typeof(KitWright.Editor.Settings.ISettingsController))

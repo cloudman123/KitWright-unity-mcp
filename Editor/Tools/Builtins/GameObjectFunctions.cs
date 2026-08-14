@@ -51,9 +51,9 @@ namespace KitWright.Editor.Tools.Builtins
                 default: return Response.Error("UNKNOWN_PRIMITIVE", new { primitive_type });
             }
 
-            if (!ValueParse.TryParseVector3(position, out var primPos, out var primPosErr))
+            if (!ValueConverter.TryParseVector3(position, out var primPos, out var primPosErr))
                 return Response.Error("INVALID_PARAM", new { param = "position", provided = position, expected = "Vector3 'x,y,z'", detail = primPosErr });
-            if (!ValueParse.TryParseVector3(scale, out var primScale, out var primScaleErr))
+            if (!ValueConverter.TryParseVector3(scale, out var primScale, out var primScaleErr))
                 return Response.Error("INVALID_PARAM", new { param = "scale", provided = scale, expected = "Vector3 'x,y,z'", detail = primScaleErr });
 
             var go = GameObject.CreatePrimitive(type);
@@ -75,7 +75,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (go == null)
                 return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
 
-            var info = new { instanceId = ObjectIdHelper.GetSerializableId(go), name = go.name };
+            var info = new { instanceId = ObjectIdCodec.GetSerializableId(go), name = go.name };
             Undo.DestroyObjectImmediate(go);
             return Response.Success($"Deleted GameObject '{info.name}'.", info);
         }
@@ -113,7 +113,7 @@ namespace KitWright.Editor.Tools.Builtins
             Undo.RecordObject(go, $"Rename {oldName} to {new_name}");
             go.name = new_name;
             return Response.Success($"Renamed '{oldName}' to '{new_name}'.",
-                new { instanceId = ObjectIdHelper.GetSerializableId(go), name = go.name });
+                new { instanceId = ObjectIdCodec.GetSerializableId(go), name = go.name });
         }
 
         [Description("Set position, rotation, and/or scale on a GameObject's transform.")]
@@ -134,11 +134,11 @@ namespace KitWright.Editor.Tools.Builtins
             var hasRot = !string.IsNullOrEmpty(rotation);
             var hasScl = !string.IsNullOrEmpty(scale);
             Vector3 pos = default, rot = default, scl = default;
-            if (hasPos && !ValueParse.TryParseVector3(position, out pos, out var posErr))
+            if (hasPos && !ValueConverter.TryParseVector3(position, out pos, out var posErr))
                 return Response.Error("INVALID_PARAM", new { param = "position", provided = position, expected = "Vector3 'x,y,z'", detail = posErr });
-            if (hasRot && !ValueParse.TryParseVector3(rotation, out rot, out var rotErr))
+            if (hasRot && !ValueConverter.TryParseVector3(rotation, out rot, out var rotErr))
                 return Response.Error("INVALID_PARAM", new { param = "rotation", provided = rotation, expected = "Vector3 'x,y,z'", detail = rotErr });
-            if (hasScl && !ValueParse.TryParseVector3(scale, out scl, out var sclErr))
+            if (hasScl && !ValueConverter.TryParseVector3(scale, out scl, out var sclErr))
                 return Response.Error("INVALID_PARAM", new { param = "scale", provided = scale, expected = "Vector3 'x,y,z'", detail = sclErr });
 
             Undo.RecordObject(go.transform, $"Set transform of {go.name}");
@@ -149,7 +149,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             return Response.Success($"Updated transform of '{go.name}'.", new
             {
-                instanceId = ObjectIdHelper.GetSerializableId(go),
+                instanceId = ObjectIdCodec.GetSerializableId(go),
                 position = new { x = go.transform.position.x, y = go.transform.position.y, z = go.transform.position.z },
                 rotation = new { x = go.transform.eulerAngles.x, y = go.transform.eulerAngles.y, z = go.transform.eulerAngles.z },
                 scale = new { x = go.transform.localScale.x, y = go.transform.localScale.y, z = go.transform.localScale.z }
@@ -188,7 +188,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             Undo.SetTransformParent(childGo.transform, parentGo.transform, $"Parent {childGo.name} to {parentGo.name}");
             return Response.Success($"Parented '{childGo.name}' to '{parentGo.name}'.",
-                new { childInstanceId = ObjectIdHelper.GetSerializableId(childGo), parentInstanceId = ObjectIdHelper.GetSerializableId(parentGo) });
+                new { childInstanceId = ObjectIdCodec.GetSerializableId(childGo), parentInstanceId = ObjectIdCodec.GetSerializableId(parentGo) });
         }
 
         [Description("Add a component to a GameObject. Returns the new component's instanceId.")]
@@ -210,8 +210,8 @@ namespace KitWright.Editor.Tools.Builtins
                 return Response.Error("ADD_COMPONENT_FAILED", new { component_type, target = go.name });
 
             return Response.Success($"Added {component_type} to '{go.name}'.",
-                new { gameObjectInstanceId = ObjectIdHelper.GetSerializableId(go),
-                      componentInstanceId = ObjectIdHelper.GetSerializableId(comp),
+                new { gameObjectInstanceId = ObjectIdCodec.GetSerializableId(go),
+                      componentInstanceId = ObjectIdCodec.GetSerializableId(comp),
                       type = comp.GetType().Name });
         }
 
@@ -243,7 +243,7 @@ namespace KitWright.Editor.Tools.Builtins
             Undo.DestroyObjectImmediate(comp);
 
             return Response.Success($"Removed {component_type} from '{go.name}'.",
-                new { instanceId = ObjectIdHelper.GetSerializableId(go), type = type.Name, remaining = matches.Length - 1 });
+                new { instanceId = ObjectIdCodec.GetSerializableId(go), type = type.Name, remaining = matches.Length - 1 });
         }
 
         [Description("Enable or disable a component (its 'enabled' checkbox) on a GameObject. Works for Behaviour/MonoBehaviour, Renderer, Collider. Use index when several of the same type exist.")]
@@ -277,7 +277,7 @@ namespace KitWright.Editor.Tools.Builtins
             prop.SetValue(comp, enabled);
 
             return Response.Success($"{(enabled ? "Enabled" : "Disabled")} {component_type} on '{go.name}'.",
-                new { instanceId = ObjectIdHelper.GetSerializableId(go), type = type.Name, enabled });
+                new { instanceId = ObjectIdCodec.GetSerializableId(go), type = type.Name, enabled });
         }
 
         [Description("Set tag and/or layer on a GameObject.")]
@@ -309,7 +309,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             return Response.Success($"Updated '{go.name}'.", new
             {
-                instanceId = ObjectIdHelper.GetSerializableId(go),
+                instanceId = ObjectIdCodec.GetSerializableId(go),
                 changes,
                 warnings
             });
@@ -329,7 +329,7 @@ namespace KitWright.Editor.Tools.Builtins
             Undo.RecordObject(go, $"Set active {go.name}");
             go.SetActive(isActive);
             return Response.Success($"Set '{go.name}' active = {isActive}.",
-                new { instanceId = ObjectIdHelper.GetSerializableId(go), activeSelf = go.activeSelf });
+                new { instanceId = ObjectIdCodec.GetSerializableId(go), activeSelf = go.activeSelf });
         }
 
         [Description("Find GameObjects by id/name/path/tag/layer/component. Returns full structured results so the agent can chain by_id calls.")]

@@ -50,7 +50,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Optional camera distance from the point", Required = false)] float distance = -1f)
         {
             if (!TryGetSceneView(out var view, out var noView)) return noView;
-            if (!ValueParse.TryParseVector3(point, out var p, out _)) return Response.Error("INVALID_VECTOR", new { point });
+            if (!ValueConverter.TryParseVector3(point, out var p, out _)) return Response.Error("INVALID_VECTOR", new { point });
 
             float size = distance > 0f ? distance : view.size;
             view.LookAt(p, view.rotation, size);
@@ -67,9 +67,9 @@ namespace KitWright.Editor.Tools.Builtins
         {
             if (!TryGetSceneView(out var view, out var noView)) return noView;
 
-            if (!string.IsNullOrEmpty(pivot) && ValueParse.TryParseVector3(pivot, out var p, out _))
+            if (!string.IsNullOrEmpty(pivot) && ValueConverter.TryParseVector3(pivot, out var p, out _))
                 view.pivot = p;
-            if (!string.IsNullOrEmpty(rotation) && ValueParse.TryParseVector3(rotation, out var r, out _))
+            if (!string.IsNullOrEmpty(rotation) && ValueConverter.TryParseVector3(rotation, out var r, out _))
                 view.rotation = Quaternion.Euler(r);
             if (size > 0f)
                 view.size = size;

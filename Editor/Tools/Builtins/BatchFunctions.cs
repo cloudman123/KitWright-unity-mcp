@@ -33,7 +33,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (parsed.Count > 100)
                 return Response.Error("BATCH_TOO_LARGE", new { count = parsed.Count, max = 100 });
 
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var results = new List<object>();
             bool aborted = false;
 

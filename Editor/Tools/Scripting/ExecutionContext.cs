@@ -46,20 +46,20 @@ namespace KitWright.Editor.Tools.Scripting
         {
             if (obj == null) return;
             Undo.RegisterCreatedObjectUndo(obj, "execute_code: create");
-            _created.Add(ObjectIdHelper.GetSerializableId(obj));
+            _created.Add(ObjectIdCodec.GetSerializableId(obj));
         }
 
         public void RegisterObjectModification(UnityObject obj)
         {
             if (obj == null) return;
             Undo.RecordObject(obj, "execute_code: modify");
-            _modified.Add(ObjectIdHelper.GetSerializableId(obj));
+            _modified.Add(ObjectIdCodec.GetSerializableId(obj));
         }
 
         public void DestroyObject(UnityObject obj)
         {
             if (obj == null) return;
-            _destroyed.Add(ObjectIdHelper.GetSerializableId(obj));
+            _destroyed.Add(ObjectIdCodec.GetSerializableId(obj));
             Undo.DestroyObjectImmediate(obj);
         }
 

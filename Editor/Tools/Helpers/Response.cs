@@ -10,7 +10,7 @@ namespace KitWright.Editor.Tools.Helpers
     /// <summary>
     /// Standardized response wrapper for MCP tool returns. Tools that return
     /// <see cref="Response"/> objects (or any non-string object) get serialized
-    /// to JSON by <c>FunctionInvokerController</c> so MCP clients can reliably
+    /// to JSON by <c>FunctionInvoker</c> so MCP clients can reliably
     /// parse <c>{ success, message, data }</c> instead of free-form strings.
     ///
     /// Success: { success: true, message: "...", data?: {...} }

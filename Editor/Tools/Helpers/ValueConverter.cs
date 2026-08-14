@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace KitWright.Editor.Tools.Helpers
 {
-    internal static class ValueParse
+    internal static class ValueConverter
     {
         public static string FormatBytes(long bytes)
         {

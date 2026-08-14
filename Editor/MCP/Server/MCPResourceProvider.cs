@@ -21,7 +21,7 @@ namespace KitWright.Editor.MCP.Server
             "mesh"
         };
 
-        private readonly IEditorContextBuilder _contextBuilder;
+        private readonly EditorContextBuilder _contextBuilder;
         private readonly IApplicationPaths _applicationPaths;
         private readonly MCPInteractionLog _interactionLog;
         private readonly object _lock = new object();
@@ -35,7 +35,7 @@ namespace KitWright.Editor.MCP.Server
         private bool _disposed;
 
         public MCPResourceProvider(
-            IEditorContextBuilder contextBuilder,
+            EditorContextBuilder contextBuilder,
             IApplicationPaths applicationPaths,
             MCPInteractionLog interactionLog)
         {
@@ -219,7 +219,7 @@ namespace KitWright.Editor.MCP.Server
             sb.AppendLine("KitWright MCP Project Context");
             sb.AppendLine("- Project: " + _projectName);
             sb.AppendLine("- Unity: " + Application.unityVersion);
-            sb.AppendLine("- Package Version: " + PackageVersionUtility.CurrentVersion);
+            sb.AppendLine("- Package Version: " + PackageVersion.Current);
             sb.AppendLine("- Project Path: " + _applicationPaths.ProjectPath);
             sb.AppendLine("- Assets Path: " + _applicationPaths.AssetsPath);
             sb.AppendLine();
@@ -243,7 +243,7 @@ namespace KitWright.Editor.MCP.Server
             sb.AppendLine("Project Root: " + _applicationPaths.ProjectPath);
             sb.AppendLine("Assets Path: " + _applicationPaths.AssetsPath);
             sb.AppendLine("Unity Version: " + Application.unityVersion);
-            sb.AppendLine("Package Version: " + PackageVersionUtility.CurrentVersion);
+            sb.AppendLine("Package Version: " + PackageVersion.Current);
             sb.AppendLine();
             sb.AppendLine($"Assets Top-Level Directories ({topLevelDirectories.Length}):");
 

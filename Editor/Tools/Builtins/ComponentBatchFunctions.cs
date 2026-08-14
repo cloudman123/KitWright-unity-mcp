@@ -67,10 +67,10 @@ namespace KitWright.Editor.Tools.Builtins
                 copied = true,
                 component = new
                 {
-                    instanceId = ObjectIdHelper.GetSerializableId(comp),
+                    instanceId = ObjectIdCodec.GetSerializableId(comp),
                     type = comp.GetType().Name,
                     fullType = comp.GetType().FullName,
-                    gameObject = new { instanceId = ObjectIdHelper.GetSerializableId(go), name = go.name }
+                    gameObject = new { instanceId = ObjectIdCodec.GetSerializableId(go), name = go.name }
                 }
             });
         }
@@ -121,28 +121,28 @@ namespace KitWright.Editor.Tools.Builtins
                             success++;
                         }
                         results.Add(ok
-                            ? (object)new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = true }
-                            : new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = false, error = "PASTE_AS_NEW_FAILED" });
+                            ? (object)new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = true }
+                            : new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = false, error = "PASTE_AS_NEW_FAILED" });
                     }
                     else
                     {
                         var comp = ResolveComponentOnGo(go, component_type);
                         if (comp == null)
                         {
-                            results.Add(new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = false, error = "COMPONENT_NOT_ON_TARGET" });
+                            results.Add(new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = false, error = "COMPONENT_NOT_ON_TARGET" });
                             continue;
                         }
                         Undo.RecordObject(comp, "Paste Component Values");
                         bool ok = ComponentUtility.PasteComponentValues(comp);
                         if (ok) success++;
                         results.Add(ok
-                            ? (object)new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = true }
-                            : new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = false, error = "PASTE_VALUES_FAILED" });
+                            ? (object)new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = true }
+                            : new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = false, error = "PASTE_VALUES_FAILED" });
                     }
                 }
                 catch (Exception ex)
                 {
-                    results.Add(new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = false, error = ex.Message });
+                    results.Add(new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = false, error = ex.Message });
                 }
             }
 
@@ -180,16 +180,16 @@ namespace KitWright.Editor.Tools.Builtins
                     if (comp != null)
                     {
                         success++;
-                        results.Add(new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = true, componentInstanceId = ObjectIdHelper.GetSerializableId(comp) });
+                        results.Add(new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = true, componentInstanceId = ObjectIdCodec.GetSerializableId(comp) });
                     }
                     else
                     {
-                        results.Add(new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = false, error = "ADD_COMPONENT_FAILED" });
+                        results.Add(new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = false, error = "ADD_COMPONENT_FAILED" });
                     }
                 }
                 catch (Exception ex)
                 {
-                    results.Add(new { target = go.name, instanceId = ObjectIdHelper.GetSerializableId(go), ok = false, error = ex.Message });
+                    results.Add(new { target = go.name, instanceId = ObjectIdCodec.GetSerializableId(go), ok = false, error = ex.Message });
                 }
             }
 

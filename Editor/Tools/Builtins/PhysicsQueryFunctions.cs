@@ -61,7 +61,7 @@ namespace KitWright.Editor.Tools.Builtins
                 {
                     collider = col != null ? col.name : null,
                     path = go != null ? ObjectsHelper.GetGameObjectPath(go) : null,
-                    instanceId = go != null ? ObjectIdHelper.GetSerializableId(go) : "0",
+                    instanceId = go != null ? ObjectIdCodec.GetSerializableId(go) : "0",
                     point = new { x = h.point.x, y = h.point.y, z = h.point.z },
                     normal = new { x = h.normal.x, y = h.normal.y, z = h.normal.z },
                     distance = h.distance
@@ -127,7 +127,7 @@ namespace KitWright.Editor.Tools.Builtins
                 {
                     collider = col.name,
                     path = ObjectsHelper.GetGameObjectPath(go),
-                    instanceId = ObjectIdHelper.GetSerializableId(go)
+                    instanceId = ObjectIdCodec.GetSerializableId(go)
                 });
             }
 
@@ -160,7 +160,7 @@ namespace KitWright.Editor.Tools.Builtins
                 {
                     collider = col.name,
                     path = ObjectsHelper.GetGameObjectPath(go),
-                    instanceId = ObjectIdHelper.GetSerializableId(go)
+                    instanceId = ObjectIdCodec.GetSerializableId(go)
                 });
             }
 

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -50,6 +51,46 @@ namespace KitWright.Editor.MCP.Server
             EditorApplication.quitting += Stop;
         }
 
+        public static Task<bool> EnsureRunningAsync(int port, string monoPathOverride)
+        {
+            return EnsureRunningAsync(port, monoPathOverride, DefaultPaths);
+        }
+
+        /// <summary>
+        /// Spawns the broker if needed, then waits for its health probe off the editor thread.
+        /// The wait is the slow part (a cold broker takes up to <see cref="StartProbeAttempts"/> x
+        /// <see cref="StartProbeDelayMs"/> ms), so it must not run as a blocking sleep -- that
+        /// freezes the editor UI, including the Connect button's own progress indicator.
+        /// </summary>
+        internal static async Task<bool> EnsureRunningAsync(
+            int port, string monoPathOverride, MCPBrokerRuntimePaths paths)
+        {
+            var outcome = SpawnBroker(port, monoPathOverride, paths, out var pid, out var token);
+            if (outcome != BrokerSpawn.Spawned)
+                return outcome == BrokerSpawn.AlreadyRunning;
+
+            for (var attempt = 0; attempt < StartProbeAttempts; attempt++)
+            {
+                if (TryProbeBroker(port, token, out var health) && health.Pid == pid)
+                {
+                    Debug.Log("[KitWright MCP Server] Broker started (pid=" + pid + ", port=" + port + ").");
+                    return true;
+                }
+
+                await Task.Delay(StartProbeDelayMs).ConfigureAwait(false);
+            }
+
+            LastError = "Broker process started but did not pass health checks.";
+            Debug.LogWarning("[KitWright MCP Server] " + LastError);
+            lock (Gate)
+            {
+                KillVerifiedProcess(pid);
+                DeletePidFile(paths.PidFilePath);
+            }
+            return false;
+        }
+
+        /// <summary>Synchronous wrapper for callers that cannot await (tests, shutdown paths).</summary>
         public static bool EnsureRunning(int port, string monoPathOverride)
         {
             return EnsureRunning(port, monoPathOverride, DefaultPaths);
@@ -57,6 +98,19 @@ namespace KitWright.Editor.MCP.Server
 
         internal static bool EnsureRunning(int port, string monoPathOverride, MCPBrokerRuntimePaths paths)
         {
+            return EnsureRunningAsync(port, monoPathOverride, paths).GetAwaiter().GetResult();
+        }
+
+        private enum BrokerSpawn { AlreadyRunning, Spawned, Failed }
+
+        // Everything here needs the editor thread (AssetDatabase lookups when preparing the
+        // broker exe) and the process-wide gate, but all of it is fast.
+        private static BrokerSpawn SpawnBroker(
+            int port, string monoPathOverride, MCPBrokerRuntimePaths paths, out int pid, out string token)
+        {
+            pid = 0;
+            token = null;
+
             lock (Gate)
             {
                 LastError = null;
@@ -67,7 +121,7 @@ namespace KitWright.Editor.MCP.Server
                         TryProbeBroker(existing.Port, existing.Token, out var health) &&
                         health.Pid == existing.Pid)
                     {
-                        return true;
+                        return BrokerSpawn.AlreadyRunning;
                     }
 
                     // The pid file points at a broker we previously started, either on this
@@ -92,7 +146,7 @@ namespace KitWright.Editor.MCP.Server
                     LastError = existing != null && existing.Port == port
                         ? "Port is already in use, but it is not a verified KitWright broker."
                         : "Port is already in use by another process.";
-                    return false;
+                    return BrokerSpawn.Failed;
                 }
 
                 var mono = ResolveMono(monoPathOverride);
@@ -100,7 +154,7 @@ namespace KitWright.Editor.MCP.Server
                 {
                     LastError = "Unity-bundled Mono runtime was not found.";
                     Debug.LogWarning("[KitWright MCP Server] " + LastError);
-                    return false;
+                    return BrokerSpawn.Failed;
                 }
 
                 var brokerExe = EnsureBrokerExe(paths, mono);
@@ -108,17 +162,17 @@ namespace KitWright.Editor.MCP.Server
                 {
                     LastError = LastError ?? "Broker executable could not be prepared.";
                     Debug.LogWarning("[KitWright MCP Server] " + LastError);
-                    return false;
+                    return BrokerSpawn.Failed;
                 }
 
-                var token = Guid.NewGuid().ToString("N");
+                var spawnToken = Guid.NewGuid().ToString("N");
                 Process process;
                 try
                 {
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = mono,
-                        Arguments = Quote(brokerExe) + " --port " + port + " --token " + token,
+                        Arguments = Quote(brokerExe) + " --port " + port + " --token " + spawnToken,
                         WorkingDirectory = Path.GetDirectoryName(brokerExe),
                         UseShellExecute = false,
                         CreateNoWindow = true
@@ -127,41 +181,28 @@ namespace KitWright.Editor.MCP.Server
                     if (process == null)
                     {
                         LastError = "Failed to start broker process.";
-                        return false;
+                        return BrokerSpawn.Failed;
                     }
                 }
                 catch (Exception ex)
                 {
                     LastError = "Failed to start broker process: " + ex.Message;
                     Debug.LogError("[KitWright MCP Server] " + LastError);
-                    return false;
+                    return BrokerSpawn.Failed;
                 }
 
                 var state = new BrokerProcessState
                 {
                     Pid = process.Id,
                     Port = port,
-                    Token = token,
+                    Token = spawnToken,
                     Protocol = MCPBrokerProtocol.Version
                 };
                 WriteState(paths.PidFilePath, state);
 
-                for (var attempt = 0; attempt < StartProbeAttempts; attempt++)
-                {
-                    if (TryProbeBroker(port, token, out var health) && health.Pid == process.Id)
-                    {
-                        Debug.Log("[KitWright MCP Server] Broker started (pid=" + process.Id + ", port=" + port + ").");
-                        return true;
-                    }
-
-                    Thread.Sleep(StartProbeDelayMs);
-                }
-
-                LastError = "Broker process started but did not pass health checks.";
-                Debug.LogWarning("[KitWright MCP Server] " + LastError);
-                KillVerifiedProcess(process.Id);
-                DeletePidFile(paths.PidFilePath);
-                return false;
+                pid = process.Id;
+                token = spawnToken;
+                return BrokerSpawn.Spawned;
             }
         }
 
@@ -260,7 +301,7 @@ namespace KitWright.Editor.MCP.Server
                         return false;
 
                     var json = reader.ReadToEnd();
-                    var dict = SimpleJsonHelper.Deserialize(json) as Dictionary<string, object>;
+                    var dict = JsonCodec.Deserialize(json) as Dictionary<string, object>;
                     if (dict == null)
                         return false;
 

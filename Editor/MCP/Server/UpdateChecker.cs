@@ -47,7 +47,7 @@ namespace KitWright.Editor.MCP.Server
             get
             {
                 EnsureStateLoaded();
-                var currentVersion = PackageVersionUtility.CurrentVersion;
+                var currentVersion = PackageVersion.Current;
                 var hasUpdate = HasNewerCachedVersion(currentVersion);
                 return new UpdateStateSnapshot(
                     currentVersion,
@@ -99,7 +99,7 @@ namespace KitWright.Editor.MCP.Server
 
             try
             {
-                var currentVersion = PackageVersionUtility.CurrentVersion;
+                var currentVersion = PackageVersion.Current;
                 var installContext = ResolveInstallContext();
                 RecordAutoCheckAttempt();
                 var latestRelease = await FetchLatestReleaseAsync(interactive);
@@ -212,7 +212,7 @@ namespace KitWright.Editor.MCP.Server
             finally
             {
                 _isChecking = false;
-                if (!_isUpdating && !HasNewerCachedVersion(PackageVersionUtility.CurrentVersion))
+                if (!_isUpdating && !HasNewerCachedVersion(PackageVersion.Current))
                     _statusMessage = string.Empty;
                 NotifyStateChanged();
 
@@ -233,7 +233,7 @@ namespace KitWright.Editor.MCP.Server
             var installContext = _latestInstallContext;
 
             if (latestRelease == null || string.IsNullOrEmpty(latestVersion) ||
-                !HasNewerCachedVersion(PackageVersionUtility.CurrentVersion))
+                !HasNewerCachedVersion(PackageVersion.Current))
             {
                 _statusMessage = "Preparing update...";
                 _progress = 0.1f;
@@ -255,7 +255,7 @@ namespace KitWright.Editor.MCP.Server
                 StoreAvailableUpdate(latestRelease, latestVersion, installContext);
             }
 
-            if (ParseComparableVersion(latestVersion).CompareTo(ParseComparableVersion(PackageVersionUtility.CurrentVersion)) <= 0)
+            if (ParseComparableVersion(latestVersion).CompareTo(ParseComparableVersion(PackageVersion.Current)) <= 0)
             {
                 ClearCachedUpdate(false);
                 _statusMessage = "You are up to date.";
@@ -619,7 +619,7 @@ namespace KitWright.Editor.MCP.Server
             _latestReleaseUrl = EditorPrefs.GetString(BuildPrefsKey("LatestReleaseUrl"), string.Empty);
             _installDescription = EditorPrefs.GetString(BuildPrefsKey("InstallDescription"), string.Empty);
 
-            if (!HasNewerCachedVersion(PackageVersionUtility.CurrentVersion))
+            if (!HasNewerCachedVersion(PackageVersion.Current))
                 ClearCachedUpdate(false);
         }
 

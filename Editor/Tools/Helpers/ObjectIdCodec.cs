@@ -15,7 +15,7 @@ namespace KitWright.Editor.Tools.Helpers
     /// IDs handed to clients are always strings — long InstanceIDs are formatted with invariant culture
     /// so the JSON shape stays identical across Unity versions.
     /// </summary>
-    internal static class ObjectIdHelper
+    internal static class ObjectIdCodec
     {
 #if UNITY_6000_3_OR_NEWER
         private const int CacheCompactThreshold = 1024;

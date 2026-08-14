@@ -52,7 +52,7 @@ namespace KitWright.Editor.Tools.Builtins
             var material = new Material(shaderObj);
             material.name = name;
 
-            var c = ValueParse.ParseColor(color, Color.white);
+            var c = ValueConverter.ParseColor(color, Color.white);
             if (material.HasProperty(colorProperty))
                 material.SetColor(colorProperty, c);
             else

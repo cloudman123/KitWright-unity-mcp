@@ -87,7 +87,7 @@ namespace KitWright.Editor.Tools.Builtins
             MarkExternalSyncPending();
             timeout_seconds = Mathf.Clamp(timeout_seconds, 5, 120);
 
-            var refreshResult = await EditorRefreshHelper.RefreshAndRequestCompilationAsync(
+            var refreshResult = await EditorRefreshPipeline.RefreshAndRequestCompilationAsync(
                     forceUpdate: true,
                     verifyScriptChanges: true);
 

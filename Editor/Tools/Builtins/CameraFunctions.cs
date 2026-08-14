@@ -96,7 +96,7 @@ namespace KitWright.Editor.Tools.Builtins
             }
             if (!string.IsNullOrEmpty(background_color))
             {
-                camera.backgroundColor = ValueParse.ParseColor(background_color, Color.black);
+                camera.backgroundColor = ValueConverter.ParseColor(background_color, Color.black);
                 changes.Append($"bg={background_color} ");
             }
             if (!string.IsNullOrEmpty(clear_flags))

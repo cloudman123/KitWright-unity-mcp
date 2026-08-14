@@ -167,11 +167,11 @@ namespace KitWright.Editor.Tools.Builtins
             var gcTotal = GC.GetTotalMemory(false);
 
             sb.AppendLine("Memory:");
-            sb.AppendLine($"- Total Allocated: {ValueParse.FormatBytes(totalAllocated)}");
-            sb.AppendLine($"- Total Reserved: {ValueParse.FormatBytes(totalReserved)}");
-            sb.AppendLine($"- Unused Reserved: {ValueParse.FormatBytes(totalUnusedReserved)}");
-            sb.AppendLine($"- Mono Used: {ValueParse.FormatBytes(monoUsed)} / Heap: {ValueParse.FormatBytes(monoHeap)}");
-            sb.AppendLine($"- GC Managed Estimate: {ValueParse.FormatBytes(gcTotal)}");
+            sb.AppendLine($"- Total Allocated: {ValueConverter.FormatBytes(totalAllocated)}");
+            sb.AppendLine($"- Total Reserved: {ValueConverter.FormatBytes(totalReserved)}");
+            sb.AppendLine($"- Unused Reserved: {ValueConverter.FormatBytes(totalUnusedReserved)}");
+            sb.AppendLine($"- Mono Used: {ValueConverter.FormatBytes(monoUsed)} / Heap: {ValueConverter.FormatBytes(monoHeap)}");
+            sb.AppendLine($"- GC Managed Estimate: {ValueConverter.FormatBytes(gcTotal)}");
         }
 
         private static SceneCounters CollectSceneCounters(bool includeInactive, int topN)

@@ -417,17 +417,17 @@ namespace KitWright.Editor.MCP.Server
             var definitions = ToolSchemaBuilder.BuildAll();
             foreach (var def in definitions)
             {
-                var name = def.function?.name;
+                var name = def.name;
                 if (string.IsNullOrWhiteSpace(name))
                     continue;
 
-                if (!_toolDescriptions.ContainsKey(name) && !string.IsNullOrWhiteSpace(def.function.description))
-                    _toolDescriptions[name] = def.function.description.Trim();
+                if (!_toolDescriptions.ContainsKey(name) && !string.IsNullOrWhiteSpace(def.description))
+                    _toolDescriptions[name] = def.description.Trim();
             }
 
             _allToolNames = definitions
-                .Select(tool => tool.function.name)
-                .Where(name => !string.IsNullOrWhiteSpace(name) && !MCPToolExportPolicy.IsHiddenFromExposurePanel(name))
+                .Select(tool => tool.name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .ToList();

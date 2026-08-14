@@ -67,7 +67,8 @@ namespace KitWright.Editor.MCP.Server
             new ServerControlsPanel(
                     _settingsController,
                     _mcpServer,
-                    () => _headerStatusPanel?.RefreshStatus())
+                    () => _headerStatusPanel?.RefreshStatus(),
+                    BuildUI)
                 .AddTo(connectionFoldout);
             _container.Add(connectionSection);
 

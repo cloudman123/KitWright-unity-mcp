@@ -6,14 +6,11 @@ using System.Linq;
 
 namespace KitWright.Editor.DI
 {
-    internal enum ServiceLifetime { Singleton, Scoped }
-
     internal class ServiceDescriptor
     {
         public Type ServiceType { get; set; }
         public Type ImplementationType { get; set; }
         public Func<IServiceProvider, object> Factory { get; set; }
-        public ServiceLifetime Lifetime { get; set; }
     }
 
     internal class ServiceCollection
@@ -25,8 +22,7 @@ namespace KitWright.Editor.DI
             _descriptors.Add(new ServiceDescriptor
             {
                 ServiceType = typeof(TService),
-                ImplementationType = typeof(TImplementation),
-                Lifetime = ServiceLifetime.Singleton
+                ImplementationType = typeof(TImplementation)
             });
             return this;
         }
@@ -36,19 +32,7 @@ namespace KitWright.Editor.DI
             _descriptors.Add(new ServiceDescriptor
             {
                 ServiceType = typeof(TService),
-                Factory = sp => factory(sp),
-                Lifetime = ServiceLifetime.Singleton
-            });
-            return this;
-        }
-
-        public ServiceCollection AddScoped<TService, TImplementation>() where TImplementation : TService
-        {
-            _descriptors.Add(new ServiceDescriptor
-            {
-                ServiceType = typeof(TService),
-                ImplementationType = typeof(TImplementation),
-                Lifetime = ServiceLifetime.Scoped
+                Factory = sp => factory(sp)
             });
             return this;
         }
@@ -76,23 +60,7 @@ namespace KitWright.Editor.DI
             var descriptor = _descriptors.LastOrDefault(d => d.ServiceType == serviceType);
             if (descriptor == null) return null;
 
-            // In the root scope, scoped resolves the same as singleton.
             return GetOrCreateSingleton(descriptor);
-        }
-
-        public T GetService<T>() => (T)GetService(typeof(T));
-
-        public T GetRequiredService<T>()
-        {
-            var service = GetService<T>();
-            if (service == null)
-                throw new InvalidOperationException($"Service of type {typeof(T).Name} is not registered.");
-            return service;
-        }
-
-        public ServiceScope CreateScope()
-        {
-            return new ServiceScope(this, _descriptors);
         }
 
         private object GetOrCreateSingleton(ServiceDescriptor descriptor)
@@ -106,107 +74,6 @@ namespace KitWright.Editor.DI
                 if (instance != null)
                 {
                     _singletonInstances[descriptor.ServiceType] = instance;
-                    if (instance is IDisposable disposable)
-                        _disposables.Add(disposable);
-                }
-                return instance;
-            }
-        }
-
-        private object CreateInstance(ServiceDescriptor descriptor)
-        {
-            if (descriptor.Factory != null)
-                return descriptor.Factory(this);
-
-            if (descriptor.ImplementationType != null)
-                return ActivateType(descriptor.ImplementationType);
-
-            return null;
-        }
-
-        internal object ActivateType(Type type)
-        {
-            var constructors = type.GetConstructors();
-            if (constructors.Length == 0)
-                return Activator.CreateInstance(type);
-
-            var ctor = constructors.OrderByDescending(c => c.GetParameters().Length).First();
-            var parameters = ctor.GetParameters();
-            var args = new object[parameters.Length];
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                args[i] = GetService(parameters[i].ParameterType);
-                if (args[i] == null && !parameters[i].HasDefaultValue)
-                    throw new InvalidOperationException(
-                        $"Cannot resolve parameter '{parameters[i].Name}' of type '{parameters[i].ParameterType.Name}' for '{type.Name}'.");
-                if (args[i] == null)
-                    args[i] = parameters[i].DefaultValue;
-            }
-
-            return ctor.Invoke(args);
-        }
-
-        public void Dispose()
-        {
-            lock (_lock)
-            {
-                for (var i = _disposables.Count - 1; i >= 0; i--)
-                {
-                    var disposable = _disposables[i];
-                    try { disposable.Dispose(); } catch { }
-                }
-                _disposables.Clear();
-                _singletonInstances.Clear();
-            }
-        }
-    }
-
-    internal class ServiceScope : IServiceProvider, IDisposable
-    {
-        private readonly ServiceProvider _rootProvider;
-        private readonly List<ServiceDescriptor> _descriptors;
-        private readonly Dictionary<Type, object> _scopedInstances = new Dictionary<Type, object>();
-        private readonly List<IDisposable> _disposables = new List<IDisposable>();
-        private readonly object _lock = new object();
-
-        public ServiceScope(ServiceProvider rootProvider, List<ServiceDescriptor> descriptors)
-        {
-            _rootProvider = rootProvider;
-            _descriptors = descriptors;
-        }
-
-        public object GetService(Type serviceType)
-        {
-            var descriptor = _descriptors.LastOrDefault(d => d.ServiceType == serviceType);
-            if (descriptor == null) return null;
-
-            return descriptor.Lifetime == ServiceLifetime.Singleton
-                ? _rootProvider.GetService(serviceType)
-                : GetOrCreateScoped(descriptor);
-        }
-
-        public T GetService<T>() => (T)GetService(typeof(T));
-
-        public T GetRequiredService<T>()
-        {
-            var service = GetService<T>();
-            if (service == null)
-                throw new InvalidOperationException($"Service of type {typeof(T).Name} is not registered.");
-            return service;
-        }
-
-        private object GetOrCreateScoped(ServiceDescriptor descriptor)
-        {
-            lock (_lock)
-            {
-                if (_scopedInstances.TryGetValue(descriptor.ServiceType, out var existing))
-                    return existing;
-
-                var instance = CreateInstance(descriptor);
-                if (instance != null)
-                {
-                    _scopedInstances[descriptor.ServiceType] = instance;
                     if (instance is IDisposable disposable)
                         _disposables.Add(disposable);
                 }
@@ -258,7 +125,7 @@ namespace KitWright.Editor.DI
                     try { disposable.Dispose(); } catch { }
                 }
                 _disposables.Clear();
-                _scopedInstances.Clear();
+                _singletonInstances.Clear();
             }
         }
     }

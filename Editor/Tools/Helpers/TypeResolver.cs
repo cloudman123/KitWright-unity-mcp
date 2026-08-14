@@ -86,17 +86,5 @@ namespace KitWright.Editor.Tools.Helpers
             var type = Resolve(typeName);
             return type != null && typeof(Component).IsAssignableFrom(type) ? type : null;
         }
-
-        /// <summary>
-        /// Force the cache to rebuild on next access. Call after assembly reload changes types.
-        /// </summary>
-        public static void Invalidate()
-        {
-            lock (s_lock)
-            {
-                s_byName = null;
-                s_byFullName = null;
-            }
-        }
     }
 }

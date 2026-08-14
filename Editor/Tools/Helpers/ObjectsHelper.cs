@@ -82,7 +82,7 @@ namespace KitWright.Editor.Tools.Helpers
             {
                 case MethodById:
                 {
-                    var go = ObjectIdHelper.ToObject(target) as GameObject;
+                    var go = ObjectIdCodec.ToObject(target) as GameObject;
                     if (go != null)
                         results.Add(go);
                     break;
@@ -192,7 +192,7 @@ namespace KitWright.Editor.Tools.Helpers
                 }
                 case MethodByIdOrNameOrPath:
                 {
-                    var byId = ObjectIdHelper.ToObject(target) as GameObject;
+                    var byId = ObjectIdCodec.ToObject(target) as GameObject;
                     if (byId != null) { results.Add(byId); break; }
                     if (target.Contains('/'))
                     {
@@ -273,7 +273,7 @@ namespace KitWright.Editor.Tools.Helpers
         /// </summary>
         public static Component FindComponentById(string instanceId)
         {
-            return ObjectIdHelper.ToObject(instanceId) as Component;
+            return ObjectIdCodec.ToObject(instanceId) as Component;
         }
 
         /// <summary>

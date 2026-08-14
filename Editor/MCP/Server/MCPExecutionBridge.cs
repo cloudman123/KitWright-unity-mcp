@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using KitWright.Editor.Settings;
@@ -15,22 +14,22 @@ using UnityEngine;
 namespace KitWright.Editor.MCP.Server
 {
     /// <summary>
-    /// Bridges MCP tool calls to KitWright's FunctionInvokerController.
+    /// Bridges MCP tool calls to KitWright's FunctionInvoker.
     /// Handles thread marshalling and approval workflow.
     /// </summary>
     internal class MCPExecutionBridge
     {
-        private readonly IEditorThreadHelper _threadHelper;
+        private readonly EditorThreadHelper _threadHelper;
         private readonly ISettingsController _settings;
         private readonly IStateController _stateController;
-        private readonly FunctionInvokerController _invoker;
+        private readonly FunctionInvoker _invoker;
         private readonly MCPInteractionLog _interactionLog;
 
         public MCPExecutionBridge(
-            IEditorThreadHelper threadHelper,
+            EditorThreadHelper threadHelper,
             ISettingsController settings,
             IStateController stateController,
-            FunctionInvokerController invoker,
+            FunctionInvoker invoker,
             MCPInteractionLog interactionLog)
         {
             _threadHelper = threadHelper ?? throw new ArgumentNullException(nameof(threadHelper));
@@ -117,12 +116,12 @@ namespace KitWright.Editor.MCP.Server
             if (value is string strValue) return strValue;
             if (value is bool boolValue) return boolValue ? "true" : "false";
             if (value is int || value is long || value is float || value is double) return value.ToString();
-            if (value is Dictionary<string, object> dict) return SimpleJsonHelper.Serialize(dict);
+            if (value is Dictionary<string, object> dict) return JsonCodec.Serialize(dict);
             if (value is System.Collections.IList list)
             {
                 var items = new List<object>();
                 foreach (var item in list) items.Add(item);
-                return SimpleJsonHelper.Serialize(items);
+                return JsonCodec.Serialize(items);
             }
             return value.ToString();
         }

@@ -7,6 +7,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using KitWright.Editor.Services;
 using KitWright.Editor.Settings;
 
 namespace KitWright.Editor.MCP.Server
@@ -382,7 +383,7 @@ namespace KitWright.Editor.MCP.Server
 
         private static string GetProjectRootPath()
         {
-            return Path.GetDirectoryName(Application.dataPath) ?? Application.dataPath;
+            return ApplicationPaths.ProjectRoot;
         }
 
         private static string FormatVersionStatus(ProjectSkillsManager.SkillFileVersionStatus status)

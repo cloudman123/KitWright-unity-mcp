@@ -38,6 +38,7 @@ namespace KitWright.Editor.Settings
         private const string SettingsDirectoryName = "UserSettings";
         private const string SettingsFileName = "KitWrightMcpSettings.json";
         private const int DefaultPort = 8765;
+        private const int MaxPort = 65535;
         private const string DefaultToolExportProfile = "core";
         private const string DefaultSelectedConfigTarget = "Claude Code";
         private const bool DefaultExecuteCodeSafetyChecksEnabled = true;
@@ -90,7 +91,8 @@ namespace KitWright.Editor.Settings
             }
             set
             {
-                var normalized = value > 0 ? value : DefaultPort;
+                // Out of TCP range is as unusable as <= 0, so it falls back the same way.
+                var normalized = value > 0 && value <= MaxPort ? value : DefaultPort;
                 UpdateSettings(data => data.port = normalized);
             }
         }

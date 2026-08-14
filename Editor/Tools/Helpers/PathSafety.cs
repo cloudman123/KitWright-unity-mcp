@@ -2,7 +2,7 @@
 
 using System;
 using System.IO;
-using UnityEngine;
+using KitWright.Editor.Services;
 
 namespace KitWright.Editor.Tools.Helpers
 {
@@ -18,8 +18,7 @@ namespace KitWright.Editor.Tools.Helpers
         public static string ResolveProjectPath(string path)
         {
             if (Path.IsPathRooted(path)) return path;
-            var projectRoot = Path.GetDirectoryName(Application.dataPath);
-            return Path.Combine(projectRoot, path);
+            return Path.Combine(ApplicationPaths.ProjectRoot, path);
         }
 
         private static string EnsureTrailingSeparator(string path)

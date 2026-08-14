@@ -31,12 +31,12 @@ namespace KitWright.Editor.MCP.Server
 
             tools.Sort((left, right) =>
             {
-                var leftRank = MCPToolExportPolicy.GetSortRank(left.function.name, profile);
-                var rightRank = MCPToolExportPolicy.GetSortRank(right.function.name, profile);
+                var leftRank = MCPToolExportPolicy.GetSortRank(left.name, profile);
+                var rightRank = MCPToolExportPolicy.GetSortRank(right.name, profile);
                 var compareRank = leftRank.CompareTo(rightRank);
                 return compareRank != 0
                     ? compareRank
-                    : string.Compare(left.function.name, right.function.name, StringComparison.OrdinalIgnoreCase);
+                    : string.Compare(left.name, right.name, StringComparison.OrdinalIgnoreCase);
             });
 
             PluginDebugLogger.Log($"[KitWright MCP Server] Exporting tools with profile '{MCPToolExportPolicy.ToSettingValue(profile)}'");
@@ -44,25 +44,25 @@ namespace KitWright.Editor.MCP.Server
             foreach (var tool in tools)
             {
                 if (!MCPToolExportPolicy.IsToolAllowed(
-                        tool.function.name,
+                        tool.name,
                         profile,
                         profileConfigured,
                         profileTools))
                     continue;
 
-                var description = compact ? FirstSentence(tool.function.description) : tool.function.description;
+                var description = compact ? FirstSentence(tool.description) : tool.description;
 
                 var mcpTool = new Dictionary<string, object>
                 {
-                    ["name"] = tool.function.name,
-                    ["description"] = MCPToolExportPolicy.BuildDescriptionPrefix(tool.function.name, profile) + description,
-                    ["inputSchema"] = ConvertParametersToJsonSchema(tool.function.parameters, compact)
+                    ["name"] = tool.name,
+                    ["description"] = MCPToolExportPolicy.BuildDescriptionPrefix(tool.name, profile) + description,
+                    ["inputSchema"] = ConvertParametersToJsonSchema(tool.parameters, compact)
                 };
 
                 // readOnlyHint lets clients skip an approval prompt for tools that cannot change the
                 // project. Only the true case is emitted: the MCP default for an absent hint is
                 // "not read-only", which is already the safe answer for everything else.
-                if (tool.function.readOnly == true)
+                if (tool.readOnly == true)
                     mcpTool["annotations"] = new Dictionary<string, object> { ["readOnlyHint"] = true };
 
                 mcpTools.Add(mcpTool);

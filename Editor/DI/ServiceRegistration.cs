@@ -16,20 +16,20 @@ namespace KitWright.Editor.DI
         {
             // Core Infrastructure (Singletons)
             services.AddSingleton<IApplicationPaths, ApplicationPaths>();
-            services.AddSingleton<IEditorContextBuilder, EditorContextBuilder>();
+            services.AddSingleton<EditorContextBuilder, EditorContextBuilder>();
             services.AddSingleton<ISettingsController, SettingsController>();
-            services.AddSingleton<IEditorThreadHelper, EditorThreadHelper>();
+            services.AddSingleton<EditorThreadHelper, EditorThreadHelper>();
 
             // Services (Singletons)
             services.AddSingleton<ICompilationService, CompilationService>();
             services.AddSingleton<UnityLogsRepository, UnityLogsRepository>();
-            services.AddSingleton<FunctionInvokerController, FunctionInvokerController>();
+            services.AddSingleton<FunctionInvoker, FunctionInvoker>();
 
             // MCP Server (Singleton)
             services.AddSingleton<MCPServerService, MCPServerService>();
 
-            // State (Scoped)
-            services.AddScoped<IStateController, StateController>();
+            // State (Singleton)
+            services.AddSingleton<IStateController, StateController>();
 
             return services;
         }

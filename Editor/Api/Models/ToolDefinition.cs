@@ -5,12 +5,6 @@ namespace KitWright.Editor.Api.Models
 {
     internal class ToolDefinition
     {
-        public string type = "function";
-        public ToolFunctionDef function;
-    }
-
-    internal class ToolFunctionDef
-    {
         public string name;
         public string description;
         public ToolParametersDef parameters;

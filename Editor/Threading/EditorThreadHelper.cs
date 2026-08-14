@@ -8,13 +8,7 @@ using UnityEditor;
 
 namespace KitWright.Editor.Threading
 {
-    internal interface IEditorThreadHelper : IDisposable
-    {
-        Task<T> ExecuteOnEditorThreadAsync<T>(Func<T> func);
-        Task<T> ExecuteAsyncOnEditorThreadAsync<T>(Func<Task<T>> asyncFunc, CancellationToken ct = default);
-    }
-
-    internal class EditorThreadHelper : IEditorThreadHelper
+    internal class EditorThreadHelper : IDisposable
     {
         private readonly ConcurrentQueue<(Func<object> func, TaskCompletionSource<object> tcs)> _funcQueue
             = new ConcurrentQueue<(Func<object>, TaskCompletionSource<object>)>();

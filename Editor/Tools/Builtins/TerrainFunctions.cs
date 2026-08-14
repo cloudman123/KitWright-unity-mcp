@@ -34,7 +34,7 @@ namespace KitWright.Editor.Tools.Builtins
             go.name = name;
             Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
 
-            if (ValueParse.TryParseVector3(position, out var pos, out _))
+            if (ValueConverter.TryParseVector3(position, out var pos, out _))
                 go.transform.position = pos;
 
             Selection.activeGameObject = go;
@@ -131,7 +131,7 @@ namespace KitWright.Editor.Tools.Builtins
                     return Response.Error("ASSET_NOT_FOUND", new { asset_path, expected = "TerrainLayer or Texture2D" });
 
                 layer = new TerrainLayer { diffuseTexture = tex };
-                if (ValueParse.TryParseVector2(tile_size, out var ts, out _)) layer.tileSize = ts;
+                if (ValueConverter.TryParseVector2(tile_size, out var ts, out _)) layer.tileSize = ts;
 
                 var layerPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/{tex.name}.terrainlayer");
                 AssetDatabase.CreateAsset(layer, layerPath);

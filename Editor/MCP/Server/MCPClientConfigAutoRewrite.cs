@@ -65,7 +65,7 @@ namespace KitWright.Editor.MCP.Server
             string configPath, string targetRootKey, string serverName, string serverUrl)
         {
             var json = File.ReadAllText(configPath);
-            if (!(SimpleJsonHelper.Deserialize(json) is Dictionary<string, object> root))
+            if (!(JsonCodec.Deserialize(json) is Dictionary<string, object> root))
                 return false;
 
             var rootKey = string.IsNullOrEmpty(targetRootKey) ? "mcpServers" : targetRootKey;
@@ -89,7 +89,7 @@ namespace KitWright.Editor.MCP.Server
             }
 
             if (changed)
-                File.WriteAllText(configPath, SimpleJsonHelper.Serialize(root));
+                File.WriteAllText(configPath, JsonCodec.Serialize(root));
 
             return changed;
         }

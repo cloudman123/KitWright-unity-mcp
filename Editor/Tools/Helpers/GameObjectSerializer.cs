@@ -18,7 +18,7 @@ namespace KitWright.Editor.Tools.Helpers
             if (go == null) return null;
             return new
             {
-                instanceId = ObjectIdHelper.GetSerializableId(go),
+                instanceId = ObjectIdCodec.GetSerializableId(go),
                 name = go.name,
                 path = ObjectsHelper.GetGameObjectPath(go),
                 activeSelf = go.activeSelf,
@@ -60,7 +60,7 @@ namespace KitWright.Editor.Tools.Helpers
                 }
                 list.Add(new
                 {
-                    instanceId = ObjectIdHelper.GetSerializableId(c),
+                    instanceId = ObjectIdCodec.GetSerializableId(c),
                     type = c.GetType().Name,
                     fullType = c.GetType().FullName
                 });
@@ -76,7 +76,7 @@ namespace KitWright.Editor.Tools.Helpers
                 var child = go.transform.GetChild(i).gameObject;
                 list.Add(new
                 {
-                    instanceId = ObjectIdHelper.GetSerializableId(child),
+                    instanceId = ObjectIdCodec.GetSerializableId(child),
                     name = child.name,
                     activeSelf = child.activeSelf,
                     childCount = child.transform.childCount

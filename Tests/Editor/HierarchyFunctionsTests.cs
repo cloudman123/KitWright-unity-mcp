@@ -41,7 +41,7 @@ namespace KitWright.Editor.Tests
                 Assert.AreSame(inactiveByName, ObjectsHelper.FindTarget(inactiveByName.name));
                 Assert.AreSame(firstChild, ObjectsHelper.FindTarget(firstRoot.name + "/" + duplicateName));
                 Assert.AreSame(secondChild, ObjectsHelper.FindTarget(secondRoot.name + "/" + duplicateName));
-                Assert.AreSame(firstChild, ObjectsHelper.FindTarget(ObjectIdHelper.GetSerializableId(firstChild)));
+                Assert.AreSame(firstChild, ObjectsHelper.FindTarget(ObjectIdCodec.GetSerializableId(firstChild)));
             }
             finally
             {

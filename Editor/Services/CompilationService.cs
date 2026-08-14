@@ -47,7 +47,7 @@ namespace KitWright.Editor.Services
         {
             if (forceRefresh)
             {
-                LastRefreshResult = await EditorRefreshHelper.RefreshAndRequestCompilationAsync(
+                LastRefreshResult = await EditorRefreshPipeline.RefreshAndRequestCompilationAsync(
                     forceUpdate: true,
                     verifyScriptChanges: true);
 

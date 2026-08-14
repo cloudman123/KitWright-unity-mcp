@@ -44,7 +44,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (instance == null)
                 return Response.Error("PREFAB_INSTANTIATE_FAILED", new { prefab_path });
 
-            if (!ValueParse.TryParseVector3(position, out var pos, out var posErr))
+            if (!ValueConverter.TryParseVector3(position, out var pos, out var posErr))
                 return Response.Error("INVALID_PARAM", new { param = "position", provided = position, expected = "Vector3 'x,y,z'", detail = posErr });
 
             Undo.RegisterCreatedObjectUndo(instance, "Instantiate prefab");

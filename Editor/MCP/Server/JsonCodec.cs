@@ -12,7 +12,7 @@ namespace KitWright.Editor.MCP.Server
     /// Simple JSON serializer/deserializer for MCP server.
     /// Handles dictionaries, lists, and basic types.
     /// </summary>
-    internal static class SimpleJsonHelper
+    internal static class JsonCodec
     {
         public static string Serialize(object obj)
         {

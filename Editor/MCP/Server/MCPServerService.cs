@@ -26,12 +26,12 @@ namespace KitWright.Editor.MCP.Server
         private const int ToolCallTimeoutMs = 30000;
 
         private readonly ISettingsController _settings;
-        private readonly IEditorThreadHelper _threadHelper;
+        private readonly EditorThreadHelper _threadHelper;
         private readonly IStateController _stateController;
-        private readonly IEditorContextBuilder _contextBuilder;
+        private readonly EditorContextBuilder _contextBuilder;
         private readonly IApplicationPaths _applicationPaths;
         private readonly ICompilationService _compilationService;
-        private readonly FunctionInvokerController _invoker;
+        private readonly FunctionInvoker _invoker;
         private readonly object _lifecycleLock = new object();
 
         private IMCPTransport _transport;
@@ -75,12 +75,12 @@ namespace KitWright.Editor.MCP.Server
 
         public MCPServerService(
             ISettingsController settings,
-            IEditorThreadHelper threadHelper,
+            EditorThreadHelper threadHelper,
             IStateController stateController,
-            IEditorContextBuilder contextBuilder,
+            EditorContextBuilder contextBuilder,
             IApplicationPaths applicationPaths,
             ICompilationService compilationService,
-            FunctionInvokerController invoker)
+            FunctionInvoker invoker)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _threadHelper = threadHelper ?? throw new ArgumentNullException(nameof(threadHelper));
@@ -185,7 +185,7 @@ namespace KitWright.Editor.MCP.Server
                 var projectName = Application.productName;
                 var serverName = "KitWright MCP Server - " + projectName;
                 var projectIdentity = ProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
-                transport = CreateTransport(startupPort, projectIdentity);
+                transport = await CreateTransportAsync(startupPort, projectIdentity);
                 var toolExporter = new MCPToolExporter(_settings);
                 MCPToolListChangeNotifier.CheckForChanges(toolExporter);
                 var executionBridge = new MCPExecutionBridge(_threadHelper, _settings, _stateController, _invoker, InteractionLog);
@@ -197,7 +197,7 @@ namespace KitWright.Editor.MCP.Server
                     resourceProvider,
                     promptProvider,
                     serverName,
-                    PackageVersionUtility.CurrentVersion,
+                    PackageVersion.Current,
                     projectIdentity);
 
                 transport.OnRequestReceived += HandleRequestReceived;
@@ -527,11 +527,15 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        private IMCPTransport CreateTransport(int startupPort, string projectIdentity)
+        private async Task<IMCPTransport> CreateTransportAsync(int startupPort, string projectIdentity)
         {
             if (_settings.MCPBrokerModeEnabled)
             {
-                if (MCPBrokerProcessManager.EnsureRunning(startupPort, _settings.MCPBrokerMonoPath) &&
+                var brokerReady = await MCPBrokerProcessManager
+                    .EnsureRunningAsync(startupPort, _settings.MCPBrokerMonoPath)
+                    .ConfigureAwait(true);
+
+                if (brokerReady &&
                     MCPBrokerProcessManager.TryGetConnectionInfo(startupPort, out var broker))
                 {
                     return new MCPBrokerClientTransport(startupPort, broker.Token);

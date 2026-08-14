@@ -12,7 +12,7 @@ using UnityEngine.TestTools;
 namespace KitWright.Editor.Tests
 {
     /// <summary>
-    /// Integration tests that exercise <see cref="FunctionInvokerController"/> end-to-end
+    /// Integration tests that exercise <see cref="FunctionInvoker"/> end-to-end
     /// with manual tool registration, unknown function handling, parameter validation,
     /// and result serialization (structured object vs legacy string).
     /// </summary>
@@ -25,7 +25,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void Invoke_UnknownFunction_ReturnsUnknownFunctionError()
         {
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall
             {
                 FunctionName = "totally_nonexistent_tool_" + Guid.NewGuid().ToString("N")
@@ -38,7 +38,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void Invoke_NullFunctionCall_ReturnsNullFunctionCallError()
         {
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(null);
 
             StringAssert.Contains("\"success\":false", result);
@@ -48,7 +48,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void Invoke_EmptyFunctionName_ReturnsFunctionNameRequiredError()
         {
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall { FunctionName = "" });
 
             StringAssert.Contains("\"success\":false", result);
@@ -58,7 +58,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void Invoke_WhitespaceFunctionName_ReturnsFunctionNameRequiredError()
         {
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall { FunctionName = "   " });
 
             StringAssert.Contains("\"success\":false", result);
@@ -74,7 +74,7 @@ namespace KitWright.Editor.Tests
         [TestCase("1.5.3", "depth")]
         public void Invoke_GetHierarchy_InvalidDepth_ReturnsInvalidParamError(string depthValue, string expectedParam)
         {
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall
             {
                 FunctionName = "get_hierarchy",
@@ -90,7 +90,7 @@ namespace KitWright.Editor.Tests
         [TestCase("maybe", "include_inactive")]
         public void Invoke_GetHierarchy_InvalidBoolParam_ReturnsInvalidParamError(string boolValue, string paramName)
         {
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall
             {
                 FunctionName = "get_hierarchy",
@@ -112,14 +112,11 @@ namespace KitWright.Editor.Tests
             var toolName = "test_integration_manual_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
+                name = toolName,
+                description = "Integration test manual tool",
+                parameters = new ToolParametersDef
                 {
-                    name = toolName,
-                    description = "Integration test manual tool",
-                    parameters = new ToolParametersDef
-                    {
-                        required = new List<string> { "input" }
-                    }
+                    required = new List<string> { "input" }
                 }
             };
 
@@ -128,7 +125,7 @@ namespace KitWright.Editor.Tests
 
             try
             {
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
                 var result = invoker.Invoke(new FunctionCall
                 {
                     FunctionName = toolName,
@@ -150,14 +147,11 @@ namespace KitWright.Editor.Tests
             var toolName = "test_missing_param_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
+                name = toolName,
+                description = "Tool with required params",
+                parameters = new ToolParametersDef
                 {
-                    name = toolName,
-                    description = "Tool with required params",
-                    parameters = new ToolParametersDef
-                    {
-                        required = new List<string> { "alpha", "beta" }
-                    }
+                    required = new List<string> { "alpha", "beta" }
                 }
             };
 
@@ -165,7 +159,7 @@ namespace KitWright.Editor.Tests
 
             try
             {
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
 
                 // Send only alpha, missing beta
                 var result = invoker.Invoke(new FunctionCall
@@ -190,19 +184,16 @@ namespace KitWright.Editor.Tests
             var toolName = "test_no_params_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
-                {
-                    name = toolName,
-                    description = "Tool with no required params",
-                    parameters = new ToolParametersDef()
-                }
+                name = toolName,
+                description = "Tool with no required params",
+                parameters = new ToolParametersDef()
             };
 
             ToolRegistry.Register(toolName, definition, parameters => "no-params-ok");
 
             try
             {
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
                 var result = invoker.Invoke(new FunctionCall
                 {
                     FunctionName = toolName,
@@ -224,12 +215,9 @@ namespace KitWright.Editor.Tests
             var toolName = "test_throws_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
-                {
-                    name = toolName,
-                    description = "Tool that throws",
-                    parameters = new ToolParametersDef()
-                }
+                name = toolName,
+                description = "Tool that throws",
+                parameters = new ToolParametersDef()
             };
 
             ToolRegistry.Register(toolName, definition,
@@ -239,7 +227,7 @@ namespace KitWright.Editor.Tests
             {
                 LogAssert.Expect(LogType.Error, $"[KitWright] Manual tool '{toolName}' failed: boom");
 
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
                 var result = invoker.Invoke(new FunctionCall
                 {
                     FunctionName = toolName,
@@ -264,7 +252,7 @@ namespace KitWright.Editor.Tests
         public void Invoke_GetHierarchy_DefaultParams_ReturnsSuccessEnvelope()
         {
             // get_hierarchy returns a string that gets wrapped via WrapLegacyStringResult
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall
             {
                 FunctionName = "get_hierarchy"
@@ -281,7 +269,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void WrapLegacyStringResult_NullInput_ReturnsSuccessOK()
         {
-            var result = FunctionInvokerController.WrapLegacyStringResult(null);
+            var result = FunctionInvoker.WrapLegacyStringResult(null);
 
             StringAssert.Contains("\"success\":true", result);
             StringAssert.Contains("OK", result);
@@ -290,7 +278,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void WrapLegacyStringResult_PlainString_WrapsInSuccessEnvelope()
         {
-            var result = FunctionInvokerController.WrapLegacyStringResult("Hello World");
+            var result = FunctionInvoker.WrapLegacyStringResult("Hello World");
 
             StringAssert.Contains("\"success\":true", result);
             StringAssert.Contains("Hello World", result);
@@ -300,7 +288,7 @@ namespace KitWright.Editor.Tests
         public void WrapLegacyStringResult_DataUri_PassesThroughUnchanged()
         {
             const string dataUri = "data:image/png;base64,iVBOR==";
-            var result = FunctionInvokerController.WrapLegacyStringResult(dataUri);
+            var result = FunctionInvoker.WrapLegacyStringResult(dataUri);
 
             Assert.AreEqual(dataUri, result);
         }
@@ -309,7 +297,7 @@ namespace KitWright.Editor.Tests
         public void WrapLegacyStringResult_ExistingSuccessEnvelope_PassesThroughUnchanged()
         {
             const string envelope = "{\"success\":true,\"message\":\"already wrapped\"}";
-            var result = FunctionInvokerController.WrapLegacyStringResult(envelope);
+            var result = FunctionInvoker.WrapLegacyStringResult(envelope);
 
             Assert.AreEqual(envelope, result);
         }
@@ -318,7 +306,7 @@ namespace KitWright.Editor.Tests
         public void WrapLegacyStringResult_ExistingErrorEnvelope_PassesThroughUnchanged()
         {
             const string errorEnvelope = "{\"success\":false,\"code\":\"SOME_ERROR\",\"error\":\"SOME_ERROR\"}";
-            var result = FunctionInvokerController.WrapLegacyStringResult(errorEnvelope);
+            var result = FunctionInvoker.WrapLegacyStringResult(errorEnvelope);
 
             Assert.AreEqual(errorEnvelope, result);
         }
@@ -327,7 +315,7 @@ namespace KitWright.Editor.Tests
         public void WrapLegacyStringResult_JsonWithoutSuccessField_WrapsInEnvelope()
         {
             const string json = "{\"count\":42,\"items\":[]}";
-            var result = FunctionInvokerController.WrapLegacyStringResult(json);
+            var result = FunctionInvoker.WrapLegacyStringResult(json);
 
             StringAssert.Contains("\"success\":true", result);
             StringAssert.Contains(json, result);
@@ -336,7 +324,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void WrapLegacyStringResult_EmptyString_WrapsInSuccessEnvelope()
         {
-            var result = FunctionInvokerController.WrapLegacyStringResult("");
+            var result = FunctionInvoker.WrapLegacyStringResult("");
 
             StringAssert.Contains("\"success\":true", result);
         }
@@ -389,19 +377,16 @@ namespace KitWright.Editor.Tests
             var toolName = "test_null_params_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
-                {
-                    name = toolName,
-                    description = "Tool with null parameters def"
-                    // parameters intentionally null
-                }
+                name = toolName,
+                description = "Tool with null parameters def"
+                // parameters intentionally null
             };
 
             ToolRegistry.Register(toolName, definition, parameters => "null-params-ok");
 
             try
             {
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
                 var result = invoker.Invoke(new FunctionCall
                 {
                     FunctionName = toolName,
@@ -423,17 +408,14 @@ namespace KitWright.Editor.Tests
             var toolName = "test_unregister_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
-                {
-                    name = toolName,
-                    description = "Tool to unregister"
-                }
+                name = toolName,
+                description = "Tool to unregister"
             };
 
             ToolRegistry.Register(toolName, definition, _ => "ok");
             ToolRegistry.Unregister(toolName);
 
-            var invoker = new FunctionInvokerController();
+            var invoker = new FunctionInvoker();
             var result = invoker.Invoke(new FunctionCall { FunctionName = toolName });
 
             StringAssert.Contains("\"success\":false", result);

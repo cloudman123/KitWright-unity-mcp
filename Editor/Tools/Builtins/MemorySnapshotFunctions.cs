@@ -117,7 +117,7 @@ namespace KitWright.Editor.Tools.Builtins
                 {
                     path,
                     size_bytes = sizeBytes,
-                    size = ValueParse.FormatBytes(sizeBytes),
+                    size = ValueConverter.FormatBytes(sizeBytes),
                     flags = flags.ToString(),
                     duration_seconds = Math.Round(EditorApplication.timeSinceStartup - startedAt, 1),
                     opened_in_profiler = opened,
@@ -153,7 +153,7 @@ namespace KitWright.Editor.Tools.Builtins
                     file = f.Name,
                     path = f.FullName,
                     size_bytes = f.Length,
-                    size = ValueParse.FormatBytes(f.Length),
+                    size = ValueConverter.FormatBytes(f.Length),
                     modified = f.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
                 })
                 .ToArray();
@@ -234,7 +234,7 @@ namespace KitWright.Editor.Tools.Builtins
                             name = r.Name,
                             type = r.TypeName,
                             size_bytes = r.Size,
-                            size = ValueParse.FormatBytes((long)r.Size)
+                            size = ValueConverter.FormatBytes((long)r.Size)
                         })
                         .ToArray();
 
@@ -306,7 +306,7 @@ namespace KitWright.Editor.Tools.Builtins
                         new
                         {
                             path,
-                            target = new { native_object_index = resolved.Index, name = resolved.Name, type = resolved.TypeName, size_bytes = resolved.Size, size = ValueParse.FormatBytes((long)resolved.Size) },
+                            target = new { native_object_index = resolved.Index, name = resolved.Name, type = resolved.TypeName, size_bytes = resolved.Size, size = ValueConverter.FormatBytes((long)resolved.Size) },
                             direction = directionNormalized,
                             references
                         }));

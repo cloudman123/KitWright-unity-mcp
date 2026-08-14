@@ -12,7 +12,6 @@ namespace KitWright.Editor.Tools.Builtins
     internal static partial class ScreenshotFunctions
     {
         private const string ImagePrefix = "data:image/png;base64,";
-        private const int MultiviewMaxAngles = 36;
         private const string ScreenshotDirRelative = "Library/KitWrightMcp/Screenshots";
 
         private const string SaveToFileParamDescription =

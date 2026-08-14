@@ -266,7 +266,7 @@ namespace KitWright.Editor.Tools.Builtins
                 var sb = new StringBuilder();
                 sb.AppendLine($"Target: {target}");
                 sb.AppendLine($"Type: {obj.GetType().Name}");
-                sb.AppendLine($"Runtime Memory: {ValueParse.FormatBytes(size)}");
+                sb.AppendLine($"Runtime Memory: {ValueConverter.FormatBytes(size)}");
 
                 if (obj is GameObject rootGo)
                 {
@@ -276,7 +276,7 @@ namespace KitWright.Editor.Tools.Builtins
                         if (component == null) continue;
                         total += Profiler.GetRuntimeMemorySizeLong(component);
                     }
-                    sb.AppendLine($"Total (incl. all child components): {ValueParse.FormatBytes(total)}");
+                    sb.AppendLine($"Total (incl. all child components): {ValueConverter.FormatBytes(total)}");
                 }
 
                 return sb.ToString();
@@ -341,12 +341,12 @@ namespace KitWright.Editor.Tools.Builtins
 
                 var sb = new StringBuilder();
                 sb.AppendLine($"Top memory objects: {type.Name}");
-                sb.AppendLine($"Total: {entries.Count} object(s), {ValueParse.FormatBytes(totalSize)}");
+                sb.AppendLine($"Total: {entries.Count} object(s), {ValueConverter.FormatBytes(totalSize)}");
                 var count = Mathf.Min(top_n, entries.Count);
                 for (int i = 0; i < count; i++)
                 {
                     var (obj, size) = entries[i];
-                    sb.Append($"[{i}] {ValueParse.FormatBytes(size)}  {obj.name}");
+                    sb.Append($"[{i}] {ValueConverter.FormatBytes(size)}  {obj.name}");
                     AppendObjectDetail(sb, obj);
                     sb.AppendLine();
                 }
@@ -373,7 +373,7 @@ namespace KitWright.Editor.Tools.Builtins
                     if (obj == null) continue;
                     totalSize += Profiler.GetRuntimeMemorySizeLong(obj);
                 }
-                sb.AppendLine($"- {name}: {objects.Length} object(s), {ValueParse.FormatBytes(totalSize)}");
+                sb.AppendLine($"- {name}: {objects.Length} object(s), {ValueConverter.FormatBytes(totalSize)}");
             }
             sb.AppendLine("Call again with a specific type_name to list the top objects of that type.");
             return sb.ToString();
@@ -480,7 +480,7 @@ namespace KitWright.Editor.Tools.Builtins
                 var json = Newtonsoft.Json.JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented);
                 System.IO.File.WriteAllText(path, json);
 
-                return $"Snapshot saved: {path}\nTotal Allocated: {ValueParse.FormatBytes(data.totalAllocated)}, Mono Used: {ValueParse.FormatBytes(data.monoUsed)}";
+                return $"Snapshot saved: {path}\nTotal Allocated: {ValueConverter.FormatBytes(data.totalAllocated)}, Mono Used: {ValueConverter.FormatBytes(data.monoUsed)}";
             }
             catch (Exception ex)
             {
@@ -561,12 +561,12 @@ namespace KitWright.Editor.Tools.Builtins
         private static void AppendDelta(StringBuilder sb, string label, long before, long after)
         {
             var delta = after - before;
-            sb.AppendLine($"- {label}: {ValueParse.FormatBytes(before)} -> {ValueParse.FormatBytes(after)} ({FormatSignedBytes(delta)})");
+            sb.AppendLine($"- {label}: {ValueConverter.FormatBytes(before)} -> {ValueConverter.FormatBytes(after)} ({FormatSignedBytes(delta)})");
         }
 
         private static string FormatSignedBytes(long bytes)
         {
-            return bytes >= 0 ? "+" + ValueParse.FormatBytes(bytes) : "-" + ValueParse.FormatBytes(-bytes);
+            return bytes >= 0 ? "+" + ValueConverter.FormatBytes(bytes) : "-" + ValueConverter.FormatBytes(-bytes);
         }
 
         private static long ReadCounterOrZero(string category, string statName)

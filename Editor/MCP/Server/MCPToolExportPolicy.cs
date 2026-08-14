@@ -74,10 +74,6 @@ namespace KitWright.Editor.MCP.Server
             "execute_menu_item"
         };
 
-        // Always exported regardless of profile or per-profile configuration, and hidden from the
-        // Tool Exposure panel — infrastructure tools that agent skills rely on.
-        private static readonly HashSet<string> AlwaysOnHiddenTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         // Extended = every registered tool EXCEPT these niche families. Substring match on tool name
         // (tool names are verb-first: create_terrain, get_addressable_info, memory_take_snapshot).
         private static readonly string[] ExtendedExcludedSubstrings =
@@ -116,11 +112,6 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        public static bool IsHiddenFromExposurePanel(string toolName)
-        {
-            return !string.IsNullOrWhiteSpace(toolName) && AlwaysOnHiddenTools.Contains(toolName);
-        }
-
         public static bool IsToolAllowed(
             string toolName,
             MCPToolExportProfile profile,
@@ -129,9 +120,6 @@ namespace KitWright.Editor.MCP.Server
         {
             if (string.IsNullOrWhiteSpace(toolName))
                 return false;
-
-            if (AlwaysOnHiddenTools.Contains(toolName))
-                return true;
 
             if (profileConfigured)
                 return ContainsTool(profileTools, toolName);

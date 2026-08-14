@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using KitWright.Editor.DI;
+using KitWright.Editor.Services;
 using KitWright.Editor.Settings;
 using KitWright.Editor.Tools.Helpers;
 using KitWright.Editor.Tools.Scripting;
@@ -74,7 +75,7 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 try
                 {
-                    await EditorRefreshHelper.RefreshAndWaitForReadyAsync(TimeSpan.FromSeconds(120));
+                    await EditorRefreshPipeline.RefreshAndWaitForReadyAsync(TimeSpan.FromSeconds(120));
                 }
                 catch (TimeoutException)
                 {
@@ -475,8 +476,8 @@ public static class {className}
 
         internal static string GetReachableProjectNamespaceUsings()
         {
-            var projectRoot = Path.GetDirectoryName(Application.dataPath);
-            return GetReachableProjectNamespaceUsings(AppDomain.CurrentDomain.GetAssemblies(), projectRoot);
+            return GetReachableProjectNamespaceUsings(
+                AppDomain.CurrentDomain.GetAssemblies(), ApplicationPaths.ProjectRoot);
         }
 
         internal static string GetReachableProjectNamespaceUsings(IEnumerable<Assembly> assemblies, string projectRoot)

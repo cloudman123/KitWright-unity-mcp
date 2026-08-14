@@ -16,7 +16,7 @@ namespace KitWright.Editor.Tools
     /// Invokes tool functions via reflection.
     /// Handles snake_case to PascalCase parameter mapping and type conversion.
     /// </summary>
-    internal class FunctionInvokerController
+    internal class FunctionInvoker
     {
         public string Invoke(FunctionCall functionCall)
         {
@@ -181,7 +181,7 @@ namespace KitWright.Editor.Tools
             ToolRegistry.ManualToolEntry manualTool,
             Dictionary<string, string> parameters)
         {
-            var required = manualTool.Definition?.function?.parameters?.required;
+            var required = manualTool.Definition?.parameters?.required;
             if (required == null)
                 return null;
 

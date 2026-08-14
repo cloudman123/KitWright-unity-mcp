@@ -101,7 +101,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (agent == null) return Response.Error("NO_NAVMESH_AGENT", new { target });
             if (!agent.isOnNavMesh) return Response.Error("AGENT_NOT_ON_NAVMESH", new { target });
 
-            if (!ValueParse.TryParseVector3(destination, out var dest, out _))
+            if (!ValueConverter.TryParseVector3(destination, out var dest, out _))
                 return Response.Error("INVALID_VECTOR", new { destination });
 
             bool ok = agent.SetDestination(dest);

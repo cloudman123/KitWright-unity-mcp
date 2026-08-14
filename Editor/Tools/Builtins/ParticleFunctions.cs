@@ -80,7 +80,7 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 action = normalized,
                 gameObject = go.name,
-                instanceId = ObjectIdHelper.GetSerializableId(ps.gameObject),
+                instanceId = ObjectIdCodec.GetSerializableId(ps.gameObject),
                 isPlaying = ps.isPlaying,
                 isEmitting = ps.isEmitting,
                 isStopped = ps.isStopped,

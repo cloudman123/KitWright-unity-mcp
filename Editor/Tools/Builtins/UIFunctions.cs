@@ -68,8 +68,8 @@ namespace KitWright.Editor.Tools.Builtins
             buttonGo.transform.SetParent(parent, false);
 
             var rect = buttonGo.AddComponent<RectTransform>();
-            rect.sizeDelta = ValueParse.ParseVector2(size, Vector2.zero);
-            rect.anchoredPosition = ValueParse.ParseVector2(position, Vector2.zero);
+            rect.sizeDelta = ValueConverter.ParseVector2(size, Vector2.zero);
+            rect.anchoredPosition = ValueConverter.ParseVector2(position, Vector2.zero);
             ApplyAnchorPreset(rect, anchor, pivot);
 
             var image = buttonGo.AddComponent<Image>();
@@ -115,8 +115,8 @@ namespace KitWright.Editor.Tools.Builtins
             textGo.transform.SetParent(parent, false);
 
             var rect = textGo.AddComponent<RectTransform>();
-            rect.sizeDelta = ValueParse.ParseVector2(size, Vector2.zero);
-            rect.anchoredPosition = ValueParse.ParseVector2(position, Vector2.zero);
+            rect.sizeDelta = ValueConverter.ParseVector2(size, Vector2.zero);
+            rect.anchoredPosition = ValueConverter.ParseVector2(position, Vector2.zero);
             ApplyAnchorPreset(rect, anchor, pivot);
 
             var textComp = textGo.AddComponent<Text>();
@@ -144,9 +144,9 @@ namespace KitWright.Editor.Tools.Builtins
             if (parent == null)
                 return ToolResultFormatter.Error("PARENT_NOT_FOUND", new { parent_name, hint = "Create a Canvas first." });
 
-            var imageGo = CreateImageObject(parent, name, ValueParse.ParseVector2(size, Vector2.zero), ValueParse.ParseVector2(position, Vector2.zero), anchor, pivot);
+            var imageGo = CreateImageObject(parent, name, ValueConverter.ParseVector2(size, Vector2.zero), ValueConverter.ParseVector2(position, Vector2.zero), anchor, pivot);
             var image = imageGo.GetComponent<Image>();
-            image.color = ValueParse.ParseColor(color, Color.white);
+            image.color = ValueConverter.ParseColor(color, Color.white);
 
             Selection.activeGameObject = imageGo;
             return $"Created UI Image '{name}'";
@@ -191,9 +191,9 @@ namespace KitWright.Editor.Tools.Builtins
             if (!string.IsNullOrEmpty(anchor) || !string.IsNullOrEmpty(pivot))
                 ApplyAnchorPreset(rect, anchor, pivot);
             if (!string.IsNullOrEmpty(anchored_position))
-                rect.anchoredPosition = ValueParse.ParseVector2(anchored_position, Vector2.zero);
+                rect.anchoredPosition = ValueConverter.ParseVector2(anchored_position, Vector2.zero);
             if (!string.IsNullOrEmpty(size))
-                rect.sizeDelta = ValueParse.ParseVector2(size, Vector2.zero);
+                rect.sizeDelta = ValueConverter.ParseVector2(size, Vector2.zero);
 
             return $"RectTransform on '{go.name}': anchoredPos={rect.anchoredPosition}, sizeDelta={rect.sizeDelta}, pivot={rect.pivot}";
         }
@@ -202,7 +202,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             if (!string.IsNullOrEmpty(pivot))
             {
-                var p = ValueParse.ParseVector2(pivot, Vector2.zero);
+                var p = ValueConverter.ParseVector2(pivot, Vector2.zero);
                 rect.pivot = p;
             }
 
@@ -280,7 +280,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             // If user also specified a custom pivot, override the preset's pivot
             if (!string.IsNullOrEmpty(pivot))
-                rect.pivot = ValueParse.ParseVector2(pivot, Vector2.zero);
+                rect.pivot = ValueConverter.ParseVector2(pivot, Vector2.zero);
         }
 
         private static Transform FindParent(string name)

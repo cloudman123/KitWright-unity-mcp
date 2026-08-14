@@ -85,7 +85,7 @@ namespace KitWright.Editor.Tools.Builtins
                     new
                     {
                         gameObject = go.name,
-                        instanceId = ObjectIdHelper.GetSerializableId(director),
+                        instanceId = ObjectIdCodec.GetSerializableId(director),
                         time = appliedTime,
                         duration,
                         state

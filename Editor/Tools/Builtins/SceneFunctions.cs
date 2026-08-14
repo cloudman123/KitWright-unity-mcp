@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System.Collections.Generic;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
@@ -20,14 +21,43 @@ namespace KitWright.Editor.Tools.Builtins
             return saved ? $"Saved scene '{scene.name}'" : ToolResultFormatter.Error("SCENE_SAVE_FAILED", new { scene = scene.name });
         }
 
-        [Description("Open an existing scene by path")]
+        // Never call SaveCurrentModifiedScenesIfUserWantsTo: its modal dialog blocks the editor
+        // main loop, which stalls the MCP request pump until a human clicks a button.
+        private static string UnsavedChangesError(bool discardUnsaved)
+        {
+            if (discardUnsaved)
+                return null;
+
+            var dirty = new List<string>();
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var s = SceneManager.GetSceneAt(i);
+                if (s.isDirty)
+                    dirty.Add(string.IsNullOrEmpty(s.path) ? s.name : s.path);
+            }
+
+            if (dirty.Count == 0)
+                return null;
+
+            return ToolResultFormatter.Error("SCENE_HAS_UNSAVED_CHANGES", new
+            {
+                scenes = dirty.ToArray(),
+                hint = "Call save_scene first, or pass discard_unsaved=true to drop the changes."
+            });
+        }
+
+        [Description("Open an existing scene by path. Fails if any open scene has unsaved changes unless discard_unsaved is true.")]
         public static string OpenScene(
-            [ToolParam("Path to the scene asset (e.g. 'Assets/Scenes/Main.unity')")] string path)
+            [ToolParam("Path to the scene asset (e.g. 'Assets/Scenes/Main.unity')")] string path,
+            [ToolParam("Drop unsaved changes in the currently open scenes instead of failing", Required = false)] bool discard_unsaved = false)
         {
             if (!System.IO.File.Exists(path))
                 return ToolResultFormatter.Error("SCENE_FILE_NOT_FOUND", new { path });
 
-            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+            var blocked = UnsavedChangesError(discard_unsaved);
+            if (blocked != null)
+                return blocked;
+
             EditorSceneManager.OpenScene(path);
             return $"Opened scene: {path}";
         }
@@ -61,10 +91,11 @@ namespace KitWright.Editor.Tools.Builtins
             return ToolResultFormatter.Error("SCENE_NOT_OPEN", new { scene, hint = "Open it first (open_scene or load_scene_additive)." });
         }
 
-        [Description("Close/unload an open scene (used in multi-scene editing). Cannot close the only open scene. Identify by name or path; optionally remove it from the Hierarchy entirely.")]
+        [Description("Close/unload an open scene (used in multi-scene editing). Cannot close the only open scene. Identify by name or path; optionally remove it from the Hierarchy entirely. Fails if that scene has unsaved changes unless discard_unsaved is true.")]
         public static string CloseScene(
             [ToolParam("Open scene name or path")] string scene,
-            [ToolParam("Remove the scene from the Hierarchy (true) or just unload it (false)", Required = false)] bool remove = true)
+            [ToolParam("Remove the scene from the Hierarchy (true) or just unload it (false)", Required = false)] bool remove = true,
+            [ToolParam("Drop unsaved changes in that scene instead of failing", Required = false)] bool discard_unsaved = false)
         {
             if (SceneManager.sceneCount <= 1)
                 return ToolResultFormatter.Error("CANNOT_CLOSE_LAST_SCENE", new { hint = "At least one scene must stay open." });
@@ -74,7 +105,13 @@ namespace KitWright.Editor.Tools.Builtins
                 var s = SceneManager.GetSceneAt(i);
                 if (s.name == scene || s.path == scene)
                 {
-                    EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+                    if (s.isDirty && !discard_unsaved)
+                        return ToolResultFormatter.Error("SCENE_HAS_UNSAVED_CHANGES", new
+                        {
+                            scene = s.path,
+                            hint = "Call save_scene first, or pass discard_unsaved=true to drop the changes."
+                        });
+
                     EditorSceneManager.CloseScene(s, remove);
                     return $"Closed scene: {scene}";
                 }
@@ -82,12 +119,16 @@ namespace KitWright.Editor.Tools.Builtins
             return ToolResultFormatter.Error("SCENE_NOT_OPEN", new { scene });
         }
 
-        [Description("Create a new empty scene")]
+        [Description("Create a new empty scene. Fails if any open scene has unsaved changes unless discard_unsaved is true.")]
         public static string CreateNewScene(
             [ToolParam("Name for the new scene")] string name,
-            [ToolParam("Path to save (e.g. 'Assets/Scenes/')", Required = false)] string save_path = "Assets/Scenes/")
+            [ToolParam("Path to save (e.g. 'Assets/Scenes/')", Required = false)] string save_path = "Assets/Scenes/",
+            [ToolParam("Drop unsaved changes in the currently open scenes instead of failing", Required = false)] bool discard_unsaved = false)
         {
-            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+            var blocked = UnsavedChangesError(discard_unsaved);
+            if (blocked != null)
+                return blocked;
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
             if (!System.IO.Directory.Exists(save_path))

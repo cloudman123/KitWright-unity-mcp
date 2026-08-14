@@ -87,7 +87,7 @@ namespace KitWright.Editor.MCP.Server
         public void RefreshVersion()
         {
             if (_versionLabel != null)
-                _versionLabel.text = $"v{UpdateChecker.CurrentState.CurrentVersion ?? PackageVersionUtility.CurrentVersion}";
+                _versionLabel.text = $"v{UpdateChecker.CurrentState.CurrentVersion ?? PackageVersion.Current}";
         }
 
         public void RefreshStatus()

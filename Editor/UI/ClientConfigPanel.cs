@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using KitWright.Editor.Services;
 using KitWright.Editor.Settings;
 using UnityEditor;
 using UnityEngine;
@@ -624,7 +625,7 @@ namespace KitWright.Editor.MCP.Server
             if (File.Exists(target.ConfigPath))
             {
                 var existingJson = File.ReadAllText(target.ConfigPath);
-                var parsed = SimpleJsonHelper.Deserialize(existingJson) as Dictionary<string, object>;
+                var parsed = JsonCodec.Deserialize(existingJson) as Dictionary<string, object>;
 
                 if (parsed != null && parsed.ContainsKey(rootKey))
                 {
@@ -658,7 +659,7 @@ namespace KitWright.Editor.MCP.Server
             if (!string.IsNullOrEmpty(target.SchemaUrl) && !root.ContainsKey("$schema"))
                 root["$schema"] = target.SchemaUrl;
 
-            File.WriteAllText(target.ConfigPath, SimpleJsonHelper.Serialize(root));
+            File.WriteAllText(target.ConfigPath, JsonCodec.Serialize(root));
         }
 
         private void ConfigureTomlTarget(MCPConfigTarget target)
@@ -814,7 +815,7 @@ namespace KitWright.Editor.MCP.Server
 
         private static string GetProjectRootPath()
         {
-            return Path.GetDirectoryName(Application.dataPath) ?? Application.dataPath;
+            return ApplicationPaths.ProjectRoot;
         }
 
         private static string MapTargetNameToSkillsPlatformId(string targetName)

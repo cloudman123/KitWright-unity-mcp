@@ -12,16 +12,7 @@ using UnityEngine;
 
 namespace KitWright.Editor.Services
 {
-    internal interface IEditorContextBuilder
-    {
-        string GetContextBlock();
-        string GetActiveSceneSummary();
-        string GetSelectionSummary(int maxItems = 5);
-        string GetConsoleErrorSummary(int count = 5);
-        string GetCompileErrorContext(int maxEntries = 5, int snippetRadius = 3);
-    }
-
-    internal class EditorContextBuilder : IEditorContextBuilder, IDisposable
+    internal class EditorContextBuilder : IDisposable
     {
         [Flags]
         private enum RefreshFlags

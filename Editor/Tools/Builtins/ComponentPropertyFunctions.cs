@@ -31,12 +31,12 @@ namespace KitWright.Editor.Tools.Builtins
 
             var items = go.GetComponents<Component>()
                 .Where(c => c != null)
-                .Select(c => new { instanceId = ObjectIdHelper.GetSerializableId(c), type = c.GetType().Name, fullType = c.GetType().FullName })
+                .Select(c => new { instanceId = ObjectIdCodec.GetSerializableId(c), type = c.GetType().Name, fullType = c.GetType().FullName })
                 .ToList();
 
             return Response.Success($"{items.Count} component(s) on '{go.name}'.", new
             {
-                gameObject = new { instanceId = ObjectIdHelper.GetSerializableId(go), name = go.name },
+                gameObject = new { instanceId = ObjectIdCodec.GetSerializableId(go), name = go.name },
                 components = items
             });
         }
@@ -58,9 +58,9 @@ namespace KitWright.Editor.Tools.Builtins
                 $"{props.Count} properties on {resolved.Component.GetType().Name}.",
                 new
                 {
-                    componentInstanceId = ObjectIdHelper.GetSerializableId(resolved.Component),
+                    componentInstanceId = ObjectIdCodec.GetSerializableId(resolved.Component),
                     type = resolved.Component.GetType().Name,
-                    gameObject = new { instanceId = ObjectIdHelper.GetSerializableId(resolved.Component.gameObject), name = resolved.Component.gameObject.name },
+                    gameObject = new { instanceId = ObjectIdCodec.GetSerializableId(resolved.Component.gameObject), name = resolved.Component.gameObject.name },
                     properties = props
                 });
         }
@@ -100,7 +100,7 @@ namespace KitWright.Editor.Tools.Builtins
             }
 
             return Response.Success($"Set {resolved.Component.GetType().Name}.{property}.",
-                new { componentInstanceId = ObjectIdHelper.GetSerializableId(resolved.Component), property });
+                new { componentInstanceId = ObjectIdCodec.GetSerializableId(resolved.Component), property });
         }
 
         [Description("Set multiple properties on a component in one call. " +
@@ -132,7 +132,7 @@ namespace KitWright.Editor.Tools.Builtins
                 $"Applied {success} of {results.Count} field(s) on {resolved.Component.GetType().Name}.",
                 new
                 {
-                    componentInstanceId = ObjectIdHelper.GetSerializableId(resolved.Component),
+                    componentInstanceId = ObjectIdCodec.GetSerializableId(resolved.Component),
                     successCount = success,
                     failCount = fail,
                     fields = results

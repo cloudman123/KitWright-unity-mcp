@@ -9,12 +9,12 @@ using UnityEngine;
 
 namespace KitWright.Editor.Tests
 {
-    public sealed class FunctionInvokerControllerTests
+    public sealed class FunctionInvokerTests
     {
         [Test]
         public void Invoke_RejectsMalformedTypedParameter()
         {
-            var result = new FunctionInvokerController().Invoke(new FunctionCall
+            var result = new FunctionInvoker().Invoke(new FunctionCall
             {
                 FunctionName = "get_hierarchy",
                 Parameters = new Dictionary<string, string> { ["depth"] = "not-a-number" }
@@ -28,7 +28,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void Invoke_RejectsMissingRequiredParameter()
         {
-            var result = new FunctionInvokerController().Invoke(new FunctionCall
+            var result = new FunctionInvoker().Invoke(new FunctionCall
             {
                 FunctionName = "simulate_mouse_click",
                 Parameters = new Dictionary<string, string> { ["y"] = "12" }
@@ -42,7 +42,7 @@ namespace KitWright.Editor.Tests
         [Test]
         public void Invoke_WrapsLegacyStringSuccess()
         {
-            var result = new FunctionInvokerController().Invoke(new FunctionCall
+            var result = new FunctionInvoker().Invoke(new FunctionCall
             {
                 FunctionName = "get_hierarchy"
             });
@@ -60,7 +60,7 @@ namespace KitWright.Editor.Tests
 
             try
             {
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
                 var setResult = invoker.Invoke(new FunctionCall
                 {
                     FunctionName = "set_transform",
@@ -101,8 +101,8 @@ namespace KitWright.Editor.Tests
             const string image = "data:image/png;base64,AA==";
             const string envelope = "{\"success\":false,\"code\":\"EXPECTED\"}";
 
-            Assert.AreEqual(image, FunctionInvokerController.WrapLegacyStringResult(image));
-            Assert.AreEqual(envelope, FunctionInvokerController.WrapLegacyStringResult(envelope));
+            Assert.AreEqual(image, FunctionInvoker.WrapLegacyStringResult(image));
+            Assert.AreEqual(envelope, FunctionInvoker.WrapLegacyStringResult(envelope));
         }
 
         [Test]
@@ -111,21 +111,18 @@ namespace KitWright.Editor.Tests
             var toolName = "test_manual_" + Guid.NewGuid().ToString("N");
             var definition = new ToolDefinition
             {
-                function = new ToolFunctionDef
+                name = toolName,
+                description = "Test manual tool",
+                parameters = new ToolParametersDef
                 {
-                    name = toolName,
-                    description = "Test manual tool",
-                    parameters = new ToolParametersDef
-                    {
-                        required = new List<string> { "value" }
-                    }
+                    required = new List<string> { "value" }
                 }
             };
 
             ToolRegistry.Register(toolName, definition, parameters => "manual:" + parameters["value"]);
             try
             {
-                var invoker = new FunctionInvokerController();
+                var invoker = new FunctionInvoker();
                 var missing = invoker.Invoke(new FunctionCall { FunctionName = toolName });
                 StringAssert.Contains("\"code\":\"MISSING_PARAM\"", missing);
 

@@ -18,7 +18,6 @@ namespace KitWright.Editor.Tools
     internal static class ToolRegistry
     {
         private static readonly object _lock = new object();
-        private static volatile List<Type> _providerTypes;
         private static volatile Dictionary<string, MethodInfo> _methodCache;
         private static volatile HashSet<string> _customToolNames;
 
@@ -39,19 +38,8 @@ namespace KitWright.Editor.Tools
         /// </summary>
         internal class ManualToolEntry
         {
-            public string Name;
             public ToolDefinition Definition;
             public Func<Dictionary<string, string>, string> Handler;
-        }
-
-        public static IReadOnlyList<Type> ProviderTypes
-        {
-            get
-            {
-                if (_providerTypes == null)
-                    lock (_lock) { if (_providerTypes == null) ScanAssemblies(); }
-                return _providerTypes;
-            }
         }
 
         public static IReadOnlyDictionary<string, MethodInfo> MethodCache
@@ -66,7 +54,6 @@ namespace KitWright.Editor.Tools
 
         public static void ScanAssemblies()
         {
-            _providerTypes = new List<Type>();
             _methodCache = new Dictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
             _customToolNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -83,8 +70,6 @@ namespace KitWright.Editor.Tools
                         {
                             if (type.GetCustomAttribute<ToolProviderAttribute>() == null)
                                 continue;
-
-                            _providerTypes.Add(type);
 
                             var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Static);
                             foreach (var method in methods)
@@ -189,7 +174,6 @@ namespace KitWright.Editor.Tools
             {
                 _manualTools[name] = new ManualToolEntry
                 {
-                    Name = name,
                     Definition = definition,
                     Handler = handler
                 };
@@ -215,7 +199,7 @@ namespace KitWright.Editor.Tools
         }
 
         /// <summary>
-        /// Get all registered manual tools (for use by ToolSchemaBuilder and FunctionInvokerController).
+        /// Get all registered manual tools (for use by ToolSchemaBuilder and FunctionInvoker).
         /// </summary>
         public static IReadOnlyDictionary<string, ManualToolEntry> ManualTools => _manualTools;
 

@@ -55,7 +55,7 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 assetPath = asset_path,
                 type = type.FullName,
-                instanceId = ObjectIdHelper.GetSerializableId(instance)
+                instanceId = ObjectIdCodec.GetSerializableId(instance)
             });
         }
 
@@ -73,7 +73,7 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 assetPath = asset_path,
                 type = resolved.Asset.GetType().FullName,
-                instanceId = ObjectIdHelper.GetSerializableId(resolved.Asset),
+                instanceId = ObjectIdCodec.GetSerializableId(resolved.Asset),
                 properties = props
             });
         }

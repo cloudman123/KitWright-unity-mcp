@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace KitWright.Editor.Tools.Helpers
 {
-    internal static class EditorRefreshHelper
+    internal static class EditorRefreshPipeline
     {
         private static readonly TimeSpan TimestampTolerance = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan DefaultStartDetectionTimeout = TimeSpan.FromSeconds(2);
