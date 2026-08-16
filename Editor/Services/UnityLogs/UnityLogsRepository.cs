@@ -23,7 +23,8 @@ namespace KitWright.Editor.Services.UnityLogs
                 return;
 
             _isListening = true;
-            Application.logMessageReceived += OnLogReceived;
+            // Threaded, so a log raised while a modal owns the main thread still reaches subscribers.
+            Application.logMessageReceivedThreaded += OnLogReceived;
         }
 
         public void StopListening()
@@ -32,7 +33,7 @@ namespace KitWright.Editor.Services.UnityLogs
                 return;
 
             _isListening = false;
-            Application.logMessageReceived -= OnLogReceived;
+            Application.logMessageReceivedThreaded -= OnLogReceived;
         }
 
         public string GetRecentLogs(string logType = "all", int count = 30, int sinceSeconds = 0,

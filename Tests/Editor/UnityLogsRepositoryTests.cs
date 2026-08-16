@@ -61,6 +61,25 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void LogRaisedOffTheMainThread_IsCapturedWithoutTheMainThreadTicking()
+        {
+            var token = "KitWrightThreadedLog_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                // This test body owns the main thread for its whole duration, exactly as a modal
+                // dialog does. A main-thread-only subscription cannot deliver anything here.
+                System.Threading.Tasks.Task.Run(() => Debug.Log(token)).Wait(5000);
+
+                var logs = repository.GetRecentLogs(logType: "log", count: 10, filterText: token);
+                Assert.That(logs, Does.Contain(token));
+            }
+        }
+
+        [Test]
         public void HelperMethods_HandleEmptyTextAndLongLines()
         {
             Assert.IsTrue(UnityLogsRepository.MatchesTextFilter("Hello Console", "console"));

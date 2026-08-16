@@ -64,6 +64,7 @@ namespace KitWright.Editor.MCP.Server.SSE
         private readonly object _logDedupLock = new object();
         private string _lastLogKey;
         private DateTime _lastLogTime = DateTime.MinValue;
+        private int _suppressedLogCount;
         private const int LogDedupWindowMs = 100;
 
         public int PingIntervalMs { get; set; } = 15_000;
@@ -157,6 +158,7 @@ namespace KitWright.Editor.MCP.Server.SSE
             var severity = MapLogTypeToSeverity(type);
             var rank = SeverityRanks[severity];
 
+            int suppressed;
             lock (_logDedupLock)
             {
                 var now = DateTime.UtcNow;
@@ -164,11 +166,18 @@ namespace KitWright.Editor.MCP.Server.SSE
                 if (string.Equals(_lastLogKey, key, StringComparison.Ordinal) &&
                     (now - _lastLogTime).TotalMilliseconds < LogDedupWindowMs)
                 {
+                    _suppressedLogCount++;
                     return;
                 }
+                suppressed = _suppressedLogCount;
+                _suppressedLogCount = 0;
                 _lastLogKey = key;
                 _lastLogTime = now;
             }
+
+            var data = string.IsNullOrEmpty(stackTrace) ? condition : $"{condition}\n{stackTrace}";
+            if (suppressed > 0)
+                data = $"[previous message repeated {suppressed}x]\n{data}";
 
             var notificationPayload = JsonCodec.Serialize(new Dictionary<string, object>
             {
@@ -178,7 +187,7 @@ namespace KitWright.Editor.MCP.Server.SSE
                 {
                     ["level"] = severity,
                     ["logger"] = "UnityConsole",
-                    ["data"] = string.IsNullOrEmpty(stackTrace) ? condition : $"{condition}\n{stackTrace}"
+                    ["data"] = data
                 }
             });
 
@@ -269,6 +278,13 @@ namespace KitWright.Editor.MCP.Server.SSE
 
             _sessions.Clear();
             _globalMinSeverityLevel = null;
+
+            lock (_logDedupLock)
+            {
+                _lastLogKey = null;
+                _lastLogTime = DateTime.MinValue;
+                _suppressedLogCount = 0;
+            }
         }
     }
 }

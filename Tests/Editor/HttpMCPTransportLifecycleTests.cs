@@ -835,6 +835,85 @@ namespace KitWright.Editor
             }
         }
 
+        [UnityTest]
+        public IEnumerator RepeatedLog_IsCollapsedButReportsHowManyWereSuppressed()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 30_000;
+            var session = SSESessionManager.Instance.CreateSession();
+            SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "info");
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient())
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask, 3f);
+                    Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
+
+                    using (var stream = responseTask.Result.Content.ReadAsStreamAsync().Result)
+                    {
+                        for (int i = 0; i < 3; i++)
+                        {
+                            var task = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                                LogType.Error, "SpammedMessage", null);
+                            yield return WaitForTask(task, 2f);
+                        }
+
+                        var buffer = new byte[4096];
+                        var firstRead = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(firstRead, 2f);
+                        var first = Encoding.UTF8.GetString(buffer, 0, firstRead.Result);
+
+                        Assert.That(first, Does.Contain("SpammedMessage"));
+                        Assert.That(first, Does.Not.Contain("repeated"),
+                            "Nothing was suppressed before the first send.");
+                        Assert.AreEqual(1, CountOccurrences(first, "notifications/message"),
+                            "Two repeats inside the dedup window must not each get a frame.");
+
+                        // Past the dedup window, so the next identical log is sent again.
+                        yield return new WaitForSecondsRealtime(0.3f);
+
+                        var repeatTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                            LogType.Error, "SpammedMessage", null);
+                        yield return WaitForTask(repeatTask, 2f);
+
+                        var secondRead = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(secondRead, 2f);
+                        var second = Encoding.UTF8.GetString(buffer, 0, secondRead.Result);
+
+                        Assert.That(second, Does.Contain("[previous message repeated 2x]"),
+                            "The dropped repeats must be counted, not lost.");
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        private static int CountOccurrences(string haystack, string needle)
+        {
+            int count = 0;
+            for (int i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+                 i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+            {
+                count++;
+            }
+            return count;
+        }
+
         private sealed class HttpResult
         {
             public string ContentType;

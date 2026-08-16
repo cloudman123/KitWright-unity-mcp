@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace KitWright.Editor.MCP.Server
@@ -34,7 +35,38 @@ namespace KitWright.Editor.MCP.Server
             if (obj is IList list)
                 return SerializeList(list);
 
+            if (IsAnonymousType(obj.GetType()))
+                return SerializeAnonymous(obj);
+
             return "\"" + EscapeString(obj.ToString()) + "\"";
+        }
+
+        // Without this an anonymous type falls through to ToString() and reaches the wire as the
+        // quoted blob "{ a = 1 }". Scalars Unity formats itself (Vector3, enums) keep that fallback.
+        private static bool IsAnonymousType(Type type)
+        {
+            return type.IsDefined(typeof(CompilerGeneratedAttribute), false) &&
+                   type.Name.IndexOf("AnonymousType", StringComparison.Ordinal) >= 0;
+        }
+
+        private static string SerializeAnonymous(object obj)
+        {
+            var sb = new StringBuilder();
+            sb.Append("{");
+
+            bool first = true;
+            foreach (var property in obj.GetType().GetProperties())
+            {
+                if (!first) sb.Append(",");
+                first = false;
+                sb.Append("\"");
+                sb.Append(EscapeString(property.Name));
+                sb.Append("\":");
+                sb.Append(Serialize(property.GetValue(obj)));
+            }
+
+            sb.Append("}");
+            return sb.ToString();
         }
 
         private static string SerializeDictionary(IDictionary dict)
