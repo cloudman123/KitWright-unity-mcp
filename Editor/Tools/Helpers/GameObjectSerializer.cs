@@ -40,6 +40,18 @@ namespace KitWright.Editor.Tools.Helpers
             };
         }
 
+        public static object DescribeCreated(GameObject go, bool includeComponents = false)
+        {
+            if (go == null) return null;
+            return new
+            {
+                instanceId = ObjectIdCodec.GetSerializableId(go),
+                name = go.name,
+                path = ObjectsHelper.GetGameObjectPath(go),
+                components = includeComponents ? DescribeComponents(go, brief: true) : null
+            };
+        }
+
         public static List<object> DescribeMany(IEnumerable<GameObject> gos)
         {
             var list = new List<object>();
@@ -48,7 +60,7 @@ namespace KitWright.Editor.Tools.Helpers
             return list;
         }
 
-        private static List<object> DescribeComponents(GameObject go)
+        private static List<object> DescribeComponents(GameObject go, bool brief = false)
         {
             var list = new List<object>();
             foreach (var c in go.GetComponents<Component>())
@@ -58,12 +70,10 @@ namespace KitWright.Editor.Tools.Helpers
                     list.Add(new { type = "<missing>", instanceId = 0 });
                     continue;
                 }
-                list.Add(new
-                {
-                    instanceId = ObjectIdCodec.GetSerializableId(c),
-                    type = c.GetType().Name,
-                    fullType = c.GetType().FullName
-                });
+                var id = ObjectIdCodec.GetSerializableId(c);
+                list.Add(brief
+                    ? (object)new { instanceId = id, type = c.GetType().Name }
+                    : new { instanceId = id, type = c.GetType().Name, fullType = c.GetType().FullName });
             }
             return list;
         }

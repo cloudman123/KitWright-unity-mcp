@@ -47,6 +47,14 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
+        // Peek, so the service can sweep the orphan before it probes ports; StartAsync still
+        // consumes the arm, and closing an already-closed listener is a no-op.
+        internal static bool IsOrphanReclaimArmed()
+        {
+            lock (s_activeListenerLock)
+                return s_reclaimOrphanOnNextStart;
+        }
+
         private TcpListener _listener;
         private CancellationTokenSource _cts;
         private readonly int _port;
@@ -58,6 +66,7 @@ namespace KitWright.Editor.MCP.Server
         private const int MaxBodyBytes = 64 * 1024 * 1024;
         private const int MaxConsecutiveAcceptErrors = 10;
         private const int AcceptErrorRetryDelayMs = 200;
+        private const int RequestReadTimeoutMs = 30_000;
 
         public bool IsRunning => _isRunning;
         public bool IsAttachedToExistingServer => false;
@@ -263,7 +272,9 @@ namespace KitWright.Editor.MCP.Server
                     {
                         var client = await _listener.AcceptTcpClientAsync();
                         consecutiveErrors = 0;
-                        _ = Task.Run(() => HandleClientAsync(client, ct), ct);
+                        // No token here: Task.Run drops the delegate when ct is already
+                        // cancelled, and then nothing runs the `using` that closes client.
+                        _ = Task.Run(() => HandleClientAsync(client, ct));
                     }
                     catch (SocketException ex) when (ex.SocketErrorCode == SocketError.Interrupted ||
                                                      ex.SocketErrorCode == SocketError.OperationAborted)
@@ -310,7 +321,7 @@ namespace KitWright.Editor.MCP.Server
                 using (client)
                 {
                     stream = client.GetStream();
-                    var httpRequest = await ReadHttpRequestAsync(stream, ct);
+                    var httpRequest = await ReadRequestWithTimeoutAsync(client, stream, ct);
                     if (httpRequest == null)
                         return;
 
@@ -403,6 +414,28 @@ namespace KitWright.Editor.MCP.Server
                 Debug.LogError($"[KitWright MCP Server] Error handling request: {ex.Message}");
                 if (stream != null)
                     await SendErrorResponseAsync(stream, request?.Id, -32603, $"Internal error: {ex.Message}", CancellationToken.None);
+            }
+        }
+
+        // A peer that connects and then sends nothing would otherwise pin this handler task
+        // and its socket for the life of the domain. Mono ignores the token on an in-flight
+        // NetworkStream read, so closing the socket is what actually unblocks it.
+        private async Task<HttpRequestData> ReadRequestWithTimeoutAsync(TcpClient client, NetworkStream stream, CancellationToken ct)
+        {
+            using (var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                readCts.CancelAfter(RequestReadTimeoutMs);
+                using (readCts.Token.Register(() => { try { client.Close(); } catch { } }))
+                {
+                    try
+                    {
+                        return await ReadHttpRequestAsync(stream, readCts.Token);
+                    }
+                    catch when (readCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                    {
+                        return null;
+                    }
+                }
             }
         }
 
@@ -743,6 +776,8 @@ namespace KitWright.Editor.MCP.Server
         // afterwards (other MCP servers, compiler workers, node) receives a duplicate of this
         // handle. The port then stays bound after Unity exits, for as long as any of those
         // children lives, and the next editor has to fall forward to a different port.
+        // Windows-only on purpose: on macOS/Linux Mono already opens sockets with FD_CLOEXEC,
+        // so there is nothing to clear and no portable equivalent worth P/Invoking for.
         internal static void DisableHandleInheritance(Socket socket)
         {
             if (Application.platform != RuntimePlatform.WindowsEditor)

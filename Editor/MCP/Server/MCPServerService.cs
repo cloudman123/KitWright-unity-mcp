@@ -178,6 +178,11 @@ namespace KitWright.Editor.MCP.Server
             var assigned = false;
             try
             {
+                // Sweep a listener a hot patch leaked before probing, or the probe reads our own
+                // orphan as "in use by another process" and falls forward to base+1 for nothing.
+                if (HttpMCPTransport.IsOrphanReclaimArmed())
+                    HttpMCPTransport.CloseActiveListener();
+
                 var startupPort = ResolveStartupPort(SelectStartupBasePort(_settings.MCPServerPort));
                 var toolExposureSetting = BuildToolExposureSetting();
                 PluginDebugLogger.Log("[KitWright MCP Server] Starting server...");
@@ -518,6 +523,7 @@ namespace KitWright.Editor.MCP.Server
             {
                 var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, port);
                 probe.Start();
+                HttpMCPTransport.DisableHandleInheritance(probe.Server);
                 probe.Stop();
                 return true;
             }

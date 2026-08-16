@@ -29,7 +29,7 @@ namespace KitWright.Editor.Tools.Builtins
             }
 
             Selection.activeGameObject = go;
-            return Response.Success($"Created GameObject '{name}'.", GameObjectSerializer.Describe(go, includeComponents: false));
+            return Response.Success($"Created GameObject '{name}'.", GameObjectSerializer.DescribeCreated(go));
         }
 
         [Description("Create a primitive GameObject (Cube, Sphere, Capsule, Cylinder, Plane, Quad).")]
@@ -63,7 +63,7 @@ namespace KitWright.Editor.Tools.Builtins
             go.transform.localScale = primScale;
             Selection.activeGameObject = go;
 
-            return Response.Success($"Created {primitive_type} '{name}'.", GameObjectSerializer.Describe(go, includeComponents: false));
+            return Response.Success($"Created {primitive_type} '{name}'.", GameObjectSerializer.DescribeCreated(go, includeComponents: true));
         }
 
         [Description("Delete a GameObject. Targets resolved through ObjectsHelper (instance id, name, path, tag, layer, component).")]
@@ -73,7 +73,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var info = new { instanceId = ObjectIdCodec.GetSerializableId(go), name = go.name };
             Undo.DestroyObjectImmediate(go);
@@ -88,7 +88,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var dup = Object.Instantiate(go);
             Undo.RegisterCreatedObjectUndo(dup, $"Duplicate {go.name}");
@@ -96,7 +96,7 @@ namespace KitWright.Editor.Tools.Builtins
             Selection.activeGameObject = dup;
 
             return Response.Success($"Duplicated '{go.name}' as '{dup.name}'.",
-                GameObjectSerializer.Describe(dup, includeComponents: false));
+                GameObjectSerializer.DescribeCreated(dup));
         }
 
         [Description("Rename a GameObject.")]
@@ -107,7 +107,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var oldName = go.name;
             Undo.RecordObject(go, $"Rename {oldName} to {new_name}");
@@ -126,7 +126,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             // Validate every provided vector BEFORE touching the transform, so a malformed value
             // returns a clear INVALID_PARAM instead of silently writing (0,0,0).
@@ -199,7 +199,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
@@ -224,7 +224,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
@@ -256,7 +256,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
@@ -289,7 +289,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             Undo.RecordObject(go, $"Set tag/layer of {go.name}");
             var changes = new List<string>();
@@ -323,7 +323,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             bool isActive = active == "true" || active == "1";
             Undo.RecordObject(go, $"Set active {go.name}");
@@ -370,7 +370,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method, searchInactive: true);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             bool kids = include_children == "true" || include_children == "1";
             return Response.Success($"GameObject '{go.name}'.",

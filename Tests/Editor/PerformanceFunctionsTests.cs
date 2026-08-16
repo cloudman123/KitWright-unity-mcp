@@ -20,6 +20,9 @@ namespace KitWright.Editor.Tests
             bool canRestoreOriginalSetup = CanRestoreSceneSetup(originalSetup);
             if (!Application.isBatchMode && !canRestoreOriginalSetup)
                 Assert.Ignore("Skipping performance multi-scene test because the interactive editor has unsaved untitled scenes.");
+            if (!Application.isBatchMode && HierarchyFunctionsTests.AnyLoadedSceneIsDirty())
+                Assert.Ignore("Skipping performance multi-scene test: replacing a modified scene opens Unity's save " +
+                              "prompt, and that modal blocks the editor loop the MCP server pumps on.");
 
             var suffix = Guid.NewGuid().ToString("N");
             var tempFolder = "Assets/__KitWrightMcpPerformanceTests";

@@ -808,9 +808,12 @@ namespace KitWright.Editor.MCP.Server
             return BuildServerUrl(port);
         }
 
+        // The /p/<pin>/ segment is what lets the server refuse a request meant for a different
+        // project. Ports are handed out by a first-come scan, so a config written while this
+        // project held a port can end up aimed at whichever sibling editor owns it now.
         internal static string BuildServerUrl(int port)
         {
-            return $"http://127.0.0.1:{port}/";
+            return $"http://127.0.0.1:{port}/p/{ProjectIdentity.PinFromProjectPath(GetProjectRootPath())}/";
         }
 
         private static string GetProjectRootPath()

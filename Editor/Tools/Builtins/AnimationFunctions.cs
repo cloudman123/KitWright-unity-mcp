@@ -49,7 +49,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(game_object_name);
             if (go == null)
-                return ToolResultFormatter.Error("GAME_OBJECT_NOT_FOUND", new { game_object_name });
+                return ObjectsHelper.NotFoundText("game_object_name", game_object_name);
 
             var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(controller_path);
             if (controller == null)
@@ -257,7 +257,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, findMethod, searchInactive: true);
             if (go == null)
-                return new ResolvedAnimator { Error = Response.Error("TARGET_NOT_FOUND", new { target, find_method = findMethod }) };
+                return new ResolvedAnimator { Error = ObjectsHelper.NotFound("target", target, findMethod) };
 
             var animator = go.GetComponent<Animator>();
             if (animator == null)

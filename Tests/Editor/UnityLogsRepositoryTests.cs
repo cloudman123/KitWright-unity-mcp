@@ -76,6 +76,61 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void StripRichText_RemovesUnityMarkupButKeepsOtherAngleBrackets()
+        {
+            Assert.AreEqual(
+                "fail: TestResultCollector missing request id",
+                UnityLogsRepository.StripRichText(
+                    "<color=#ff6b6b>fail:</color> <color=#58D68D><b>TestResultCollector</b></color> missing request id"));
+
+            Assert.AreEqual("done", UnityLogsRepository.StripRichText("<size=20><i>done</i></size>"));
+
+            Assert.AreEqual("List<int> has 3 items", UnityLogsRepository.StripRichText("List<int> has 3 items"));
+            Assert.AreEqual("<node id=\"7\" />", UnityLogsRepository.StripRichText("<node id=\"7\" />"));
+
+            Assert.AreEqual("plain", UnityLogsRepository.StripRichText("plain"));
+            Assert.IsNull(UnityLogsRepository.StripRichText(null));
+        }
+
+        [Test]
+        public void GetRecentLogs_StampsEntriesWithoutBreakingDuplicateGrouping()
+        {
+            var token = "KitWrightConsoleStamp_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " <b>duplicate</b>");
+                Debug.Log(token + " <b>duplicate</b>");
+
+                var stamped = repository.GetRecentLogs(
+                    logType: "log",
+                    count: 10,
+                    sinceSeconds: 0,
+                    filterText: token,
+                    groupDuplicates: true,
+                    includeStackTrace: false,
+                    includeTimestamps: true);
+
+                Assert.That(stamped, Does.Not.Contain("<b>"));
+                Assert.That(stamped, Does.Contain("Console logs (2 entries, 1 unique, filter: log, source: cache"));
+                Assert.That(stamped, Does.Match(@"\n\d{2}:\d{2}:\d{2} \[LOG\] " + token + @" duplicate \(x2\)"));
+
+                var unstamped = repository.GetRecentLogs(
+                    logType: "log",
+                    count: 10,
+                    sinceSeconds: 0,
+                    filterText: token,
+                    groupDuplicates: true);
+
+                Assert.That(unstamped, Does.Contain("[LOG] " + token + " duplicate (x2)"));
+                Assert.That(unstamped, Does.Not.Match(@"\n\d{2}:\d{2}:\d{2} \["));
+            }
+        }
+
+        [Test]
         public void FormatStackTrace_NormalizesLineEndingsAndCapsLength()
         {
             var normalized = UnityLogsRepository.FormatStackTrace("First\r\nSecond\rThird\n");

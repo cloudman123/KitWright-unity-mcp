@@ -53,15 +53,25 @@ namespace KitWright.Editor.Tools.Builtins
             });
         }
 
-        [Description("Edit/replace the contents of an existing script. " +
-                     "Optionally pass expected_sha256 (from get_script_sha) to reject the write if the file changed since you read it.")]
+        [Description("Replace the entire contents of an existing script. " +
+                     "expected_sha256 is required: this is the one edit that overwrites everything, so it must prove " +
+                     "the file has not changed since you read it. read_file returns the sha to pass here — and returns " +
+                     "none when it had to truncate, which is exactly when a whole-file rewrite would destroy the tail. " +
+                     "For a smaller change prefer patch_script or edit_script_members, which need no sha because they " +
+                     "match on what they replace.")]
         public static string EditScript(
             [ToolParam("Path to the script file")] string path,
             [ToolParam("New full content for the script")]
             string content,
-            [ToolParam("SHA256 from get_script_sha; write is rejected with STALE_FILE if the file changed", Required = false)]
-            string expected_sha256 = null)
+            [ToolParam("SHA256 of the content you read, from read_file or get_script_sha. Required; the write is rejected with STALE_FILE if the file changed since.")]
+            string expected_sha256)
         {
+            if (string.IsNullOrEmpty(expected_sha256))
+                return ToolResultFormatter.Error("SHA_REQUIRED", new { path },
+                    "edit_script overwrites the whole file, so it needs the sha256 of the content you based the " +
+                    "rewrite on. Call read_file (or get_script_sha) and pass its sha256. If read_file reported the " +
+                    "file as truncated it returns no sha - use patch_script or edit_script_members instead.");
+
             var fullPath = PathSafety.ResolveProjectPath(path);
             if (!File.Exists(fullPath))
                 return ToolResultFormatter.Error("SCRIPT_NOT_FOUND", new { path });
@@ -253,7 +263,7 @@ namespace KitWright.Editor.Tools.Builtins
         }
 
         // Optimistic-lock check: reject when the caller's snapshot no longer matches the file on disk.
-        private static string CheckPrecondition(string path, string currentContent, string expectedSha256)
+        internal static string CheckPrecondition(string path, string currentContent, string expectedSha256)
         {
             if (string.IsNullOrEmpty(expectedSha256))
                 return null;

@@ -268,6 +268,148 @@ namespace KitWright.Editor.Tools.Helpers
         }
 
         /// <summary>
+        /// The one error code every failed GameObject resolve returns. Tools used to split this
+        /// between TARGET_NOT_FOUND and GAME_OBJECT_NOT_FOUND for the same condition, so a client
+        /// handling one did not recognise the other.
+        /// </summary>
+        public const string NotFoundCode = "GAME_OBJECT_NOT_FOUND";
+
+        private const int MaxCandidates = 5;
+        private const int MaxEditDistance = 3;
+        private const int MaxCandidateScan = 20000;
+
+        /// <summary>
+        /// Error for a GameObject that could not be resolved, carrying the near-miss names that
+        /// do exist. <paramref name="paramName"/> is the tool's own parameter name so the echoed
+        /// value tells the agent which argument to change.
+        /// </summary>
+        public static object NotFound(string paramName, string value, string findMethod = null)
+        {
+            var candidates = SuggestTargets(value);
+            return Response.Error(NotFoundCode,
+                NotFoundData(paramName, value, findMethod, candidates),
+                NotFoundHint(value, candidates.Count));
+        }
+
+        /// <summary>Same as <see cref="NotFound"/> for call sites that must return a JSON string.</summary>
+        public static string NotFoundText(string paramName, string value, string findMethod = null)
+        {
+            var candidates = SuggestTargets(value);
+            return ToolResultFormatter.Error(NotFoundCode,
+                NotFoundData(paramName, value, findMethod, candidates),
+                NotFoundHint(value, candidates.Count));
+        }
+
+        private static Dictionary<string, object> NotFoundData(string paramName, string value,
+            string findMethod, List<string> candidates)
+        {
+            var data = new Dictionary<string, object>
+            {
+                [string.IsNullOrEmpty(paramName) ? "target" : paramName] = value
+            };
+            if (!string.IsNullOrEmpty(findMethod))
+                data["find_method"] = findMethod;
+            if (candidates.Count > 0)
+                data["candidates"] = candidates;
+            return data;
+        }
+
+        private static string NotFoundHint(string value, int candidateCount)
+        {
+            // Instance ids are reassigned by every domain reload, so a stale id is the one failure
+            // an agent cannot diagnose from the name alone.
+            if (!string.IsNullOrEmpty(value) && long.TryParse(value, out _))
+                return "Instance ids change on every domain reload (script compile, entering play mode). " +
+                       "Re-read get_hierarchy or find_game_objects for current ids.";
+
+            if (candidateCount > 0)
+                return "Nothing matched exactly. 'candidates' lists existing objects with similar paths; " +
+                       "name matching is case-sensitive.";
+
+            return "No similar object exists either. Call get_hierarchy to see the scene, or " +
+                   "find_game_objects with find_method=by_component/by_tag to search another way.";
+        }
+
+        /// <summary>
+        /// Existing objects whose name (or path, when the query looks like one) is closest to a
+        /// query that resolved to nothing. Ranked exact-but-wrong-case, prefix, substring, then
+        /// small edit distance.
+        /// </summary>
+        internal static List<string> SuggestTargets(string query)
+        {
+            var suggestions = new List<string>();
+            if (string.IsNullOrEmpty(query) || long.TryParse(query, out _))
+                return suggestions;
+
+            var matchPath = query.Contains('/');
+            var scored = new List<KeyValuePair<int, string>>();
+            var scanned = 0;
+
+            foreach (var go in EnumerateSearchPool(null, true))
+            {
+                if (++scanned > MaxCandidateScan)
+                    break;
+
+                var path = GetGameObjectPath(go);
+                var score = ScoreCandidate(query, matchPath ? path : go.name);
+                if (score >= 0)
+                    scored.Add(new KeyValuePair<int, string>(score, path));
+            }
+
+            return scored
+                .OrderBy(pair => pair.Key)
+                .Select(pair => pair.Value)
+                .Distinct()
+                .Take(MaxCandidates)
+                .ToList();
+        }
+
+        private static int ScoreCandidate(string query, string subject)
+        {
+            if (string.IsNullOrEmpty(subject))
+                return -1;
+            // Name lookup is case-sensitive, so a case-only mismatch reaches here and is the
+            // single most useful thing to surface.
+            if (string.Equals(query, subject, StringComparison.OrdinalIgnoreCase))
+                return 0;
+            if (subject.StartsWith(query, StringComparison.OrdinalIgnoreCase) ||
+                query.StartsWith(subject, StringComparison.OrdinalIgnoreCase))
+                return 1;
+            if (subject.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                query.IndexOf(subject, StringComparison.OrdinalIgnoreCase) >= 0)
+                return 2;
+            if (Math.Abs(subject.Length - query.Length) > MaxEditDistance)
+                return -1;
+
+            var distance = EditDistance(query.ToLowerInvariant(), subject.ToLowerInvariant());
+            return distance <= MaxEditDistance ? 2 + distance : -1;
+        }
+
+        internal static int EditDistance(string a, string b)
+        {
+            if (a == b) return 0;
+            if (a.Length == 0) return b.Length;
+            if (b.Length == 0) return a.Length;
+
+            var previous = new int[b.Length + 1];
+            var current = new int[b.Length + 1];
+            for (var j = 0; j <= b.Length; j++)
+                previous[j] = j;
+
+            for (var i = 1; i <= a.Length; i++)
+            {
+                current[0] = i;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var substitution = previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1);
+                    current[j] = Math.Min(Math.Min(current[j - 1] + 1, previous[j] + 1), substitution);
+                }
+                Array.Copy(current, previous, current.Length);
+            }
+            return previous[b.Length];
+        }
+
+        /// <summary>
         /// Look up a Component by its instance id. Returns null if missing or if the id refers to
         /// something that isn't a Component.
         /// </summary>

@@ -17,7 +17,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (!TryGetSceneView(out var view, out var noView)) return noView;
 
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var prev = Selection.activeGameObject;
             Selection.activeGameObject = go;
@@ -35,7 +35,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (!TryGetSceneView(out var view, out var noView)) return noView;
 
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var t = go.transform;
             view.AlignViewToObject(t);

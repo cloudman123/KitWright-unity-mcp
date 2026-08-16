@@ -180,7 +180,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(target);
             if (go == null)
-                return ToolResultFormatter.Error("GAME_OBJECT_NOT_FOUND", new { target });
+                return ObjectsHelper.NotFoundText("target", target);
 
             var rect = go.GetComponent<RectTransform>();
             if (rect == null)

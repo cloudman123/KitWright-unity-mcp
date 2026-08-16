@@ -76,7 +76,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(game_object_name);
             if (go == null)
-                return ToolResultFormatter.Error("GAME_OBJECT_NOT_FOUND", new { game_object_name });
+                return ObjectsHelper.NotFoundText("game_object_name", game_object_name);
 
             var renderer = go.GetComponent<Renderer>();
             if (renderer == null)

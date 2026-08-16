@@ -5,6 +5,7 @@ using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using KitWright.Editor.Tools.Helpers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using UnityEditor;
 
 namespace KitWright.Editor.Tools.Builtins
 {
@@ -13,10 +14,14 @@ namespace KitWright.Editor.Tools.Builtins
     {
         [Description("Run multiple MCP tool calls sequentially in a single request, on the main thread, saving round-trips. " +
                      "Pass a JSON array of {\"name\": \"<tool_name>\", \"params\": {..}} objects. Each result is returned in order. " +
-                     "By default a failing call stops the batch; set stop_on_error=false to continue past failures.")]
+                     "By default a failing call stops the batch; set stop_on_error=false to continue past failures. " +
+                     "The scene changes the whole batch makes collapse into a single Undo step, so the user can revert " +
+                     "the batch with one Ctrl+Z instead of one per command. File writes, asset imports and play-mode " +
+                     "changes are outside Unity's undo system and are not reverted by it.")]
         public static async Task<object> BatchExecute(
             [ToolParam("JSON array of commands, e.g. [{\"name\":\"create_primitive\",\"params\":{\"primitive_type\":\"Cube\"}},{\"name\":\"get_hierarchy\",\"params\":{}}]")] string commands,
-            [ToolParam("Stop the batch when a call fails (default true). If false, remaining calls still run.", Required = false)] bool stop_on_error = true)
+            [ToolParam("Stop the batch when a call fails (default true). If false, remaining calls still run.", Required = false)] bool stop_on_error = true,
+            [ToolParam("Name shown in Unity's Edit > Undo menu for the collapsed step.", Required = false)] string undo_label = null)
         {
             JArray parsed;
             try
@@ -37,33 +42,48 @@ namespace KitWright.Editor.Tools.Builtins
             var results = new List<object>();
             bool aborted = false;
 
-            for (int i = 0; i < parsed.Count; i++)
+            // Snapshot the group before the first command so everything the batch registers can be
+            // collapsed into it. Commands await across editor frames, and Unity opens a new group
+            // each frame, so without this a 12-command batch costs the user 12 presses of Ctrl+Z.
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(string.IsNullOrWhiteSpace(undo_label)
+                ? $"MCP batch ({parsed.Count} command(s))"
+                : undo_label);
+
+            try
             {
-                var name = (parsed[i] as JObject)?["name"]?.ToString();
-                if (string.IsNullOrEmpty(name))
+                for (int i = 0; i < parsed.Count; i++)
                 {
-                    results.Add(new { index = i, success = false, error = "MISSING_NAME" });
-                    if (stop_on_error) { aborted = true; break; }
-                    continue;
+                    var name = (parsed[i] as JObject)?["name"]?.ToString();
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        results.Add(new { index = i, success = false, error = "MISSING_NAME" });
+                        if (stop_on_error) { aborted = true; break; }
+                        continue;
+                    }
+
+                    var fc = new FunctionCall
+                    {
+                        FunctionName = name,
+                        Parameters = ExtractParams(parsed[i]["params"])
+                    };
+
+                    // Await instead of blocking: async tools pump their state
+                    // machine on EditorApplication.update — a sync .GetAwaiter().GetResult() here
+                    // deadlocks the editor main thread against that update loop.
+                    var raw = await invoker.InvokeAsync(fc);
+                    var resultToken = TryParse(raw);
+                    bool ok = (resultToken as JObject)?["success"]?.Type == JTokenType.Boolean
+                              && (resultToken as JObject)["success"].Value<bool>();
+
+                    results.Add(new { index = i, name, result = resultToken });
+
+                    if (!ok && stop_on_error) { aborted = true; break; }
                 }
-
-                var fc = new FunctionCall
-                {
-                    FunctionName = name,
-                    Parameters = ExtractParams(parsed[i]["params"])
-                };
-
-                // Await instead of blocking: async tools pump their state
-                // machine on EditorApplication.update — a sync .GetAwaiter().GetResult() here
-                // deadlocks the editor main thread against that update loop.
-                var raw = await invoker.InvokeAsync(fc);
-                var resultToken = TryParse(raw);
-                bool ok = (resultToken as JObject)?["success"]?.Type == JTokenType.Boolean
-                          && (resultToken as JObject)["success"].Value<bool>();
-
-                results.Add(new { index = i, name, result = resultToken });
-
-                if (!ok && stop_on_error) { aborted = true; break; }
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
             }
 
             return Response.Success(

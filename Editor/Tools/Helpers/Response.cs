@@ -13,24 +13,32 @@ namespace KitWright.Editor.Tools.Helpers
     /// to JSON by <c>FunctionInvoker</c> so MCP clients can reliably
     /// parse <c>{ success, message, data }</c> instead of free-form strings.
     ///
-    /// Success: { success: true, message: "...", data?: {...} }
-    /// Error:   { success: false, code: "...", error: "...", data?: {...} }
+    /// Success: { success: true, message: "...", data?: {...}, hint?: "..." }
+    /// Error:   { success: false, code: "...", error: "...", data?: {...}, hint?: "..." }
     /// </summary>
     internal static class Response
     {
-        public static object Success(string message, object data = null)
+        public static object Success(string message, object data = null, string hint = null)
         {
+            if (data != null && !string.IsNullOrEmpty(hint))
+                return new { success = true, message, data, hint };
             if (data != null)
                 return new { success = true, message, data };
+            if (!string.IsNullOrEmpty(hint))
+                return new { success = true, message, hint };
             return new { success = true, message };
         }
 
         // Use for machine-parsable error codes (UPPERCASE_SNAKE_CASE) plus optional details.
         // The same string is echoed in both `code` and `error` fields so old clients still see a message.
-        public static object Error(string errorCodeOrMessage, object data = null)
+        public static object Error(string errorCodeOrMessage, object data = null, string hint = null)
         {
+            if (data != null && !string.IsNullOrEmpty(hint))
+                return new { success = false, code = errorCodeOrMessage, error = errorCodeOrMessage, data, hint };
             if (data != null)
                 return new { success = false, code = errorCodeOrMessage, error = errorCodeOrMessage, data };
+            if (!string.IsNullOrEmpty(hint))
+                return new { success = false, code = errorCodeOrMessage, error = errorCodeOrMessage, hint };
             return new { success = false, code = errorCodeOrMessage, error = errorCodeOrMessage };
         }
     }
@@ -41,11 +49,11 @@ namespace KitWright.Editor.Tools.Helpers
     /// </summary>
     internal static class ToolResultFormatter
     {
-        public static string Error(string code, object data = null)
+        public static string Error(string code, object data = null, string hint = null)
         {
             try
             {
-                return JsonConvert.SerializeObject(Response.Error(code, data));
+                return JsonConvert.SerializeObject(Response.Error(code, data, hint));
             }
             catch (Exception ex)
             {

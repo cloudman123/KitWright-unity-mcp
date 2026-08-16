@@ -23,7 +23,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(target);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target });
+                return ObjectsHelper.NotFound("target", target);
 
             // Prefer a ParticleSystem directly on the target, else the first one in its children
             // (searchInactive=true so a disabled VFX node still resolves, matching FindTarget's behavior).

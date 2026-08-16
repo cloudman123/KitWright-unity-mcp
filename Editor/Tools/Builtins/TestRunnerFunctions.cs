@@ -210,7 +210,8 @@ namespace KitWright.Editor.Tools.Builtins
                 return ToolResultFormatter.Exception(ex);
             }
 
-            if (cancelled && job.Value<string>("jobId") == guid)
+            var isTrackedJob = job.Value<string>("jobId") == guid;
+            if (isTrackedJob)
             {
                 job["status"] = "cancelled";
                 job.Remove("currentTest");
@@ -218,9 +219,15 @@ namespace KitWright.Editor.Tools.Builtins
                 SaveJob(job);
             }
 
-            return cancelled
-                ? Response.Success($"Test run {guid} cancelled.")
-                : (object)Response.Error("CANCEL_FAILED", new { job_id = guid, hint = "The run may have already finished." });
+            if (cancelled)
+                return Response.Success($"Test run {guid} cancelled.");
+
+            // A false here means Unity has no such run, so a record still marked running is
+            // stale -- most often a run whose runner never started. Leaving it would block
+            // every later run_tests with TESTS_ALREADY_RUNNING for the rest of the session.
+            return isTrackedJob
+                ? Response.Success($"No active Unity run for {guid}. Cleared the stale job record; run_tests will start a new run.")
+                : (object)Response.Error("CANCEL_FAILED", new { job_id = guid, hint = "No run with that id, and it is not the tracked job. Call cancel_test_run without job_id to clear the tracked one." });
         }
 
         // -------- Job persistence (survives domain reloads, cleared on editor quit) --------
