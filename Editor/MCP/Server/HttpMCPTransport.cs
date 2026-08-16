@@ -675,7 +675,8 @@ namespace KitWright.Editor.MCP.Server
                 await stream.WriteAsync(headerBytes, 0, headerBytes.Length, ct).ConfigureAwait(false);
                 await stream.FlushAsync(ct).ConfigureAwait(false);
 
-                await SSESessionManager.Instance.RunSsePingLoopAsync(session, ct).ConfigureAwait(false);
+                var pingLoop = SSESessionManager.Instance.RunSsePingLoopAsync(session, ct);
+                await Task.WhenAny(pingLoop, WaitForClientEofAsync(stream, ct)).ConfigureAwait(false);
             }
             catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
             {
@@ -688,6 +689,21 @@ namespace KitWright.Editor.MCP.Server
             finally
             {
                 SSESessionManager.Instance.DetachStream(session);
+            }
+        }
+
+        // FIN stops the peer sending, not receiving, so pings keep succeeding after it. A read does not.
+        private static async Task WaitForClientEofAsync(NetworkStream stream, CancellationToken ct)
+        {
+            var scratch = new byte[1];
+            try
+            {
+                while (await stream.ReadAsync(scratch, 0, 1, ct).ConfigureAwait(false) > 0)
+                {
+                }
+            }
+            catch
+            {
             }
         }
 

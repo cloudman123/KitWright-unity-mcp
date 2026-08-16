@@ -817,6 +817,7 @@ namespace KitWright.Editor
                 Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
                 Assert.IsNotNull(session.ActiveStream, "Session should have active stream.");
 
+                responseTask.Result.Dispose();
                 client.Dispose();
 
                 var waited = 0f;
