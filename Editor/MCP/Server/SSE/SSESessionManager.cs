@@ -21,7 +21,6 @@ namespace KitWright.Editor.MCP.Server.SSE
 
     /// <summary>
     /// Manages active MCP Streamable HTTP / Server-Sent Events sessions.
-    /// Handles session tracking, log level filtering, dedup buffer, and direct socket writes.
     /// </summary>
     internal sealed class SSESessionManager
     {
@@ -29,7 +28,6 @@ namespace KitWright.Editor.MCP.Server.SSE
             new Lazy<SSESessionManager>(() => new SSESessionManager());
         public static SSESessionManager Instance => s_instance.Value;
 
-        // MCP Log Severity ranking (increasing severity order)
         private static readonly Dictionary<string, int> SeverityRanks =
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
@@ -50,7 +48,7 @@ namespace KitWright.Editor.MCP.Server.SSE
             public int? MinSeverityLevel { get; set; }
             public NetworkStream ActiveStream { get; set; }
             public object StreamLock { get; } = new object();
-            public TaskCompletionSource<bool> StreamCompletionTcs { get; set; }
+            public SemaphoreSlim WriteGate { get; } = new SemaphoreSlim(1, 1);
 
             public SSESession(string sessionId)
             {
@@ -97,14 +95,6 @@ namespace KitWright.Editor.MCP.Server.SSE
             return false;
         }
 
-        public void TouchSession(string sessionId)
-        {
-            if (!string.IsNullOrEmpty(sessionId) && _sessions.TryGetValue(sessionId, out var session))
-            {
-                session.LastActiveAt = DateTime.UtcNow;
-            }
-        }
-
         public AttachStreamResult TryAttachStream(string sessionId, NetworkStream stream, out SSESession session)
         {
             if (!TryGetSession(sessionId, out session))
@@ -116,7 +106,6 @@ namespace KitWright.Editor.MCP.Server.SSE
                     return AttachStreamResult.StreamAlreadyAttached;
 
                 session.ActiveStream = stream;
-                session.StreamCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 return AttachStreamResult.Success;
             }
         }
@@ -128,7 +117,6 @@ namespace KitWright.Editor.MCP.Server.SSE
             lock (session.StreamLock)
             {
                 session.ActiveStream = null;
-                session.StreamCompletionTcs?.TrySetResult(true);
             }
         }
 
@@ -152,34 +140,23 @@ namespace KitWright.Editor.MCP.Server.SSE
             return null;
         }
 
-        public static string MapLogTypeToSeverity(LogType type, out int rank)
+        public static string MapLogTypeToSeverity(LogType type)
         {
             switch (type)
             {
-                case LogType.Log:
-                    rank = 1;
-                    return "info";
-                case LogType.Warning:
-                    rank = 3;
-                    return "warning";
+                case LogType.Warning: return "warning";
                 case LogType.Error:
-                case LogType.Assert:
-                    rank = 4;
-                    return "error";
-                case LogType.Exception:
-                    rank = 5;
-                    return "critical";
-                default:
-                    rank = 1;
-                    return "info";
+                case LogType.Assert: return "error";
+                case LogType.Exception: return "critical";
+                default: return "info";
             }
         }
 
         public async Task BroadcastLogNotificationAsync(LogType type, string condition, string stackTrace)
         {
-            var severity = MapLogTypeToSeverity(type, out var rank);
+            var severity = MapLogTypeToSeverity(type);
+            var rank = SeverityRanks[severity];
 
-            // Deduplication within window
             lock (_logDedupLock)
             {
                 var now = DateTime.UtcNow;
@@ -193,15 +170,15 @@ namespace KitWright.Editor.MCP.Server.SSE
                 _lastLogTime = now;
             }
 
-            var notificationPayload = JsonCodec.Serialize(new
+            var notificationPayload = JsonCodec.Serialize(new Dictionary<string, object>
             {
-                jsonrpc = "2.0",
-                method = "notifications/message",
-                @params = new
+                ["jsonrpc"] = "2.0",
+                ["method"] = "notifications/message",
+                ["params"] = new Dictionary<string, object>
                 {
-                    level = severity,
-                    logger = "UnityConsole",
-                    data = string.IsNullOrEmpty(stackTrace) ? condition : $"{condition}\n{stackTrace}"
+                    ["level"] = severity,
+                    ["logger"] = "UnityConsole",
+                    ["data"] = string.IsNullOrEmpty(stackTrace) ? condition : $"{condition}\n{stackTrace}"
                 }
             });
 
@@ -219,28 +196,11 @@ namespace KitWright.Editor.MCP.Server.SSE
             }
         }
 
-        public async Task BroadcastNotificationAsync(string method, object parameters)
-        {
-            var notificationPayload = JsonCodec.Serialize(new
-            {
-                jsonrpc = "2.0",
-                method = method,
-                @params = parameters
-            });
-
-            var eventChunk = $"event: message\ndata: {notificationPayload}\n\n";
-            var bytes = Encoding.UTF8.GetBytes(eventChunk);
-
-            foreach (var kvp in _sessions)
-            {
-                await SendRawBytesDirectAsync(kvp.Value, bytes).ConfigureAwait(false);
-            }
-        }
-
-        public async Task SendRawBytesDirectAsync(SSESession session, byte[] bytes)
+        /// <summary>Returns false when the frame could not be written, which means the client is gone.</summary>
+        public async Task<bool> SendRawBytesDirectAsync(SSESession session, byte[] bytes)
         {
             if (session == null || bytes == null || bytes.Length == 0)
-                return;
+                return false;
 
             NetworkStream stream;
             lock (session.StreamLock)
@@ -249,16 +209,22 @@ namespace KitWright.Editor.MCP.Server.SSE
             }
 
             if (stream == null || !stream.CanWrite)
-                return;
+                return false;
 
+            await session.WriteGate.WaitAsync().ConfigureAwait(false);
             try
             {
                 await stream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
                 await stream.FlushAsync().ConfigureAwait(false);
+                return true;
             }
             catch
             {
-                // Disconnected socket will be swept by ping loop
+                return false;
+            }
+            finally
+            {
+                session.WriteGate.Release();
             }
         }
 
@@ -270,31 +236,12 @@ namespace KitWright.Editor.MCP.Server.SSE
                 while (!ct.IsCancellationRequested)
                 {
                     await Task.Delay(PingIntervalMs, ct).ConfigureAwait(false);
-
-                    NetworkStream stream;
-                    lock (session.StreamLock)
-                    {
-                        stream = session.ActiveStream;
-                    }
-
-                    if (stream == null || !stream.CanWrite)
+                    if (!await SendRawBytesDirectAsync(session, pingBytes).ConfigureAwait(false))
                         break;
-
-                    try
-                    {
-                        await stream.WriteAsync(pingBytes, 0, pingBytes.Length, ct).ConfigureAwait(false);
-                        await stream.FlushAsync(ct).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        // Ping failed -> client dead
-                        break;
-                    }
                 }
             }
             catch (OperationCanceledException)
             {
-                // Normal cancellation
             }
             finally
             {

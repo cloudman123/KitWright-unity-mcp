@@ -125,7 +125,6 @@ namespace KitWright.Editor.Services.UnityLogs
         // Stack traces get their own, larger cap: MaxEmittedLineLength (300) is sized for a
         // single message line, but a stack trace is legitimately many lines and callers ask
         // for it specifically to see those frames -- still capped so one giant trace can't
-        // blow up the response.
         private const int MaxStackTraceLength = 2000;
 
         internal static string FormatStackTrace(string stackTrace)

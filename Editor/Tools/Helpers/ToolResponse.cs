@@ -7,15 +7,12 @@ using UnityEngine;
 
 namespace KitWright.Editor.Tools.Helpers
 {
-    /// <summary>
     /// Standardized response wrapper for MCP tool returns. Tools that return
     /// <see cref="Response"/> objects (or any non-string object) get serialized
     /// to JSON by <c>FunctionInvoker</c> so MCP clients can reliably
     /// parse <c>{ success, message, data }</c> instead of free-form strings.
-    ///
     /// Success: { success: true, message: "...", data?: {...}, hint?: "..." }
     /// Error:   { success: false, code: "...", error: "...", data?: {...}, hint?: "..." }
-    /// </summary>
     internal static class Response
     {
         public static object Success(string message, object data = null, string hint = null)
@@ -43,10 +40,7 @@ namespace KitWright.Editor.Tools.Helpers
         }
     }
 
-    /// <summary>
     /// Pre-serialized <see cref="Response"/> errors, for call sites that must return a JSON
-    /// string rather than an object.
-    /// </summary>
     internal static class ToolResultFormatter
     {
         public static string Error(string code, object data = null, string hint = null)

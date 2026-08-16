@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using KitWright.Editor.MCP.Server;
+using KitWright.Editor.MCP.Server.SSE;
 using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEngine;
@@ -27,6 +28,13 @@ namespace KitWright.Editor
 
         // A full 64-hex identity; only the first ProjectIdentity.PinLength chars form the pin.
         private const string IdentityAaaa = "aaaa1111" + "00000000000000000000000000000000000000000000000000000000";
+
+        [TearDown]
+        public void ClearSseSessions()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 15_000;
+            SSESessionManager.Instance.ResetForTests();
+        }
 
         [Test]
         public void ExtractPin_ReadsThePSegmentAndIgnoresTheQuery()
@@ -536,7 +544,6 @@ namespace KitWright.Editor
         [UnityTest]
         public IEnumerator PostInitialize_ReturnsMcpSessionIdHeader()
         {
-            SSESessionManager.Instance.ResetForTests();
             var port = GetFreeTcpPort();
             var transport = new HttpMCPTransport(port, ProjectIdentityA);
             transport.OnRequestReceived += (request, sendResponse) =>
@@ -567,14 +574,12 @@ namespace KitWright.Editor
             finally
             {
                 transport.Dispose();
-                SSESessionManager.Instance.ResetForTests();
             }
         }
 
         [UnityTest]
         public IEnumerator GetStream_WithoutValidSession_Returns404()
         {
-            SSESessionManager.Instance.ResetForTests();
             var port = GetFreeTcpPort();
             var transport = new HttpMCPTransport(port, ProjectIdentityA);
 
@@ -600,14 +605,12 @@ namespace KitWright.Editor
             finally
             {
                 transport.Dispose();
-                SSESessionManager.Instance.ResetForTests();
             }
         }
 
         [UnityTest]
         public IEnumerator GetStream_WithValidSession_ReceivesSseHeadersAndPing()
         {
-            SSESessionManager.Instance.ResetForTests();
             SSESessionManager.Instance.PingIntervalMs = 100; // fast ping for testing
             var session = SSESessionManager.Instance.CreateSession();
 
@@ -646,15 +649,111 @@ namespace KitWright.Editor
             finally
             {
                 transport.Dispose();
-                SSESessionManager.Instance.PingIntervalMs = 15_000;
-                SSESessionManager.Instance.ResetForTests();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator PostRequest_WithoutSessionId_StillSucceeds()
+        {
+            // A session exists, so the server has handed an id out; a client that never echoes it
+            // must still be served, or every config written before sessions existed breaks.
+            SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+            transport.OnRequestReceived += (request, sendResponse) =>
+                sendResponse(new MCPResponse
+                {
+                    Id = request.Id,
+                    Result = new Dictionary<string, object> { ["served"] = true }
+                });
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                using (var content = new StringContent(
+                    "{\"jsonrpc\":\"2.0\",\"id\":\"no-session\",\"method\":\"tools/list\",\"params\":{}}",
+                    Encoding.UTF8,
+                    "application/json"))
+                {
+                    var responseTask = client.PostAsync("http://127.0.0.1:" + port + "/", content);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode,
+                        "A POST without Mcp-Session-Id must still be served.");
+                    Assert.That(response.Content.ReadAsStringAsync().Result, Does.Contain("served"));
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator LoggingSetLevel_FiltersAndPushesLogNotification()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 30_000; // keep pings out of the read
+            var session = SSESessionManager.Instance.CreateSession();
+            SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "warning");
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient())
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask, 3f);
+                    Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
+
+                    using (var stream = responseTask.Result.Content.ReadAsStreamAsync().Result)
+                    {
+                        // Below the configured level: must never reach the client.
+                        var belowTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                            LogType.Log, "BelowThresholdMessage", null);
+                        yield return WaitForTask(belowTask, 2f);
+
+                        var aboveTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                            LogType.Error, "AboveThresholdMessage", null);
+                        yield return WaitForTask(aboveTask, 2f);
+
+                        var buffer = new byte[2048];
+                        var readTask = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(readTask, 2f);
+                        var text = Encoding.UTF8.GetString(buffer, 0, readTask.Result);
+
+                        Assert.That(text, Does.Contain("notifications/message"));
+                        Assert.That(text, Does.Contain("AboveThresholdMessage"));
+                        Assert.That(text, Does.Contain("\"level\":\"error\""));
+                        Assert.That(text, Does.Not.Contain("BelowThresholdMessage"),
+                            "A log under the level the client set must be dropped.");
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
             }
         }
 
         [UnityTest]
         public IEnumerator GetStream_DuplicateSession_Returns409Conflict()
         {
-            SSESessionManager.Instance.ResetForTests();
             SSESessionManager.Instance.PingIntervalMs = 1000;
             var session = SSESessionManager.Instance.CreateSession();
 
@@ -690,15 +789,12 @@ namespace KitWright.Editor
             finally
             {
                 transport.Dispose();
-                SSESessionManager.Instance.PingIntervalMs = 15_000;
-                SSESessionManager.Instance.ResetForTests();
             }
         }
 
         [UnityTest]
         public IEnumerator GetStream_ReceivesPingAndEvictsOnDisconnect()
         {
-            SSESessionManager.Instance.ResetForTests();
             SSESessionManager.Instance.PingIntervalMs = 50;
             var session = SSESessionManager.Instance.CreateSession();
 
@@ -721,10 +817,8 @@ namespace KitWright.Editor
                 Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
                 Assert.IsNotNull(session.ActiveStream, "Session should have active stream.");
 
-                // Client disconnects
                 client.Dispose();
 
-                // Wait for ping loop to detect disconnect and detach stream
                 var waited = 0f;
                 while (session.ActiveStream != null && waited < 2f)
                 {
@@ -737,8 +831,6 @@ namespace KitWright.Editor
             finally
             {
                 transport.Dispose();
-                SSESessionManager.Instance.PingIntervalMs = 15_000;
-                SSESessionManager.Instance.ResetForTests();
             }
         }
 

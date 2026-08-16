@@ -15,10 +15,8 @@ using UnityEngine;
 
 namespace KitWright.Editor.MCP.Server
 {
-    /// <summary>
     /// HTTP transport implementation for MCP using a loopback TCP listener.
     /// Listens for JSON-RPC requests over HTTP.
-    /// </summary>
     internal class HttpMCPTransport : IMCPTransport
     {
         // Hot Reload replaces the transport without a domain reload, leaking the old bound
@@ -27,7 +25,6 @@ namespace KitWright.Editor.MCP.Server
         private static readonly object s_activeListenerLock = new object();
 
         // Reclaiming the active listener steals whatever socket is bound on the port, so a plain
-        // start must never do it — two live sibling transports would fight over one port. Only the
         // restart paths (post-reload / settings change), which know the previous owner is gone or
         // going, arm this for the next start to sweep a listener a hot-patch leaked.
         private static bool s_reclaimOrphanOnNextStart;
@@ -87,7 +84,6 @@ namespace KitWright.Editor.MCP.Server
         // otherwise reach whichever sibling editor now owns it — and that editor would answer,
         // applying the edits to the wrong project. Refusing a mismatched pin turns that silent
         // wrong-project write into a visible 404.
-        //
         // A path with no pin is accepted: configs written before pinning exist in the wild, and
         // re-running Configure is what upgrades them.
         internal bool PathTargetsAnotherProject(string path)
@@ -222,7 +218,6 @@ namespace KitWright.Editor.MCP.Server
             }
             catch
             {
-                // Best-effort cleanup after a failed bind.
             }
             finally
             {
@@ -328,7 +323,7 @@ namespace KitWright.Editor.MCP.Server
 
                     if (!IsValidOrigin(httpRequest.Origin))
                     {
-                        await SendForbiddenAsync(stream, "Origin not allowed", ct);
+                        await SendHtmlStatusAsync(stream, HttpStatusCode.Forbidden, "Forbidden", "Origin not allowed", ct);
                         return;
                     }
 
@@ -348,22 +343,18 @@ namespace KitWright.Editor.MCP.Server
                     {
                         if (httpRequest.AcceptsEventStream)
                         {
-                            if (string.IsNullOrEmpty(httpRequest.SessionId) ||
-                                !SSESessionManager.Instance.TryGetSession(httpRequest.SessionId, out var session))
-                            {
-                                await SendNotFoundAsync(stream, "Session not found or expired. Please re-initialize.", ct);
-                                return;
-                            }
-
-                            var attachResult = SSESessionManager.Instance.TryAttachStream(httpRequest.SessionId, stream, out session);
-                            if (attachResult == AttachStreamResult.StreamAlreadyAttached)
-                            {
-                                await SendConflictAsync(stream, "Another stream is already connected to this session.", ct);
-                                return;
-                            }
+                            var attachResult = SSESessionManager.Instance.TryAttachStream(
+                                httpRequest.SessionId, stream, out var session);
                             if (attachResult == AttachStreamResult.SessionNotFound)
                             {
-                                await SendNotFoundAsync(stream, "Session not found or expired.", ct);
+                                await SendHtmlStatusAsync(stream, HttpStatusCode.NotFound, "Not Found",
+                                    "Session not found or expired. Please re-initialize.", ct);
+                                return;
+                            }
+                            if (attachResult == AttachStreamResult.StreamAlreadyAttached)
+                            {
+                                await SendHtmlStatusAsync(stream, HttpStatusCode.Conflict, "Conflict",
+                                    "Another stream is already connected to this session.", ct);
                                 return;
                             }
 
@@ -398,7 +389,7 @@ namespace KitWright.Editor.MCP.Server
                     }
                     else if (!string.IsNullOrEmpty(httpRequest.SessionId))
                     {
-                        SSESessionManager.Instance.TouchSession(httpRequest.SessionId);
+                        SSESessionManager.Instance.TryGetSession(httpRequest.SessionId, out _);
                     }
 
                     var requestReceived = OnRequestReceived;
@@ -621,11 +612,9 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        /// <summary>
         /// Streamable-HTTP style response: an SSE body that carries the pending
         /// tools/list_changed notification followed by the JSON-RPC response.
         /// Only used when the client declared Accept: text/event-stream.
-        /// </summary>
         private async Task SendSseResponseAsync(NetworkStream stream, MCPResponse mcpResponse, CancellationToken ct, string extraHeaders = "")
         {
             try
@@ -662,22 +651,10 @@ namespace KitWright.Editor.MCP.Server
             return false;
         }
 
-        private Task SendForbiddenAsync(NetworkStream stream, string message, CancellationToken ct)
+        private Task SendHtmlStatusAsync(NetworkStream stream, HttpStatusCode code, string reason, string message, CancellationToken ct)
         {
-            var body = $"<html><body><h1>403 Forbidden</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
-            return SendRawResponseAsync(stream, (int)HttpStatusCode.Forbidden, "Forbidden", "text/html; charset=utf-8", body, ct);
-        }
-
-        private Task SendNotFoundAsync(NetworkStream stream, string message, CancellationToken ct)
-        {
-            var body = $"<html><body><h1>404 Not Found</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
-            return SendRawResponseAsync(stream, (int)HttpStatusCode.NotFound, "Not Found", "text/html; charset=utf-8", body, ct);
-        }
-
-        private Task SendConflictAsync(NetworkStream stream, string message, CancellationToken ct)
-        {
-            var body = $"<html><body><h1>409 Conflict</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
-            return SendRawResponseAsync(stream, (int)HttpStatusCode.Conflict, "Conflict", "text/html; charset=utf-8", body, ct);
+            var body = $"<html><body><h1>{(int)code} {reason}</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
+            return SendRawResponseAsync(stream, (int)code, reason, "text/html; charset=utf-8", body, ct);
         }
 
         private async Task HandleSseStreamAsync(SSESessionManager.SSESession session, NetworkStream stream, CancellationToken ct)
@@ -698,7 +675,6 @@ namespace KitWright.Editor.MCP.Server
                 await stream.WriteAsync(headerBytes, 0, headerBytes.Length, ct).ConfigureAwait(false);
                 await stream.FlushAsync(ct).ConfigureAwait(false);
 
-                // Run ping loop and await until client disconnects or ct is cancelled
                 await SSESessionManager.Instance.RunSsePingLoopAsync(session, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
@@ -789,7 +765,6 @@ namespace KitWright.Editor.MCP.Server
             return SendRawResponseAsync(stream, (int)HttpStatusCode.Accepted, "Accepted", "text/plain", string.Empty, ct);
         }
 
-        // GET in a browser is a human sanity-check ("is the server up?"), not an MCP request.
         // MCP clients only POST, so return a plain status page instead of an SSE stream that spins forever.
         private Task SendStatusPageAsync(NetworkStream stream, CancellationToken ct)
         {
@@ -900,7 +875,6 @@ namespace KitWright.Editor.MCP.Server
 
         // Mono binds listening sockets with the inherit flag set, so every process Unity spawns
         // afterwards (other MCP servers, compiler workers, node) receives a duplicate of this
-        // handle. The port then stays bound after Unity exits, for as long as any of those
         // children lives, and the next editor has to fall forward to a different port.
         // Windows-only on purpose: on macOS/Linux Mono already opens sockets with FD_CLOEXEC,
         // so there is nothing to clear and no portable equivalent worth P/Invoking for.

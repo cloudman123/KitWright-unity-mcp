@@ -49,14 +49,7 @@ namespace KitWright.Editor.Tests
                 if (secondRoot != null) UnityEngine.Object.DestroyImmediate(secondRoot);
                 if (inactiveByName != null) UnityEngine.Object.DestroyImmediate(inactiveByName);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -147,9 +140,7 @@ namespace KitWright.Editor.Tests
             }
         }
 
-        // ------------------------------------------------------------------
         //  Edge cases: GetHierarchy boundary conditions
-        // ------------------------------------------------------------------
 
         [Test]
         public void GetHierarchy_DepthZero_ClampedToOneStillReturnsHierarchy()
@@ -233,14 +224,7 @@ namespace KitWright.Editor.Tests
             {
                 if (target != null) UnityEngine.Object.DestroyImmediate(target);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -272,14 +256,7 @@ namespace KitWright.Editor.Tests
                 if (activeObj != null) UnityEngine.Object.DestroyImmediate(activeObj);
                 if (inactiveObj != null) UnityEngine.Object.DestroyImmediate(inactiveObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -307,14 +284,7 @@ namespace KitWright.Editor.Tests
             {
                 if (inactiveObj != null) UnityEngine.Object.DestroyImmediate(inactiveObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -348,14 +318,7 @@ namespace KitWright.Editor.Tests
             {
                 if (testObj != null) UnityEngine.Object.DestroyImmediate(testObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -394,14 +357,7 @@ namespace KitWright.Editor.Tests
             {
                 if (testObj != null) UnityEngine.Object.DestroyImmediate(testObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -431,14 +387,7 @@ namespace KitWright.Editor.Tests
             {
                 if (parent != null) UnityEngine.Object.DestroyImmediate(parent);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -475,18 +424,10 @@ namespace KitWright.Editor.Tests
             {
                 if (parent != null) UnityEngine.Object.DestroyImmediate(parent);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
-        // Checked immediately before a scene swap, not once per test: anything can dirty a scene
         // while the run is in flight, and swapping a dirty scene opens Unity's save prompt.
         internal static void SkipIfAnySceneDirty()
         {
