@@ -81,6 +81,8 @@ namespace KitWright.Editor.Tests
             string additiveRootName = "KitWrightAdditiveRoot_" + suffix;
             string inactiveRootName = "KitWrightInactiveAdditiveRoot_" + suffix;
 
+            SkipIfAnySceneDirty();
+
             try
             {
                 EnsureFolder(tempFolder);
@@ -129,6 +131,8 @@ namespace KitWright.Editor.Tests
             }
             finally
             {
+                SettleDirtyScenes(tempFolder);
+
                 if (canRestoreOriginalSetup)
                 {
                     EditorSceneManager.RestoreSceneManagerSetup(originalSetup);
@@ -482,6 +486,15 @@ namespace KitWright.Editor.Tests
             }
         }
 
+        // Checked immediately before a scene swap, not once per test: anything can dirty a scene
+        // while the run is in flight, and swapping a dirty scene opens Unity's save prompt.
+        internal static void SkipIfAnySceneDirty()
+        {
+            if (!Application.isBatchMode && AnyLoadedSceneIsDirty())
+                Assert.Ignore("Skipping: replacing a modified scene opens Unity's save prompt, " +
+                              "and that modal blocks the editor loop the MCP server pumps on.");
+        }
+
         internal static bool AnyLoadedSceneIsDirty()
         {
             for (int i = 0; i < SceneManager.sceneCount; i++)
@@ -490,6 +503,35 @@ namespace KitWright.Editor.Tests
                     return true;
             }
             return false;
+        }
+
+        // Restoring over a dirty scene opens Unity's save prompt, which blocks the whole run.
+        // Only the scenes these tests created may be written: SkipIfAnySceneDirty proved every
+        // other loaded scene was clean before the swap, so anything dirty on one now came from
+        // the run itself, and saving it would commit test residue into the user's own project.
+        internal static void SettleDirtyScenes(string ownedPathPrefix)
+        {
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.isDirty || string.IsNullOrEmpty(scene.path))
+                    continue;
+
+                if (scene.path.StartsWith(ownedPathPrefix, StringComparison.Ordinal))
+                    EditorSceneManager.SaveScene(scene);
+                else
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        internal static void ClearSceneDirtiness(Scene scene)
+        {
+            var method = typeof(EditorSceneManager).GetMethod(
+                "ClearSceneDirtiness",
+                System.Reflection.BindingFlags.Static |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic);
+            method?.Invoke(null, new object[] { scene });
         }
 
         private static bool CanRestoreSceneSetup(SceneSetup[] setup)

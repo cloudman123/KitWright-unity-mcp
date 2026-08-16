@@ -225,6 +225,8 @@ namespace KitWright.Editor.Services.UnityLogs
                 while (_logs.Count > MaxLogs)
                     _logs.RemoveAt(0);
             }
+
+            _ = MCP.Server.SSE.SSESessionManager.Instance.BroadcastLogNotificationAsync(type, message, stackTrace);
         }
 
         private static bool MatchesFilter(LogType type, string filter)

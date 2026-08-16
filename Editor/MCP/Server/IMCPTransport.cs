@@ -33,6 +33,7 @@ namespace KitWright.Editor.MCP.Server
         public string Method { get; set; }
         public Dictionary<string, object> Params { get; set; }
         public bool IsBrokerRedelivery { get; set; }
+        public string SessionId { get; set; }
     }
 
     internal class MCPResponse

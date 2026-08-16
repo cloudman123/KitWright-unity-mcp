@@ -408,7 +408,7 @@ namespace KitWright.Editor.MCP.Server
                 }
 
                 // Metadata requests skip the editor thread so reconnect works while it's throttled.
-                if (!RequiresEditorThread(request?.Method))
+                if (!RequiresEditorThread(request?.Method) || CallsOffEditorThreadTool(request))
                 {
                     var metaResponse = await requestHandler.HandleRequestAsync(request, default);
                     sendResponse(metaResponse);
@@ -456,6 +456,19 @@ namespace KitWright.Editor.MCP.Server
         {
             return string.Equals(method, "tools/call", StringComparison.Ordinal)
                 || string.Equals(method, "resources/read", StringComparison.Ordinal);
+        }
+
+        // Tools marked [OffEditorThread] exist to answer while a modal owns the editor loop, so
+        // they must not be queued behind it.
+        private static bool CallsOffEditorThreadTool(MCPRequest request)
+        {
+            if (!string.Equals(request?.Method, "tools/call", StringComparison.Ordinal))
+                return false;
+
+            if (request.Params == null || !request.Params.TryGetValue("name", out var name))
+                return false;
+
+            return ToolRegistry.RunsOffEditorThread(name as string);
         }
 
         private void HandleSettingsChanged()

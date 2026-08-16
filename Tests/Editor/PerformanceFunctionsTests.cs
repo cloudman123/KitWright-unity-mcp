@@ -29,6 +29,8 @@ namespace KitWright.Editor.Tests
             var activeScenePath = tempFolder + "/Active_" + suffix + ".unity";
             var additiveScenePath = tempFolder + "/Additive_" + suffix + ".unity";
 
+            HierarchyFunctionsTests.SkipIfAnySceneDirty();
+
             try
             {
                 EnsureFolder(tempFolder);
@@ -61,6 +63,8 @@ namespace KitWright.Editor.Tests
             }
             finally
             {
+                HierarchyFunctionsTests.SettleDirtyScenes(tempFolder);
+
                 if (canRestoreOriginalSetup)
                 {
                     EditorSceneManager.RestoreSceneManagerSetup(originalSetup);

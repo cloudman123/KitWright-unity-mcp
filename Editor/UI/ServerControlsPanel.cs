@@ -116,14 +116,20 @@ namespace KitWright.Editor.MCP.Server
                 _settings.MCPBrokerModeEnabled = enabled;
                 UpdateBrokerControls(enabled);
 
+                // Switching to Direct: the broker still owns the configured port, so the in-process
+                // listener would fall forward to the next free one and rewrite every client config.
+                if (!enabled)
+                    MCPBrokerProcessManager.Stop();
+
                 if (_settings.MCPServerEnabled)
                 {
+                    // The restart probes broker health, so the status refresh below would report
+                    // the old stopped state and never correct itself.
+                    _connecting = true;
+                    UpdateConnectButton();
                     _ = _server.StopAsync();
-                    EditorApplication.delayCall += () => _ = _server.StartAsync();
-                }
-                else if (!enabled)
-                {
-                    MCPBrokerProcessManager.Stop();
+                    StartAndRebuild();
+                    return;
                 }
 
                 EditorApplication.delayCall += () =>
@@ -178,6 +184,16 @@ namespace KitWright.Editor.MCP.Server
             label.style.maxWidth = FieldLabelWidth;
         }
 
+        // StartAsync blocks until its first await (port probing, broker spawn), so yield a frame to
+        // let the button repaint, then rebuild once Port finally lands -- the Client Configuration
+        // snippet renders that port, not the setting.
+        private void StartAndRebuild()
+        {
+            EditorApplication.delayCall += () => _server.StartAsync().ContinueWith(
+                _ => EditorApplication.delayCall += () => _rebuildWindow(),
+                TaskScheduler.Default);
+        }
+
         private void ToggleServer()
         {
             var enable = !_settings.MCPServerEnabled;
@@ -186,13 +202,7 @@ namespace KitWright.Editor.MCP.Server
             {
                 _connecting = true;
                 UpdateConnectButton();
-
-                // StartAsync blocks until its first await (port probing, broker spawn), so yield
-                // a frame to let the button repaint, then rebuild once Port finally lands -- the
-                // Client Configuration snippet renders that port, not the setting.
-                EditorApplication.delayCall += () => _server.StartAsync().ContinueWith(
-                    _ => EditorApplication.delayCall += () => _rebuildWindow(),
-                    TaskScheduler.Default);
+                StartAndRebuild();
                 return;
             }
 

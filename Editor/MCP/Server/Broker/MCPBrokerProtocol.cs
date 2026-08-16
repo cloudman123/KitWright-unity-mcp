@@ -7,7 +7,9 @@ namespace KitWright.Editor.MCP.Server
         // v2: pull responses carry AcceptSseHeader (client's Accept: text/event-stream),
         //     push requests may carry ContentTypeHeader to override the client-facing
         //     response content type (used for SSE-piggybacked notifications).
-        public const int Version = 2;
+        // v3: a tools/call that arrives while no Unity backend is attached comes back as an
+        //     ordinary tool result telling the agent to retry, not a JSON-RPC error.
+        public const int Version = 3;
         public const string Name = "kitwright-unity-mcp-broker";
         public const string HealthPath = "/_kitwright/broker/health";
         public const string AttachPath = "/_kitwright/broker/attach";

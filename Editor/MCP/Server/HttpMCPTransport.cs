@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using KitWright.Editor.MCP.Server.SSE;
 using KitWright.Editor.Settings;
 using UnityEngine;
 
@@ -325,6 +326,12 @@ namespace KitWright.Editor.MCP.Server
                     if (httpRequest == null)
                         return;
 
+                    if (!IsValidOrigin(httpRequest.Origin))
+                    {
+                        await SendForbiddenAsync(stream, "Origin not allowed", ct);
+                        return;
+                    }
+
                     if (httpRequest.Method == "OPTIONS")
                     {
                         await SendOptionsResponseAsync(stream, ct);
@@ -339,6 +346,31 @@ namespace KitWright.Editor.MCP.Server
 
                     if (httpRequest.Method == "GET")
                     {
+                        if (httpRequest.AcceptsEventStream)
+                        {
+                            if (string.IsNullOrEmpty(httpRequest.SessionId) ||
+                                !SSESessionManager.Instance.TryGetSession(httpRequest.SessionId, out var session))
+                            {
+                                await SendNotFoundAsync(stream, "Session not found or expired. Please re-initialize.", ct);
+                                return;
+                            }
+
+                            var attachResult = SSESessionManager.Instance.TryAttachStream(httpRequest.SessionId, stream, out session);
+                            if (attachResult == AttachStreamResult.StreamAlreadyAttached)
+                            {
+                                await SendConflictAsync(stream, "Another stream is already connected to this session.", ct);
+                                return;
+                            }
+                            if (attachResult == AttachStreamResult.SessionNotFound)
+                            {
+                                await SendNotFoundAsync(stream, "Session not found or expired.", ct);
+                                return;
+                            }
+
+                            await HandleSseStreamAsync(session, stream, ct);
+                            return;
+                        }
+
                         await SendStatusPageAsync(stream, ct);
                         return;
                     }
@@ -354,6 +386,19 @@ namespace KitWright.Editor.MCP.Server
                     {
                         await SendErrorResponseAsync(stream, null, -32700, "Parse error", ct);
                         return;
+                    }
+
+                    request.SessionId = httpRequest.SessionId;
+                    var extraHeaders = string.Empty;
+
+                    if (string.Equals(request.Method, "initialize", StringComparison.Ordinal))
+                    {
+                        var newSession = SSESessionManager.Instance.CreateSession();
+                        extraHeaders = $"Mcp-Session-Id: {newSession.SessionId}\r\n";
+                    }
+                    else if (!string.IsNullOrEmpty(httpRequest.SessionId))
+                    {
+                        SSESessionManager.Instance.TouchSession(httpRequest.SessionId);
                     }
 
                     var requestReceived = OnRequestReceived;
@@ -384,11 +429,11 @@ namespace KitWright.Editor.MCP.Server
                                          !string.Equals(request.Method, "initialize", StringComparison.Ordinal) &&
                                          MCPToolListChangeNotifier.TryConsumePending())
                                 {
-                                    await SendSseResponseAsync(stream, response, ct);
+                                    await SendSseResponseAsync(stream, response, ct, extraHeaders);
                                 }
                                 else
                                 {
-                                    await SendResponseAsync(stream, response, ct);
+                                    await SendResponseAsync(stream, response, ct, extraHeaders);
                                 }
                             }
                             else
@@ -470,6 +515,8 @@ namespace KitWright.Editor.MCP.Server
 
             var contentLength = 0;
             var acceptsEventStream = false;
+            string sessionId = null;
+            string origin = null;
             for (var i = 1; i < lines.Length; i++)
             {
                 var separator = lines[i].IndexOf(':');
@@ -487,6 +534,14 @@ namespace KitWright.Editor.MCP.Server
                 {
                     acceptsEventStream = lines[i].Substring(separator + 1)
                         .IndexOf("text/event-stream", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+                else if (string.Equals(name, "Mcp-Session-Id", StringComparison.OrdinalIgnoreCase))
+                {
+                    sessionId = lines[i].Substring(separator + 1).Trim();
+                }
+                else if (string.Equals(name, "Origin", StringComparison.OrdinalIgnoreCase))
+                {
+                    origin = lines[i].Substring(separator + 1).Trim();
                 }
             }
 
@@ -509,6 +564,8 @@ namespace KitWright.Editor.MCP.Server
                 Method = requestLineParts[0],
                 Path = requestLineParts.Length > 1 ? requestLineParts[1] : "/",
                 AcceptsEventStream = acceptsEventStream,
+                SessionId = sessionId,
+                Origin = origin,
                 Body = Encoding.UTF8.GetString(bodyBytes, 0, copied)
             };
         }
@@ -551,12 +608,12 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        private async Task SendResponseAsync(NetworkStream stream, MCPResponse mcpResponse, CancellationToken ct)
+        private async Task SendResponseAsync(NetworkStream stream, MCPResponse mcpResponse, CancellationToken ct, string extraHeaders = "")
         {
             try
             {
                 var json = SerializeResponse(mcpResponse);
-                await SendRawResponseAsync(stream, 200, "OK", "application/json; charset=utf-8", json, ct);
+                await SendRawResponseAsync(stream, 200, "OK", "application/json; charset=utf-8", json, ct, extraHeaders);
             }
             catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
             {
@@ -569,12 +626,12 @@ namespace KitWright.Editor.MCP.Server
         /// tools/list_changed notification followed by the JSON-RPC response.
         /// Only used when the client declared Accept: text/event-stream.
         /// </summary>
-        private async Task SendSseResponseAsync(NetworkStream stream, MCPResponse mcpResponse, CancellationToken ct)
+        private async Task SendSseResponseAsync(NetworkStream stream, MCPResponse mcpResponse, CancellationToken ct, string extraHeaders = "")
         {
             try
             {
                 var body = MCPToolListChangeNotifier.BuildSseBody(SerializeResponse(mcpResponse));
-                await SendRawResponseAsync(stream, 200, "OK", "text/event-stream", body, ct);
+                await SendRawResponseAsync(stream, 200, "OK", "text/event-stream", body, ct, extraHeaders);
                 PluginDebugLogger.Log("[KitWright MCP Server] Delivered tools/list_changed notification via SSE response.");
             }
             catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
@@ -586,6 +643,75 @@ namespace KitWright.Editor.MCP.Server
             {
                 MCPToolListChangeNotifier.RestorePending();
                 Debug.LogError($"[KitWright MCP Server] Failed to send response: {ex.Message}");
+            }
+        }
+
+        internal static bool IsValidOrigin(string origin)
+        {
+            if (string.IsNullOrEmpty(origin))
+                return true; // Absent origin is allowed for native CLI/IDE clients
+
+            if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            {
+                var host = uri.Host;
+                return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(host, "[::1]", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        private Task SendForbiddenAsync(NetworkStream stream, string message, CancellationToken ct)
+        {
+            var body = $"<html><body><h1>403 Forbidden</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
+            return SendRawResponseAsync(stream, (int)HttpStatusCode.Forbidden, "Forbidden", "text/html; charset=utf-8", body, ct);
+        }
+
+        private Task SendNotFoundAsync(NetworkStream stream, string message, CancellationToken ct)
+        {
+            var body = $"<html><body><h1>404 Not Found</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
+            return SendRawResponseAsync(stream, (int)HttpStatusCode.NotFound, "Not Found", "text/html; charset=utf-8", body, ct);
+        }
+
+        private Task SendConflictAsync(NetworkStream stream, string message, CancellationToken ct)
+        {
+            var body = $"<html><body><h1>409 Conflict</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>";
+            return SendRawResponseAsync(stream, (int)HttpStatusCode.Conflict, "Conflict", "text/html; charset=utf-8", body, ct);
+        }
+
+        private async Task HandleSseStreamAsync(SSESessionManager.SSESession session, NetworkStream stream, CancellationToken ct)
+        {
+            try
+            {
+                var headers = "HTTP/1.1 200 OK\r\n" +
+                              "Content-Type: text/event-stream; charset=utf-8\r\n" +
+                              "Cache-Control: no-cache, no-transform\r\n" +
+                              "Connection: keep-alive\r\n" +
+                              "Access-Control-Allow-Origin: *\r\n" +
+                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+                              "Access-Control-Allow-Headers: Content-Type, Accept, Mcp-Session-Id\r\n" +
+                              $"Mcp-Session-Id: {session.SessionId}\r\n" +
+                              "\r\n";
+
+                var headerBytes = Encoding.ASCII.GetBytes(headers);
+                await stream.WriteAsync(headerBytes, 0, headerBytes.Length, ct).ConfigureAwait(false);
+                await stream.FlushAsync(ct).ConfigureAwait(false);
+
+                // Run ping loop and await until client disconnects or ct is cancelled
+                await SSESessionManager.Instance.RunSsePingLoopAsync(session, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (IsExpectedClientDisconnect(ex, ct))
+            {
+                PluginDebugLogger.Log($"[KitWright MCP Server] SSE client disconnected: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[KitWright MCP Server] Error in SSE stream: {ex.Message}");
+            }
+            finally
+            {
+                SSESessionManager.Instance.DetachStream(session);
             }
         }
 
@@ -704,8 +830,8 @@ namespace KitWright.Editor.MCP.Server
                 $"Content-Length: {bodyBytes.Length}\r\n" +
                 "Connection: close\r\n" +
                 "Access-Control-Allow-Origin: *\r\n" +
-                "Access-Control-Allow-Methods: POST, OPTIONS\r\n" +
-                "Access-Control-Allow-Headers: Content-Type\r\n" +
+                "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+                "Access-Control-Allow-Headers: Content-Type, Accept, Mcp-Session-Id\r\n" +
                 extraHeaders +
                 "\r\n";
             var headerBytes = Encoding.ASCII.GetBytes(header);
@@ -814,6 +940,8 @@ namespace KitWright.Editor.MCP.Server
             public string Method { get; set; }
             public string Path { get; set; }
             public bool AcceptsEventStream { get; set; }
+            public string SessionId { get; set; }
+            public string Origin { get; set; }
             public string Body { get; set; }
         }
     }

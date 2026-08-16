@@ -2,6 +2,8 @@
 
 using System;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
+using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Services;
 using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 
@@ -19,36 +21,78 @@ namespace KitWright.Editor.Tools.Builtins
         // Menu items that open a modal, a file picker, or quit. A modal runs its own message loop,
         // so the editor stops pumping and this very call can never return -- the user has to click
         // the dialog before anything recovers.
-        private static readonly string[] BlockingMenuPaths =
+        // Tool names the MCP tool that does the same job without the dialog; null when none does.
+        // Order matters: the first prefix match wins.
+        private static readonly (string Path, string Tool)[] BlockingMenuPaths =
         {
-            "File/New Scene",
-            "File/Open Scene",
-            "File/Open Recent Scene",
-            "File/Save As",
-            "File/Save Scene As",
-            "File/Build And Run",
-            "File/Build Profiles",
-            "File/Build Settings",
-            "File/Exit",
-            "File/Quit",
-            "Assets/Import New Asset",
-            "Assets/Import Package",
-            "Assets/Export Package",
-            "Help/About Unity",
+            ("File/New Scene", "create_new_scene"),
+            ("File/Open Scene", "open_scene"),
+            ("File/Open Recent Scene", null),
+            ("File/Save As", "save_scene"),
+            ("File/Save Scene As", "save_scene"),
+            ("File/Build And Run", "build_player"),
+            ("File/Build Profiles", "build_player"),
+            ("File/Build Settings", "build_player"),
+            ("File/Exit", null),
+            ("File/Quit", null),
+            ("File/New Project", null),
+            ("File/Open Project", null),
+            ("Edit/Clear All PlayerPrefs", "delete_all_player_prefs"),
+            ("Assets/Import New Asset", null),
+            ("Assets/Import Package", "install_package"),
+            ("Assets/Export Package", null),
+            ("Assets/Reimport All", null),
+            ("Assets/Delete", "delete_asset"),
+            ("Help/About Unity", null),
         };
+
+        // A menu item that opens a modal does not return until a human clicks it, so a long
+        // ExecuteMenuItem is the signal. The curated list above only saves the first hang.
+        private const int ModalSuspicionMs = 10_000;
+
+        // EditorPrefs is per Unity install, not per project, so the key carries the project pin -
+        // a menu item that blocks in one project says nothing about another.
+        internal static string LearnedKey =>
+            "KitWright.MenuItem.LearnedModal." + ProjectIdentity.PinFromProjectPath(ApplicationPaths.ProjectRoot);
+
+        internal static string[] LearnedModalPaths()
+        {
+            var raw = EditorPrefs.GetString(LearnedKey, string.Empty);
+            return string.IsNullOrEmpty(raw) ? Array.Empty<string>() : raw.Split('\n');
+        }
+
+        internal static void ForgetLearnedModalPaths() => EditorPrefs.DeleteKey(LearnedKey);
+
+        private static void LearnModalPath(string menuPath)
+        {
+            var paths = new System.Collections.Generic.HashSet<string>(LearnedModalPaths(), StringComparer.OrdinalIgnoreCase);
+            if (paths.Add(menuPath))
+                EditorPrefs.SetString(LearnedKey, string.Join("\n", paths));
+        }
 
         internal static string MatchBlockingMenuPath(string menuPath)
         {
+            return MatchBlocking(menuPath).Path;
+        }
+
+        private static (string Path, string Tool) MatchBlocking(string menuPath)
+        {
             if (string.IsNullOrWhiteSpace(menuPath))
-                return null;
+                return default;
 
             var trimmed = menuPath.Trim().TrimEnd('.', '…');
-            foreach (var blocked in BlockingMenuPaths)
+            foreach (var entry in BlockingMenuPaths)
             {
-                if (trimmed.StartsWith(blocked, StringComparison.OrdinalIgnoreCase))
-                    return blocked;
+                if (trimmed.StartsWith(entry.Path, StringComparison.OrdinalIgnoreCase))
+                    return entry;
             }
-            return null;
+
+            foreach (var learned in LearnedModalPaths())
+            {
+                if (string.Equals(trimmed, learned, StringComparison.OrdinalIgnoreCase))
+                    return (learned, null);
+            }
+            return default;
         }
 
         [Description("Execute an editor menu item by its full path. " +
@@ -64,28 +108,57 @@ namespace KitWright.Editor.Tools.Builtins
             if (string.IsNullOrWhiteSpace(menu_path))
                 return Response.Error("MENU_PATH_REQUIRED", new { message = "menu_path cannot be empty." });
 
-            var blocking = allow_modal ? null : MatchBlockingMenuPath(menu_path);
-            if (blocking != null)
+            var blocking = allow_modal ? default : MatchBlocking(menu_path);
+            if (blocking.Path != null)
             {
-                return Response.Error("MENU_ITEM_OPENS_MODAL", new { menu_path, matched = blocking },
-                    $"'{blocking}' opens a modal dialog or file picker. That blocks the editor loop this call " +
-                    "returns on, so the call would hang until a human dismissed it. Use a dedicated tool instead " +
-                    "(save_scene, open_scene, create_new_scene, build_player, install_package), or pass " +
+                return Response.Error("MENU_ITEM_OPENS_MODAL",
+                    new { menu_path, matched = blocking.Path, tool_instead = blocking.Tool },
+                    $"'{blocking.Path}' opens a modal dialog or file picker. That blocks the editor loop this call " +
+                    "returns on, so the call would hang until a human dismissed it. " +
+                    (blocking.Tool != null ? $"Use {blocking.Tool} instead, or pass " : "Pass ") +
                     "allow_modal=true if someone is at the editor to click it.");
             }
 
             try
             {
+                var startedAt = DateTime.UtcNow;
                 var ok = EditorApplication.ExecuteMenuItem(menu_path);
+                var elapsed = DateTime.UtcNow - startedAt;
+
                 if (!ok)
                     return Response.Error("MENU_ITEM_NOT_FOUND",
                         new { menu_path, hint = "Verify the path matches the editor menu hierarchy exactly (case sensitive, '/' separated)." });
-                return Response.Success($"Executed menu item '{menu_path}'.");
+
+                if (elapsed.TotalMilliseconds < ModalSuspicionMs)
+                    return Response.Success($"Executed menu item '{menu_path}'.");
+
+                var trimmed = menu_path.Trim().TrimEnd('.', '…');
+                LearnModalPath(trimmed);
+                return Response.Success(
+                    $"Executed menu item '{menu_path}' after {elapsed.TotalSeconds:F0}s.",
+                    new { menu_path, seconds = Math.Round(elapsed.TotalSeconds), learned_as_modal = trimmed },
+                    "It took long enough that it almost certainly waited on a dialog, so it is now refused by " +
+                    "default like the other modal openers. Pass allow_modal=true to run it again, or call " +
+                    "reset_learned_modal_menu_items if it was merely slow.");
             }
             catch (Exception ex)
             {
                 return Response.Error("MENU_EXECUTION_FAILED", new { message = ex.Message });
             }
+        }
+
+        [Description("List, and optionally clear, the menu paths this project learned open a modal dialog. " +
+                     "A path lands here when execute_menu_item took long enough that it must have waited on a " +
+                     "dialog; clear it if the item was merely slow.")]
+        public static object ResetLearnedModalMenuItems(
+            [ToolParam("Clear the learned list. Omit to only report it.", Required = false)] bool clear = false)
+        {
+            var learned = LearnedModalPaths();
+            if (!clear)
+                return Response.Success($"{learned.Length} learned modal menu path(s).", new { learned });
+
+            ForgetLearnedModalPaths();
+            return Response.Success($"Cleared {learned.Length} learned modal menu path(s).", new { cleared = learned });
         }
     }
 }

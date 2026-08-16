@@ -26,12 +26,16 @@ namespace KitWright.Editor.Tools.Builtins
         [Description("Run Unity Test Runner tests (EditMode or PlayMode) asynchronously. Returns a job_id immediately; " +
                      "poll get_test_job for status and results. Only one test run can be active at a time (a Unity Test " +
                      "Runner limitation). PlayMode runs enter Play Mode and trigger domain reloads -- the job state survives " +
-                     "them. Optional filters narrow the run to specific tests, categories, or assemblies.")]
+                     "them. Optional filters narrow the run to specific tests, categories, or assemblies. " +
+                     "Modified scenes are saved before the run by default, because the Test Framework raises Unity's " +
+                     "save prompt when a run starts and that modal blocks the editor.")]
         public static object RunTests(
             [ToolParam("Test mode: 'EditMode' or 'PlayMode'", Required = false)] string mode = "EditMode",
             [ToolParam("Comma-separated fully qualified test names to run (e.g. 'MyTests.LoginTest.CanLogin')", Required = false)] string test_names = null,
             [ToolParam("Comma-separated NUnit category names to run", Required = false)] string category_names = null,
-            [ToolParam("Comma-separated test assembly names to run (e.g. 'MyGame.Tests')", Required = false)] string assembly_names = null)
+            [ToolParam("Comma-separated test assembly names to run (e.g. 'MyGame.Tests')", Required = false)] string assembly_names = null,
+            [ToolParam("Save modified open scenes before running (default)", Required = false)] bool save_first = true,
+            [ToolParam("Drop unsaved changes in the open scenes. Takes precedence over save_first.", Required = false)] bool discard_unsaved = false)
         {
             TestMode testMode;
             switch ((mode ?? "EditMode").Trim().ToLowerInvariant())
@@ -51,6 +55,10 @@ namespace KitWright.Editor.Tools.Builtins
                     hint = "Poll get_test_job, or cancel_test_run if the run is stuck."
                 });
             }
+
+            var blocked = SceneFunctions.UnsavedChangesError(discard_unsaved, save_first);
+            if (blocked != null)
+                return blocked;
 
             var filter = new Filter { testMode = testMode };
             if (!string.IsNullOrWhiteSpace(test_names)) filter.testNames = SplitList(test_names);

@@ -96,6 +96,54 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void CreatePrimitive_AppliesRotationAndParentInOneCall()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var parent = new GameObject("PrimParent_" + suffix);
+            var childName = "PrimChild_" + suffix;
+            var orphanName = "PrimOrphan_" + suffix;
+
+            try
+            {
+                var invoker = new FunctionInvoker();
+                var created = invoker.Invoke(new FunctionCall
+                {
+                    FunctionName = "create_primitive",
+                    Parameters = new Dictionary<string, string>
+                    {
+                        ["primitive_type"] = "Cube",
+                        ["name"] = childName,
+                        ["rotation"] = "0,90,0",
+                        ["parent"] = parent.name
+                    }
+                });
+
+                StringAssert.Contains("\"success\":true", created);
+                var child = parent.transform.Find(childName);
+                Assert.IsNotNull(child, "The primitive must be created under the requested parent.");
+                Assert.AreEqual(90f, child.eulerAngles.y, 0.01f);
+
+                var missingParent = invoker.Invoke(new FunctionCall
+                {
+                    FunctionName = "create_primitive",
+                    Parameters = new Dictionary<string, string>
+                    {
+                        ["primitive_type"] = "Cube",
+                        ["name"] = orphanName,
+                        ["parent"] = "NoSuchParent_" + suffix
+                    }
+                });
+
+                StringAssert.Contains("\"code\":\"PARENT_NOT_FOUND\"", missingParent);
+                Assert.IsNull(GameObject.Find(orphanName), "A rejected parent must not leave a primitive behind.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
         public void WrapLegacyStringResult_PreservesImagesAndExistingEnvelopes()
         {
             const string image = "data:image/png;base64,AA==";

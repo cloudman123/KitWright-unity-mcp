@@ -521,6 +521,227 @@ namespace KitWright.Editor
             }
         }
 
+        [Test]
+        public void OriginValidation_AcceptsAbsentAndLocalhost_RejectsExternalDomain()
+        {
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin(null), "Absent origin must be allowed.");
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin(""), "Empty origin must be allowed.");
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin("http://localhost:8765"));
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin("http://127.0.0.1:8765"));
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin("http://[::1]:8765"));
+            Assert.IsFalse(HttpMCPTransport.IsValidOrigin("http://evil-site.com"));
+            Assert.IsFalse(HttpMCPTransport.IsValidOrigin("http://attacker.local"));
+        }
+
+        [UnityTest]
+        public IEnumerator PostInitialize_ReturnsMcpSessionIdHeader()
+        {
+            SSESessionManager.Instance.ResetForTests();
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+            transport.OnRequestReceived += (request, sendResponse) =>
+                HandleInitializeRequest(request, sendResponse, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                using (var content = new StringContent(
+                    "{\"jsonrpc\":\"2.0\",\"id\":\"init-1\",\"method\":\"initialize\",\"params\":{}}",
+                    Encoding.UTF8,
+                    "application/json"))
+                {
+                    var responseTask = client.PostAsync("http://127.0.0.1:" + port + "/", content);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+                    Assert.IsTrue(response.Headers.Contains("Mcp-Session-Id"), "Initialize response must carry Mcp-Session-Id header.");
+                    var sessionId = string.Join("", response.Headers.GetValues("Mcp-Session-Id"));
+                    Assert.IsTrue(SSESessionManager.Instance.TryGetSession(sessionId, out _), "Session must be registered in SSESessionManager.");
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+                SSESessionManager.Instance.ResetForTests();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_WithoutValidSession_Returns404()
+        {
+            SSESessionManager.Instance.ResetForTests();
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", "non-existent-session-id");
+
+                    var responseTask = client.SendAsync(req);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "Invalid Mcp-Session-Id must return 404 Not Found.");
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+                SSESessionManager.Instance.ResetForTests();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_WithValidSession_ReceivesSseHeadersAndPing()
+        {
+            SSESessionManager.Instance.ResetForTests();
+            SSESessionManager.Instance.PingIntervalMs = 100; // fast ping for testing
+            var session = SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient())
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+                    Assert.AreEqual("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+
+                    using (var stream = response.Content.ReadAsStreamAsync().Result)
+                    {
+                        var buffer = new byte[256];
+                        var readTask = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(readTask, 2f);
+                        var text = Encoding.UTF8.GetString(buffer, 0, readTask.Result);
+                        Assert.That(text, Does.Contain(": ping\n\n"), "Stream should receive ping heartbeat.");
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+                SSESessionManager.Instance.PingIntervalMs = 15_000;
+                SSESessionManager.Instance.ResetForTests();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_DuplicateSession_Returns409Conflict()
+        {
+            SSESessionManager.Instance.ResetForTests();
+            SSESessionManager.Instance.PingIntervalMs = 1000;
+            var session = SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client1 = new HttpClient())
+                using (var client2 = new HttpClient())
+                {
+                    var req1 = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req1.Headers.Add("Accept", "text/event-stream");
+                    req1.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask1 = client1.SendAsync(req1, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask1, 3f);
+                    Assert.AreEqual(HttpStatusCode.OK, responseTask1.Result.StatusCode);
+
+                    var req2 = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req2.Headers.Add("Accept", "text/event-stream");
+                    req2.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask2 = client2.SendAsync(req2);
+                    yield return WaitForTask(responseTask2, 3f);
+                    Assert.AreEqual(HttpStatusCode.Conflict, responseTask2.Result.StatusCode, "Second stream for same session must return 409 Conflict.");
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+                SSESessionManager.Instance.PingIntervalMs = 15_000;
+                SSESessionManager.Instance.ResetForTests();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_ReceivesPingAndEvictsOnDisconnect()
+        {
+            SSESessionManager.Instance.ResetForTests();
+            SSESessionManager.Instance.PingIntervalMs = 50;
+            var session = SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                var client = new HttpClient();
+                var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                req.Headers.Add("Accept", "text/event-stream");
+                req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                yield return WaitForTask(responseTask, 3f);
+                Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
+                Assert.IsNotNull(session.ActiveStream, "Session should have active stream.");
+
+                // Client disconnects
+                client.Dispose();
+
+                // Wait for ping loop to detect disconnect and detach stream
+                var waited = 0f;
+                while (session.ActiveStream != null && waited < 2f)
+                {
+                    yield return new WaitForSecondsRealtime(0.1f);
+                    waited += 0.1f;
+                }
+
+                Assert.IsNull(session.ActiveStream, "Disconnected client stream must be evicted.");
+            }
+            finally
+            {
+                transport.Dispose();
+                SSESessionManager.Instance.PingIntervalMs = 15_000;
+                SSESessionManager.Instance.ResetForTests();
+            }
+        }
+
         private sealed class HttpResult
         {
             public string ContentType;

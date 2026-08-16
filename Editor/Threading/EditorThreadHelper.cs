@@ -36,10 +36,19 @@ namespace KitWright.Editor.Threading
 
         internal static string BlockedMessage(TimeSpan sinceLastPump)
         {
+            return BlockedMessage(sinceLastPump, Win32Dialogs.BlockingDialog());
+        }
+
+        internal static string BlockedMessage(TimeSpan sinceLastPump, string dialog)
+        {
+            var cause = string.IsNullOrEmpty(dialog)
+                ? "The usual cause is a modal dialog waiting for a click in the Unity window - most often " +
+                  "'Scene(s) Have Been Modified' after something tried to replace a scene with unsaved changes."
+                : $"A modal dialog is open and owns the editor's message loop: {dialog}.";
+
             return $"EDITOR_NOT_PUMPING: the Unity editor loop has not ticked for {sinceLastPump.TotalSeconds:F0}s, " +
-                   "so this call is queued and cannot run. The usual cause is a modal dialog waiting for a click " +
-                   "in the Unity window - most often 'Scene(s) Have Been Modified' after something tried to replace " +
-                   "a scene with unsaved changes. Bring Unity to the front and dismiss it, then retry. " +
+                   $"so this call is queued and cannot run. {cause} " +
+                   "Bring Unity to the front and dismiss it, then retry. " +
                    "The queued call still runs once the editor resumes.";
         }
 

@@ -37,7 +37,10 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Name of the new object")] string name,
             [ToolParam("Primitive type: Cube, Sphere, Capsule, Cylinder, Plane, Quad")] string primitive_type,
             [ToolParam("Position as 'x,y,z'", Required = false)] string position = "0,0,0",
-            [ToolParam("Scale as 'x,y,z'", Required = false)] string scale = "1,1,1")
+            [ToolParam("Scale as 'x,y,z'", Required = false)] string scale = "1,1,1",
+            [ToolParam("Euler rotation as 'x,y,z'", Required = false)] string rotation = "0,0,0",
+            [ToolParam("Parent GameObject identifier (instance id, name, or path)", Required = false)] string parent = null,
+            [ToolParam("How to resolve parent (by_id, by_name, by_path, by_id_or_name_or_path)", Required = false)] string find_method = null)
         {
             PrimitiveType type;
             switch (primitive_type.ToLowerInvariant())
@@ -55,11 +58,25 @@ namespace KitWright.Editor.Tools.Builtins
                 return Response.Error("INVALID_PARAM", new { param = "position", provided = position, expected = "Vector3 'x,y,z'", detail = primPosErr });
             if (!ValueConverter.TryParseVector3(scale, out var primScale, out var primScaleErr))
                 return Response.Error("INVALID_PARAM", new { param = "scale", provided = scale, expected = "Vector3 'x,y,z'", detail = primScaleErr });
+            if (!ValueConverter.TryParseVector3(rotation, out var primRot, out var primRotErr))
+                return Response.Error("INVALID_PARAM", new { param = "rotation", provided = rotation, expected = "Vector3 'x,y,z'", detail = primRotErr });
+
+            // Resolved before the primitive exists, so a bad parent cannot leave one behind.
+            GameObject parentGo = null;
+            if (!string.IsNullOrEmpty(parent))
+            {
+                parentGo = ObjectsHelper.FindObject(parent, find_method);
+                if (parentGo == null)
+                    return Response.Error("PARENT_NOT_FOUND", new { parent, find_method });
+            }
 
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
             Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
+            if (parentGo != null)
+                Undo.SetTransformParent(go.transform, parentGo.transform, $"Set parent of {name}");
             go.transform.position = primPos;
+            go.transform.eulerAngles = primRot;
             go.transform.localScale = primScale;
             Selection.activeGameObject = go;
 
