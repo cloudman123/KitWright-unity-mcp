@@ -59,6 +59,8 @@ namespace KitWright.Editor.Tools.Scripting
             // Reaches every dialog in the editor by menu path, so it bypasses the entries above.
             // The execute_menu_item tool is the guarded way in: it refuses modal paths itself.
             "UnityEditor.EditorApplication.ExecuteMenuItem",
+            // Same reach, one identifier away. Internal on current Unity, so a snippet cannot bind
+            // to it and there is no test for it -- listed because it has been public before.
             "UnityEditor.EditorApplication.ExecuteMenuItemWithTemporaryContext"
         };
 

@@ -71,18 +71,6 @@ public class MenuHop
     }
 }";
 
-        // Same reach as the entry above, one identifier away from it.
-        private const string MenuItemHopWithContext = @"
-using UnityEditor;
-
-public class MenuHopContext
-{
-    public static string Run()
-    {
-        return EditorApplication.ExecuteMenuItemWithTemporaryContext(
-            ""Assets/Refresh"", new UnityEngine.Object[0]).ToString();
-    }
-}";
 
         private const string Benign = @"
 using UnityEngine;
@@ -159,15 +147,6 @@ public class Benign
             Assert.That(reason, Does.Contain("execute_menu_item"));
         }
 
-        [Test]
-        public void Guard_BlocksTheTemporaryContextMenuItemRouteToo()
-        {
-            var compilation = ScriptCompilerPipeline.Compile(MenuItemHopWithContext);
-            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
-
-            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out var reference, out _));
-            Assert.AreEqual("UnityEditor.EditorApplication.ExecuteMenuItemWithTemporaryContext", reference);
-        }
 
         [Test]
         public void Guard_LetsAnOrdinarySnippetThrough()

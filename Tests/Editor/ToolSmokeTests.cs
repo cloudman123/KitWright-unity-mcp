@@ -50,10 +50,13 @@ namespace KitWright.Editor.Tests
         }
 
         // The guard must not swallow ordinary paths: this one reaches the editor and comes back
-        // NOT_FOUND, which is the proof it was never refused up front.
+        // NOT_FOUND, which is the proof it was never refused up front. Reaching the editor is also
+        // why Unity logs an error of its own, which the fixture has to expect.
         [Test]
         public void ExecuteMenuItem_LetsAnOrdinaryPathThrough()
         {
+            LogAssert.Expect(LogType.Error, "ExecuteMenuItem failed because there is no menu named 'KitWright/No Such Menu Item'");
+
             StringAssert.Contains("\"code\":\"MENU_ITEM_NOT_FOUND\"", InvokeMenuItem("KitWright/No Such Menu Item"));
         }
 
