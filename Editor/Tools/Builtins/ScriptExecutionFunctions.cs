@@ -314,12 +314,18 @@ namespace KitWright.Editor.Tools.Builtins
             if (safetyChecks &&
                 CompiledCodeGuard.TryFindViolation(compilation.Assembly, ResolveStrictFilesystemSafety(), out var reference, out var guardReason))
             {
+                // A modal call is a liveness hazard, not a safety preference: retrying it with
+                // safety_checks=false freezes the editor and hangs the very request that would
+                // report the freeze, so that escape hatch is not advertised for those.
+                var modal = CompiledCodeGuard.IsModalMember(reference);
                 return Response.Error("SAFETY_CHECK_BLOCKED", new
                 {
                     reference,
                     reason = guardReason,
                     stage = "compiled",
-                    hint = "Detected in the compiled assembly's metadata, so aliasing or building the name at runtime does not get around it. Pass safety_checks=false for trusted local calls."
+                    hint = modal
+                        ? "Do not retry with safety_checks=false: this call blocks the editor's message loop, so the request would hang instead of failing."
+                        : "Detected in the compiled assembly's metadata, so aliasing or building the name at runtime does not get around it. Pass safety_checks=false for trusted local calls."
                 });
             }
 

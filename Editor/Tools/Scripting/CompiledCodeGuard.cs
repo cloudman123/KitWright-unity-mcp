@@ -34,10 +34,38 @@ namespace KitWright.Editor.Tools.Scripting
             "System.IO.Directory.Move",
             "System.Environment.Exit",
             "System.Environment.FailFast",
+            "UnityEditor.EditorApplication.Exit",
             "UnityEditor.AssetDatabase.DeleteAsset",
             "UnityEditor.AssetDatabase.DeleteAssets",
             "UnityEditor.FileUtil.DeleteFileOrDirectory"
         };
+
+        // A modal dialog or file picker runs its own message loop, which stops the editor from
+        // pumping MCP requests: the snippet never returns and the caller hangs until a human clicks.
+        private static readonly string[] ModalMembers =
+        {
+            "UnityEditor.EditorUtility.DisplayDialog",
+            "UnityEditor.EditorUtility.DisplayDialogComplex",
+            "UnityEditor.EditorUtility.SaveFilePanel",
+            "UnityEditor.EditorUtility.SaveFilePanelInProject",
+            "UnityEditor.EditorUtility.SaveFolderPanel",
+            "UnityEditor.EditorUtility.OpenFilePanel",
+            "UnityEditor.EditorUtility.OpenFilePanelWithFilters",
+            "UnityEditor.EditorUtility.OpenFolderPanel",
+            "UnityEditor.SceneManagement.EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo",
+            "UnityEditor.SceneManagement.EditorSceneManager.SaveModifiedScenesIfUserWantsTo",
+            "UnityEditor.EditorWindow.ShowModal",
+            "UnityEditor.EditorWindow.ShowModalUtility",
+            // Reaches every dialog in the editor by menu path, so it bypasses the entries above.
+            // The execute_menu_item tool is the guarded way in: it refuses modal paths itself.
+            "UnityEditor.EditorApplication.ExecuteMenuItem",
+            "UnityEditor.EditorApplication.ExecuteMenuItemWithTemporaryContext"
+        };
+
+        internal static bool IsModalMember(string reference)
+        {
+            return Matches(reference, ModalMembers);
+        }
 
         private static readonly string[] StrictTypes =
         {
@@ -123,6 +151,16 @@ namespace KitWright.Editor.Tools.Scripting
                     continue;
 
                 var name = $"{declaring}.{member.Name}";
+                if (Matches(name, ModalMembers))
+                {
+                    reference = name;
+                    reason = $"The compiled snippet calls '{name}', which opens a modal dialog and would " +
+                             "freeze the editor until a human dismisses it, hanging this request. " +
+                             "Decide in the snippet instead of asking the user, pass an explicit path, or use the " +
+                             "dedicated tool (execute_menu_item refuses modal menu paths for you).";
+                    return true;
+                }
+
                 if (Matches(name, BlockedMembers) || (strict && Matches(name, StrictMembers)))
                 {
                     reference = name;

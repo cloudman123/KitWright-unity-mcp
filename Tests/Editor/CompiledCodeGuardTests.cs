@@ -45,6 +45,45 @@ public class Reflected
     }
 }";
 
+        private const string ModalDialog = @"
+using UnityEditor;
+
+public class Modal
+{
+    public static string Run()
+    {
+        EditorUtility.DisplayDialog(""Hi"", ""There"", ""OK"");
+        return ""done"";
+    }
+}";
+
+        // Any dialog in the editor is one menu path away, so this is the one entry in ModalMembers
+        // that blocks a call which is harmless in every other context -- and therefore the one most
+        // likely to be deleted again by whoever finds their own snippet refused.
+        private const string MenuItemHop = @"
+using UnityEditor;
+
+public class MenuHop
+{
+    public static string Run()
+    {
+        return EditorApplication.ExecuteMenuItem(""Assets/Refresh"").ToString();
+    }
+}";
+
+        // Same reach as the entry above, one identifier away from it.
+        private const string MenuItemHopWithContext = @"
+using UnityEditor;
+
+public class MenuHopContext
+{
+    public static string Run()
+    {
+        return EditorApplication.ExecuteMenuItemWithTemporaryContext(
+            ""Assets/Refresh"", new UnityEngine.Object[0]).ToString();
+    }
+}";
+
         private const string Benign = @"
 using UnityEngine;
 
@@ -94,6 +133,40 @@ public class Benign
             Assert.AreEqual("System.IO.File.WriteAllText", reference);
 
             Assert.IsFalse(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out _, out _));
+        }
+
+        // A modal dialog hangs the request rather than damaging anything, so it is blocked
+        // regardless of the strict filesystem setting.
+        [Test]
+        public void Guard_BlocksAModalDialogEvenWhenNotStrict()
+        {
+            var compilation = ScriptCompilerPipeline.Compile(ModalDialog);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out var reference, out var reason));
+            Assert.AreEqual("UnityEditor.EditorUtility.DisplayDialog", reference);
+            Assert.That(reason, Does.Contain("modal"));
+        }
+
+        [Test]
+        public void Guard_BlocksTheMenuItemRouteToEveryDialog()
+        {
+            var compilation = ScriptCompilerPipeline.Compile(MenuItemHop);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out var reference, out var reason));
+            Assert.AreEqual("UnityEditor.EditorApplication.ExecuteMenuItem", reference);
+            Assert.That(reason, Does.Contain("execute_menu_item"));
+        }
+
+        [Test]
+        public void Guard_BlocksTheTemporaryContextMenuItemRouteToo()
+        {
+            var compilation = ScriptCompilerPipeline.Compile(MenuItemHopWithContext);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out var reference, out _));
+            Assert.AreEqual("UnityEditor.EditorApplication.ExecuteMenuItemWithTemporaryContext", reference);
         }
 
         [Test]

@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System;
 using System.Collections.Generic;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using KitWright.Editor.Tools.Helpers;
@@ -13,12 +14,39 @@ namespace KitWright.Editor.Tools.Builtins
     [ToolProvider("Scene")]
     internal static class SceneFunctions
     {
-        [Description("Save the current scene")]
-        public static string SaveScene()
+        [Description("Save the current scene. A scene that has never been saved needs an explicit path, " +
+                     "otherwise Unity would open a file picker.")]
+        public static string SaveScene(
+            [ToolParam("Where to save (e.g. 'Assets/Scenes/Main.unity'). Only for a scene that has no path yet; a different path for an already-saved scene is refused.", Required = false)] string path = null)
         {
             var scene = EditorSceneManager.GetActiveScene();
-            bool saved = EditorSceneManager.SaveScene(scene);
-            return saved ? $"Saved scene '{scene.name}'" : ToolResultFormatter.Error("SCENE_SAVE_FAILED", new { scene = scene.name });
+
+            if (string.IsNullOrEmpty(path) && string.IsNullOrEmpty(scene.path))
+                return ToolResultFormatter.Error("SCENE_HAS_NO_PATH", new
+                {
+                    scene = scene.name,
+                    hint = "This scene was never saved. Pass path (e.g. 'Assets/Scenes/Main.unity')."
+                });
+
+            // SaveScene(scene, otherPath) is Save As, not a copy: it repoints the open scene at a
+            // new asset with a new GUID and leaves the original holding the pre-edit content, while
+            // every SceneAsset reference and the build list still names the original.
+            if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(scene.path) &&
+                !string.Equals(path, scene.path, StringComparison.OrdinalIgnoreCase))
+                return ToolResultFormatter.Error("SCENE_ALREADY_HAS_PATH", new
+                {
+                    scene = scene.name,
+                    scene_path = scene.path,
+                    requested = path,
+                    hint = "Call save_scene with no path to save it where it already lives."
+                });
+
+            if (string.IsNullOrEmpty(path))
+                path = scene.path;
+
+            return EditorSceneManager.SaveScene(scene, path)
+                ? $"Saved scene '{scene.name}' to {path}"
+                : ToolResultFormatter.Error("SCENE_SAVE_FAILED", new { scene = scene.name, path });
         }
 
         // Never call SaveCurrentModifiedScenesIfUserWantsTo: its modal dialog blocks the editor
