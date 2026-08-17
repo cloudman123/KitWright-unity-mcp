@@ -13,11 +13,11 @@ namespace KitWright.Editor.MCP.Server
     internal sealed class ServerControlsPanel
     {
         private const float FieldLabelWidth = 100f;
-        private const string DirectTransportChoice = "Direct HTTP (default)";
-        private const string BrokerTransportChoice = "Broker Mode (Experimental)";
+        private const string DirectTransportChoice = "Direct HTTP";
+        private const string BrokerTransportChoice = "Broker Mode (default)";
         private static readonly List<string> TransportChoices = new List<string> { BrokerTransportChoice, DirectTransportChoice };
 
-        private readonly ISettingsController _settings;
+        private readonly SettingsController _settings;
         private readonly MCPServerService _server;
         private readonly Action _refreshStatus;
         private readonly Action _rebuildWindow;
@@ -30,7 +30,7 @@ namespace KitWright.Editor.MCP.Server
         private bool _connecting;
 
         public ServerControlsPanel(
-            ISettingsController settings,
+            SettingsController settings,
             MCPServerService server,
             Action refreshStatus,
             Action rebuildWindow)
@@ -115,9 +115,10 @@ namespace KitWright.Editor.MCP.Server
             var transportModeDropdown = new DropdownField("Transport Mode");
             transportModeDropdown.choices = TransportChoices;
             transportModeDropdown.tooltip =
-                "Direct HTTP (default): the server owns the MCP HTTP port directly. " +
-                "Broker Mode (Experimental): runs a tiny local broker process that owns the port instead and keeps " +
-                "client requests alive while Unity reloads the scripting domain.";
+                "Broker Mode (default): runs a tiny local broker process that owns the MCP HTTP port and keeps " +
+                "client requests alive while Unity reloads the scripting domain. Falls back to Direct HTTP if the " +
+                "broker cannot start. " +
+                "Direct HTTP: the server owns the port itself.";
             transportModeDropdown.SetValueWithoutNotify(_settings.MCPBrokerModeEnabled ? BrokerTransportChoice : DirectTransportChoice);
             transportModeDropdown.RegisterValueChangedCallback(evt =>
             {
@@ -283,7 +284,7 @@ namespace KitWright.Editor.MCP.Server
         }
 
         /// <summary>
-        /// Auto-detection is display-only: it never writes to <see cref="ISettingsController.MCPBrokerMonoPath"/>,
+        /// Auto-detection is display-only: it never writes to <see cref="SettingsController.MCPBrokerMonoPath"/>,
         /// so clearing the field (or never touching it) keeps the setting at its real "auto-detect" default.
         /// </summary>
         private void RefreshMonoPathAutoDetection()
