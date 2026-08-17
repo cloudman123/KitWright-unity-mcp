@@ -15,13 +15,12 @@ namespace KitWright.Editor.DI
         public static ServiceCollection RegisterServices(this ServiceCollection services)
         {
             // Core Infrastructure (Singletons)
-            services.AddSingleton<IApplicationPaths, ApplicationPaths>();
             services.AddSingleton<EditorContextBuilder, EditorContextBuilder>();
-            services.AddSingleton<ISettingsController, SettingsController>();
+            services.AddSingleton<SettingsController, SettingsController>();
             services.AddSingleton<EditorThreadHelper, EditorThreadHelper>();
 
             // Services (Singletons)
-            services.AddSingleton<ICompilationService, CompilationService>();
+            services.AddSingleton<CompilationService, CompilationService>();
             services.AddSingleton<UnityLogsRepository, UnityLogsRepository>();
             services.AddSingleton<FunctionInvoker, FunctionInvoker>();
 
@@ -29,7 +28,7 @@ namespace KitWright.Editor.DI
             services.AddSingleton<MCPServerService, MCPServerService>();
 
             // State (Singleton)
-            services.AddSingleton<IStateController, StateController>();
+            services.AddSingleton<StateController, StateController>();
 
             return services;
         }

@@ -9,7 +9,7 @@ namespace KitWright.Editor.MCP.Server
 {
     internal sealed class ServerPanel : IMCPWindowPanel
     {
-        private readonly ISettingsController _settingsController;
+        private readonly SettingsController _settingsController;
         private readonly MCPServerService _mcpServer;
 
         private VisualElement _container;
@@ -18,7 +18,7 @@ namespace KitWright.Editor.MCP.Server
         private RecentActivityPanel _activityPanel;
 
         public ServerPanel(
-            ISettingsController settingsController,
+            SettingsController settingsController,
             MCPServerService mcpServer)
         {
             _settingsController = settingsController;

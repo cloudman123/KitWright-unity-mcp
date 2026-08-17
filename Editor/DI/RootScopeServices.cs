@@ -41,7 +41,7 @@ namespace KitWright.Editor.DI
                     _serviceProvider.GetService(typeof(UnityLogsRepository)) as UnityLogsRepository;
                 unityLogsRepository?.StartListening();
 
-                var settings = _serviceProvider.GetService(typeof(ISettingsController)) as ISettingsController;
+                var settings = _serviceProvider.GetService(typeof(SettingsController)) as SettingsController;
                 if (settings?.MCPServerEnabled == true &&
                     settings.MCPAutostartEnabled &&
                     !MCPServerDomainReloadHandler.IsPendingPostReloadRestart())

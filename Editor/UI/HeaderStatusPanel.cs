@@ -9,12 +9,12 @@ namespace KitWright.Editor.MCP.Server
 {
     internal sealed class HeaderStatusPanel
     {
-        private readonly ISettingsController _settings;
+        private readonly SettingsController _settings;
         private readonly MCPServerService _server;
         private Label _statusLabel;
         private Label _versionLabel;
 
-        public HeaderStatusPanel(ISettingsController settings, MCPServerService server)
+        public HeaderStatusPanel(SettingsController settings, MCPServerService server)
         {
             _settings = settings;
             _server = server;

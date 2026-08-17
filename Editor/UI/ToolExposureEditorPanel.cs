@@ -16,7 +16,7 @@ namespace KitWright.Editor.MCP.Server
     {
         private static readonly List<string> ProfileChoices = new List<string>(MCPToolExportPolicy.AllProfiles);
 
-        private readonly ISettingsController _settingsController;
+        private readonly SettingsController _settingsController;
         private readonly MCPServerService _mcpServer;
         private readonly Dictionary<string, Button> _segmentButtons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase);
         private VisualElement _root;
@@ -42,7 +42,7 @@ namespace KitWright.Editor.MCP.Server
         private static readonly Color RowOnText = new Color(0.92f, 0.95f, 0.90f);
         private static readonly Color RowOffText = new Color(0.72f, 0.72f, 0.72f);
 
-        public ToolExposureEditorPanel(ISettingsController settingsController, MCPServerService mcpServer)
+        public ToolExposureEditorPanel(SettingsController settingsController, MCPServerService mcpServer)
         {
             _settingsController = settingsController;
             _mcpServer = mcpServer;

@@ -21,7 +21,7 @@ namespace KitWright.Editor.Settings
             {
                 try
                 {
-                    var settings = RootScopeServices.Services?.GetService(typeof(ISettingsController)) as ISettingsController;
+                    var settings = RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController;
                     return settings?.PluginDebugLoggingEnabled == true;
                 }
                 catch

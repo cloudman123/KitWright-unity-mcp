@@ -10,11 +10,11 @@ namespace KitWright.Editor.MCP.Server
 {
     internal sealed class PluginSettingsPanel : IMCPWindowPanel
     {
-        private readonly ISettingsController _settingsController;
+        private readonly SettingsController _settingsController;
         private VisualElement _container;
         private MCPSwitchToggle _debugLoggingToggle;
 
-        public PluginSettingsPanel(ISettingsController settingsController)
+        public PluginSettingsPanel(SettingsController settingsController)
         {
             _settingsController = settingsController;
         }

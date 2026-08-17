@@ -12,9 +12,9 @@ namespace KitWright.Editor.MCP.Server
     /// </summary>
     internal class MCPToolExporter
     {
-        private readonly ISettingsController _settings;
+        private readonly SettingsController _settings;
 
-        public MCPToolExporter(ISettingsController settings)
+        public MCPToolExporter(SettingsController settings)
         {
             _settings = settings;
         }

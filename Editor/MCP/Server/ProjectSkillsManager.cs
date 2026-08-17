@@ -1230,7 +1230,7 @@ $@"
             if (services?.GetService(typeof(MCPServerService)) is MCPServerService server && server.IsRunning)
                 return ClientConfigPanel.BuildServerUrl(server.Port);
 
-            var settings = services?.GetService(typeof(ISettingsController)) as ISettingsController;
+            var settings = services?.GetService(typeof(SettingsController)) as SettingsController;
             return ClientConfigPanel.BuildServerUrl(settings?.MCPServerPort ?? 8765);
         }
 

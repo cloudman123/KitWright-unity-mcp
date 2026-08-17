@@ -28,7 +28,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (!MCPToolExportPolicy.AllProfiles.Contains(requested, StringComparer.OrdinalIgnoreCase))
                 return Response.Error("UNKNOWN_PROFILE", new { requested = profile, valid = MCPToolExportPolicy.AllProfiles });
 
-            var settings = RootScopeServices.Services?.GetService(typeof(ISettingsController)) as ISettingsController;
+            var settings = RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController;
             if (settings == null)
                 return Response.Error("SETTINGS_UNAVAILABLE", new { hint = "The MCP server is not running with a settings scope." });
 

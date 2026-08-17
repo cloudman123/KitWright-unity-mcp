@@ -16,7 +16,7 @@ namespace KitWright.Editor.MCP.Server
 {
     internal sealed class ClientConfigPanel
     {
-        private readonly ISettingsController _settings;
+        private readonly SettingsController _settings;
         private readonly MCPServerService _server;
         private readonly Action _rebuildWindow;
         private MCPConfigTarget[] _targets;
@@ -26,7 +26,7 @@ namespace KitWright.Editor.MCP.Server
         private const string ScopeGlobalKey = "KitWright.MCP.ConfigScopeGlobal";
 
         public ClientConfigPanel(
-            ISettingsController settings,
+            SettingsController settings,
             MCPServerService server,
             Action rebuildWindow)
         {

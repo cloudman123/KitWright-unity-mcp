@@ -20,15 +20,15 @@ namespace KitWright.Editor.MCP.Server
     internal class MCPExecutionBridge
     {
         private readonly EditorThreadHelper _threadHelper;
-        private readonly ISettingsController _settings;
-        private readonly IStateController _stateController;
+        private readonly SettingsController _settings;
+        private readonly StateController _stateController;
         private readonly FunctionInvoker _invoker;
         private readonly MCPInteractionLog _interactionLog;
 
         public MCPExecutionBridge(
             EditorThreadHelper threadHelper,
-            ISettingsController settings,
-            IStateController stateController,
+            SettingsController settings,
+            StateController stateController,
             FunctionInvoker invoker,
             MCPInteractionLog interactionLog)
         {

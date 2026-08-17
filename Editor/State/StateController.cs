@@ -10,16 +10,7 @@ namespace KitWright.Editor.State
         ExecutingFunction
     }
 
-    internal interface IStateController
-    {
-        KitWrightState CurrentState { get; }
-
-        void SetState(KitWrightState state);
-        void ReturnToPreviousState();
-        void ClearState();
-    }
-
-    internal class StateController : IStateController
+    internal class StateController
     {
         private readonly Stack<KitWrightState> _stateHistory = new Stack<KitWrightState>();
         private KitWrightState _currentState = KitWrightState.Initialized;

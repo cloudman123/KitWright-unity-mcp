@@ -22,7 +22,6 @@ namespace KitWright.Editor.MCP.Server
         };
 
         private readonly EditorContextBuilder _contextBuilder;
-        private readonly IApplicationPaths _applicationPaths;
         private readonly MCPInteractionLog _interactionLog;
         private readonly object _lock = new object();
         private readonly string _projectName;
@@ -36,11 +35,9 @@ namespace KitWright.Editor.MCP.Server
 
         public MCPResourceProvider(
             EditorContextBuilder contextBuilder,
-            IApplicationPaths applicationPaths,
             MCPInteractionLog interactionLog)
         {
             _contextBuilder = contextBuilder;
-            _applicationPaths = applicationPaths;
             _interactionLog = interactionLog;
             _projectName = Application.productName;
             EditorApplication.projectChanged += MarkProjectSummaryDirty;
@@ -157,7 +154,7 @@ namespace KitWright.Editor.MCP.Server
 
             var fullPath = Path.IsPathRooted(assetPath)
                 ? assetPath
-                : Path.Combine(_applicationPaths.ProjectPath, assetPath).Replace("\\", "/");
+                : Path.Combine(ApplicationPaths.ProjectRoot, assetPath).Replace("\\", "/");
 
             if (!File.Exists(fullPath))
                 return "Asset not found: " + assetPath;
@@ -220,8 +217,8 @@ namespace KitWright.Editor.MCP.Server
             sb.AppendLine("- Project: " + _projectName);
             sb.AppendLine("- Unity: " + Application.unityVersion);
             sb.AppendLine("- Package Version: " + PackageVersion.Current);
-            sb.AppendLine("- Project Path: " + _applicationPaths.ProjectPath);
-            sb.AppendLine("- Assets Path: " + _applicationPaths.AssetsPath);
+            sb.AppendLine("- Project Path: " + ApplicationPaths.ProjectRoot);
+            sb.AppendLine("- Assets Path: " + ApplicationPaths.AssetsPath);
             sb.AppendLine();
 
             if (_contextBuilder != null)
@@ -234,14 +231,14 @@ namespace KitWright.Editor.MCP.Server
 
         private string BuildProjectSummary()
         {
-            var topLevelDirectories = Directory.Exists(_applicationPaths.AssetsPath)
-                ? Directory.GetDirectories(_applicationPaths.AssetsPath)
+            var topLevelDirectories = Directory.Exists(ApplicationPaths.AssetsPath)
+                ? Directory.GetDirectories(ApplicationPaths.AssetsPath)
                 : Array.Empty<string>();
             var sb = new StringBuilder();
 
             sb.AppendLine("Project Summary");
-            sb.AppendLine("Project Root: " + _applicationPaths.ProjectPath);
-            sb.AppendLine("Assets Path: " + _applicationPaths.AssetsPath);
+            sb.AppendLine("Project Root: " + ApplicationPaths.ProjectRoot);
+            sb.AppendLine("Assets Path: " + ApplicationPaths.AssetsPath);
             sb.AppendLine("Unity Version: " + Application.unityVersion);
             sb.AppendLine("Package Version: " + PackageVersion.Current);
             sb.AppendLine();

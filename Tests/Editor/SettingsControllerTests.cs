@@ -3,7 +3,6 @@
 using System;
 using System.IO;
 using KitWright.Editor.MCP.Server;
-using KitWright.Editor.Services;
 using KitWright.Editor.Settings;
 using NUnit.Framework;
 
@@ -18,7 +17,7 @@ namespace KitWright.Editor
 
             try
             {
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
 
                 Assert.IsTrue(controller.ExecuteCodeSafetyChecksEnabled);
                 Assert.IsTrue(controller.ExecuteCodeStrictFilesystemSafetyEnabled);
@@ -56,7 +55,7 @@ namespace KitWright.Editor
                     Path.Combine(settingsDirectory, "KitWrightMcpSettings.json"),
                     "{\"enabled\":false,\"port\":8765,\"toolExportProfile\":\"core\"}");
 
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
 
                 Assert.IsTrue(controller.ExecuteCodeSafetyChecksEnabled);
                 Assert.IsTrue(controller.ExecuteCodeStrictFilesystemSafetyEnabled);
@@ -88,10 +87,10 @@ namespace KitWright.Editor
 
             try
             {
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
                 controller.ExecuteCodeStrictFilesystemSafetyEnabled = false;
 
-                var reloaded = new SettingsController(new TestApplicationPaths(projectPath));
+                var reloaded = new SettingsController(projectPath);
 
                 Assert.IsFalse(reloaded.ExecuteCodeStrictFilesystemSafetyEnabled);
                 StringAssert.Contains("\"executeCodeStrictFilesystemSafetyEnabled\": false", ReadSettingsJson(projectPath));
@@ -110,10 +109,10 @@ namespace KitWright.Editor
 
             try
             {
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
                 controller.ExecuteCodeSafetyChecksEnabled = false;
 
-                var reloaded = new SettingsController(new TestApplicationPaths(projectPath));
+                var reloaded = new SettingsController(projectPath);
 
                 Assert.IsFalse(reloaded.ExecuteCodeSafetyChecksEnabled);
                 StringAssert.Contains("\"executeCodeSafetyChecksEnabled\": false", ReadSettingsJson(projectPath));
@@ -132,10 +131,10 @@ namespace KitWright.Editor
 
             try
             {
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
                 controller.ExecuteCodeProjectNamespaceInjectionEnabled = true;
 
-                var reloaded = new SettingsController(new TestApplicationPaths(projectPath));
+                var reloaded = new SettingsController(projectPath);
 
                 Assert.IsTrue(reloaded.ExecuteCodeProjectNamespaceInjectionEnabled);
                 StringAssert.Contains("\"executeCodeProjectNamespaceInjectionEnabled\": true", ReadSettingsJson(projectPath));
@@ -154,10 +153,10 @@ namespace KitWright.Editor
 
             try
             {
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
                 controller.PluginDebugLoggingEnabled = true;
 
-                var reloaded = new SettingsController(new TestApplicationPaths(projectPath));
+                var reloaded = new SettingsController(projectPath);
 
                 Assert.IsTrue(reloaded.PluginDebugLoggingEnabled);
                 StringAssert.Contains("\"pluginDebugLoggingEnabled\": true", ReadSettingsJson(projectPath));
@@ -176,11 +175,11 @@ namespace KitWright.Editor
 
             try
             {
-                var controller = new SettingsController(new TestApplicationPaths(projectPath));
+                var controller = new SettingsController(projectPath);
                 controller.MCPBrokerModeEnabled = true;
                 controller.MCPBrokerMonoPath = "  /tmp/unity-mono  ";
 
-                var reloaded = new SettingsController(new TestApplicationPaths(projectPath));
+                var reloaded = new SettingsController(projectPath);
 
                 Assert.IsTrue(reloaded.MCPBrokerModeEnabled);
                 Assert.AreEqual("/tmp/unity-mono", reloaded.MCPBrokerMonoPath);
@@ -200,7 +199,7 @@ namespace KitWright.Editor
 
             try
             {
-                var port = new SettingsController(new TestApplicationPaths(projectPath)).MCPServerPort;
+                var port = new SettingsController(projectPath).MCPServerPort;
 
                 Assert.AreEqual(8765 + ProjectIdentity.PortOffsetFromProjectPath(projectPath), port);
                 Assert.AreEqual(0, (port - 8765) % 10, "Derived ports sit on the 10-apart slots.");
@@ -227,7 +226,7 @@ namespace KitWright.Editor
                     Path.Combine(projectPath, "UserSettings", "KitWrightMcpSettings.json"),
                     "{\"enabled\":false,\"port\":8765}");
 
-                Assert.AreEqual(8765, new SettingsController(new TestApplicationPaths(projectPath)).MCPServerPort);
+                Assert.AreEqual(8765, new SettingsController(projectPath).MCPServerPort);
             }
             finally
             {
@@ -247,7 +246,7 @@ namespace KitWright.Editor
                     Path.Combine(projectPath, "UserSettings", "KitWrightMcpSettings.json"),
                     "{\"enabled\":false,\"port\":70000}");
 
-                Assert.AreEqual(8765, new SettingsController(new TestApplicationPaths(projectPath)).MCPServerPort);
+                Assert.AreEqual(8765, new SettingsController(projectPath).MCPServerPort);
             }
             finally
             {
@@ -271,24 +270,6 @@ namespace KitWright.Editor
         {
             if (Directory.Exists(path))
                 Directory.Delete(path, true);
-        }
-
-        private sealed class TestApplicationPaths : IApplicationPaths
-        {
-            public TestApplicationPaths(string projectPath)
-            {
-                ProjectPath = projectPath;
-                AssetsPath = Path.Combine(projectPath, "Assets");
-                TempPath = Path.Combine(projectPath, "Temp", "KitWright");
-                DataPath = AssetsPath;
-                PersistentDataPath = Path.Combine(projectPath, "PersistentData");
-            }
-
-            public string ProjectPath { get; }
-            public string AssetsPath { get; }
-            public string TempPath { get; }
-            public string DataPath { get; }
-            public string PersistentDataPath { get; }
         }
     }
 }

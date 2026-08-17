@@ -31,7 +31,7 @@ namespace KitWright.Editor.MCP.Server
 
         internal const string FlatButtonClass = "gw-flat-button";
 
-        private ISettingsController _settingsController;
+        private SettingsController _settingsController;
         private MCPServerService _mcpServer;
         private VisualElement _contentContainer;
         private IMCPWindowPanel _activePanel;
@@ -53,8 +53,8 @@ namespace KitWright.Editor.MCP.Server
             if (icon != null)
                 titleContent = new GUIContent("KitWright MCP", icon);
 
-            _settingsController = RootScopeServices.Services?.GetService(typeof(ISettingsController))
-                as ISettingsController;
+            _settingsController = RootScopeServices.Services?.GetService(typeof(SettingsController))
+                as SettingsController;
             _mcpServer = RootScopeServices.Services?.GetService(typeof(MCPServerService))
                 as MCPServerService;
 

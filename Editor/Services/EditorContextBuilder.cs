@@ -26,9 +26,8 @@ namespace KitWright.Editor.Services
         }
 
         private readonly object _lock = new object();
-        private readonly ICompilationService _compilationService;
+        private readonly CompilationService _compilationService;
         private readonly UnityLogsRepository _unityLogsRepository;
-        private readonly IApplicationPaths _applicationPaths;
 
         private string _cachedContext = string.Empty;
         private string _cachedSceneSummary = "Scene context unavailable.";
@@ -40,13 +39,11 @@ namespace KitWright.Editor.Services
         private bool _disposed;
 
         public EditorContextBuilder(
-            ICompilationService compilationService,
-            UnityLogsRepository unityLogsRepository,
-            IApplicationPaths applicationPaths)
+            CompilationService compilationService,
+            UnityLogsRepository unityLogsRepository)
         {
             _compilationService = compilationService;
             _unityLogsRepository = unityLogsRepository;
-            _applicationPaths = applicationPaths;
 
             Selection.selectionChanged += OnSelectionChanged;
             EditorApplication.hierarchyChanged += OnHierarchyChanged;
@@ -419,14 +416,11 @@ namespace KitWright.Editor.Services
             if (Path.IsPathRooted(rawPath))
                 return rawPath;
 
-            if (_applicationPaths == null)
-                return null;
-
             var normalized = rawPath.Replace("\\", "/");
             if (normalized.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
-                return Path.Combine(_applicationPaths.ProjectPath, normalized);
+                return Path.Combine(ApplicationPaths.ProjectRoot, normalized);
 
-            return Path.Combine(_applicationPaths.ProjectPath, rawPath);
+            return Path.Combine(ApplicationPaths.ProjectRoot, rawPath);
         }
 
         private static string TrimLines(string text, int maxLines)

@@ -8,7 +8,7 @@ namespace KitWright.Editor.MCP.Server
 {
     internal static class SafetyPanel
     {
-        public static void AddTo(VisualElement parent, ISettingsController settings)
+        public static void AddTo(VisualElement parent, SettingsController settings)
         {
             if (parent == null || settings == null)
                 return;

@@ -193,19 +193,19 @@ namespace KitWright.Editor.Tools.Builtins
             if (safetyChecks.HasValue)
                 return safetyChecks.Value;
 
-            var settings = RootScopeServices.Services?.GetService(typeof(ISettingsController)) as ISettingsController;
+            var settings = RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController;
             return settings?.ExecuteCodeSafetyChecksEnabled ?? true;
         }
 
         private static bool ResolveStrictFilesystemSafety()
         {
-            var settings = RootScopeServices.Services?.GetService(typeof(ISettingsController)) as ISettingsController;
+            var settings = RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController;
             return settings?.ExecuteCodeStrictFilesystemSafetyEnabled ?? true;
         }
 
         private static bool ResolveProjectNamespaceInjection()
         {
-            var settings = RootScopeServices.Services?.GetService(typeof(ISettingsController)) as ISettingsController;
+            var settings = RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController;
             return settings?.ExecuteCodeProjectNamespaceInjectionEnabled ?? false;
         }
 

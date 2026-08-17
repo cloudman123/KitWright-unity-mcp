@@ -10,31 +10,7 @@ using UnityEngine;
 
 namespace KitWright.Editor.Settings
 {
-    internal interface ISettingsController
-    {
-        bool MCPServerEnabled { get; set; }
-        int MCPServerPort { get; set; }
-        string MCPToolExportProfile { get; set; }
-        bool IsProfileConfigured(string profile);
-        string[] GetProfileTools(string profile);
-        void SetProfileTools(string profile, string[] tools);
-        string MCPSelectedConfigTarget { get; set; }
-        bool ExecuteCodeSafetyChecksEnabled { get; set; }
-        bool ExecuteCodeStrictFilesystemSafetyEnabled { get; set; }
-        bool ExecuteCodeProjectNamespaceInjectionEnabled { get; set; }
-        bool PluginDebugLoggingEnabled { get; set; }
-        bool MCPBrokerModeEnabled { get; set; }
-        string MCPBrokerMonoPath { get; set; }
-        bool MCPAutostartEnabled { get; set; }
-        int ScreenshotDefaultSize { get; set; }
-        int EditorWindowScreenshotSize { get; set; }
-        bool MCPCompactSchemaEnabled { get; set; }
-        int ActivityLogCapacity { get; set; }
-
-        event Action OnSettingsChanged;
-    }
-
-    internal class SettingsController : ISettingsController
+    internal class SettingsController
     {
         private const string SettingsDirectoryName = "UserSettings";
         private const string SettingsFileName = "KitWrightMcpSettings.json";
@@ -57,12 +33,13 @@ namespace KitWright.Editor.Settings
         private readonly object _lock = new object();
         private SettingsData _settings;
 
-        public SettingsController(IApplicationPaths applicationPaths)
+        // projectPath is only passed by tests pointing at a temp project; production resolves it.
+        public SettingsController(string projectPath = null)
         {
-            if (applicationPaths == null) throw new ArgumentNullException(nameof(applicationPaths));
+            projectPath = string.IsNullOrEmpty(projectPath) ? ApplicationPaths.ProjectRoot : projectPath;
 
             _settingsPath = Path.Combine(
-                applicationPaths.ProjectPath,
+                projectPath,
                 SettingsDirectoryName,
                 SettingsFileName);
             // Only a project with no settings file yet gets the derived port. An existing file
@@ -72,7 +49,7 @@ namespace KitWright.Editor.Settings
             var firstRun = !File.Exists(_settingsPath);
             _settings = LoadSettings();
             if (firstRun)
-                DeriveProjectPort(applicationPaths.ProjectPath);
+                DeriveProjectPort(projectPath);
         }
 
         // The port a project defaults to depended on which editor started first, because every

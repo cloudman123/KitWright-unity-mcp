@@ -15,7 +15,7 @@ namespace KitWright.Editor.MCP.Server
     internal sealed class ProjectSkillsPanel : IMCPWindowPanel
     {
         private readonly Dictionary<string, MCPSwitchToggle> _optionalSkillToggles = new Dictionary<string, MCPSwitchToggle>(StringComparer.OrdinalIgnoreCase);
-        private readonly ISettingsController _settingsController;
+        private readonly SettingsController _settingsController;
         private VisualElement _root;
         private VisualElement _mainContainer;
         private Label _statusSummaryText;
@@ -25,7 +25,7 @@ namespace KitWright.Editor.MCP.Server
         private string[] _platformTargets;
         private int _selectedTargetIndex;
 
-        public ProjectSkillsPanel(ISettingsController settingsController)
+        public ProjectSkillsPanel(SettingsController settingsController)
         {
             _settingsController = settingsController;
         }

@@ -29,12 +29,12 @@ namespace KitWright.Editor.State
         private static bool _registered;
         private static bool _deferredCompletionRegistered;
         private static DateTime _deferredCompletionStartedAt;
-        private static IStateController _deferredCompletionStateController;
+        private static StateController _deferredCompletionStateController;
 
         /// <summary>
         /// Register to receive reload events. Call once (idempotent).
         /// </summary>
-        public static void Register(IStateController stateController)
+        public static void Register(StateController stateController)
         {
             if (_registered) return;
             _registered = true;
@@ -69,7 +69,7 @@ namespace KitWright.Editor.State
             SessionState.EraseString(PendingFunctionKey);
         }
 
-        public static void CompletePendingFunction(IStateController stateController)
+        public static void CompletePendingFunction(StateController stateController)
         {
             if (ShouldDeferPendingCompletion())
             {
@@ -220,7 +220,7 @@ namespace KitWright.Editor.State
                    EditorApplication.isUpdating;
         }
 
-        private static void DeferPendingCompletion(IStateController stateController)
+        private static void DeferPendingCompletion(StateController stateController)
         {
             _deferredCompletionStateController = stateController;
             _deferredCompletionStartedAt = DateTime.Now;

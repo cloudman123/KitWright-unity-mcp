@@ -179,9 +179,9 @@ namespace KitWright.Editor.Tools.Builtins
                    $"- Summary: {info.Summary}";
         }
 
-        private static ICompilationService GetCompilationService()
+        private static CompilationService GetCompilationService()
         {
-            return RootScopeServices.Services?.GetService(typeof(ICompilationService)) as ICompilationService
+            return RootScopeServices.Services?.GetService(typeof(CompilationService)) as CompilationService
                    ?? CompilationService.Instance;
         }
 
@@ -252,7 +252,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             CompilationFunctions.ClearExternalSyncPending();
 
-            var compilationService = RootScopeServices.Services?.GetService(typeof(ICompilationService)) as ICompilationService
+            var compilationService = RootScopeServices.Services?.GetService(typeof(CompilationService)) as CompilationService
                                      ?? CompilationService.Instance;
             if (compilationService == null)
             {

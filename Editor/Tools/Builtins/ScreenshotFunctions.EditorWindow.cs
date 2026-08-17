@@ -179,8 +179,8 @@ namespace KitWright.Editor.Tools.Builtins
 
         private static int ResolveEditorWindowScreenshotSize()
         {
-            var settings = KitWright.Editor.DI.RootScopeServices.Services?.GetService(typeof(KitWright.Editor.Settings.ISettingsController))
-                as KitWright.Editor.Settings.ISettingsController;
+            var settings = KitWright.Editor.DI.RootScopeServices.Services?.GetService(typeof(KitWright.Editor.Settings.SettingsController))
+                as KitWright.Editor.Settings.SettingsController;
             return settings?.EditorWindowScreenshotSize ?? 512;
         }
     }

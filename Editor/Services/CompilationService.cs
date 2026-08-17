@@ -10,16 +10,8 @@ using UnityEditor.Compilation;
 
 namespace KitWright.Editor.Services
 {
-    internal interface ICompilationService
-    {
-        bool IsCompiling { get; }
-        EditorRefreshResult LastRefreshResult { get; }
-        Task<bool> WaitForCompilationAsync(bool forceRefresh, int timeoutSeconds);
-        string GetCompilationErrors(int maxEntries = 50, bool includeWarnings = false);
-    }
-
     [InitializeOnLoad]
-    internal class CompilationService : ICompilationService
+    internal class CompilationService
     {
         private static readonly object SyncRoot = new object();
         private static readonly List<CompilerMessage> LatestMessages = new List<CompilerMessage>();

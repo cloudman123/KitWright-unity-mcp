@@ -25,12 +25,11 @@ namespace KitWright.Editor.MCP.Server
     {
         private const int ToolCallTimeoutMs = 30000;
 
-        private readonly ISettingsController _settings;
+        private readonly SettingsController _settings;
         private readonly EditorThreadHelper _threadHelper;
-        private readonly IStateController _stateController;
+        private readonly StateController _stateController;
         private readonly EditorContextBuilder _contextBuilder;
-        private readonly IApplicationPaths _applicationPaths;
-        private readonly ICompilationService _compilationService;
+        private readonly CompilationService _compilationService;
         private readonly FunctionInvoker _invoker;
         private readonly object _lifecycleLock = new object();
 
@@ -89,19 +88,17 @@ namespace KitWright.Editor.MCP.Server
         public MCPInteractionLog InteractionLog { get; }
 
         public MCPServerService(
-            ISettingsController settings,
+            SettingsController settings,
             EditorThreadHelper threadHelper,
-            IStateController stateController,
+            StateController stateController,
             EditorContextBuilder contextBuilder,
-            IApplicationPaths applicationPaths,
-            ICompilationService compilationService,
+            CompilationService compilationService,
             FunctionInvoker invoker)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _threadHelper = threadHelper ?? throw new ArgumentNullException(nameof(threadHelper));
             _stateController = stateController ?? throw new ArgumentNullException(nameof(stateController));
             _contextBuilder = contextBuilder;
-            _applicationPaths = applicationPaths ?? throw new ArgumentNullException(nameof(applicationPaths));
             _compilationService = compilationService ?? throw new ArgumentNullException(nameof(compilationService));
             _invoker = invoker ?? throw new ArgumentNullException(nameof(invoker));
 
@@ -199,13 +196,13 @@ namespace KitWright.Editor.MCP.Server
 
                 var projectName = Application.productName;
                 var serverName = "KitWright MCP Server - " + projectName;
-                var projectIdentity = ProjectIdentity.FromProjectPath(_applicationPaths.ProjectPath);
+                var projectIdentity = ProjectIdentity.FromProjectPath(ApplicationPaths.ProjectRoot);
                 transport = await CreateTransportAsync(startupPort, projectIdentity);
                 var toolExporter = new MCPToolExporter(_settings);
                 MCPToolListChangeNotifier.CheckForChanges(toolExporter);
                 var executionBridge = new MCPExecutionBridge(_threadHelper, _settings, _stateController, _invoker, InteractionLog);
-                resourceProvider = new MCPResourceProvider(_contextBuilder, _applicationPaths, InteractionLog);
-                var promptProvider = new MCPPromptProvider(Application.productName, _applicationPaths.ProjectPath);
+                resourceProvider = new MCPResourceProvider(_contextBuilder, InteractionLog);
+                var promptProvider = new MCPPromptProvider(Application.productName, ApplicationPaths.ProjectRoot);
                 var requestHandler = new MCPRequestHandler(
                     toolExporter,
                     executionBridge,
@@ -263,7 +260,7 @@ namespace KitWright.Editor.MCP.Server
                     {
                         PluginDebugLogger.Log($"[KitWright] MCP Server started on http://127.0.0.1:{Port}/ If this tool saves you time, please consider giving it a Star on GitHub: https://github.com/kitwright/unity-mcp");
                     }
-                    MCPInstanceRegistry.Publish(Port, _applicationPaths.ProjectPath, projectName, projectIdentity);
+                    MCPInstanceRegistry.Publish(Port, ApplicationPaths.ProjectRoot, projectName, projectIdentity);
                     MCPClientConfigAutoRewrite.Schedule(Port);
                     ExternalSyncRecoveryTracker.TryCompletePendingRecovery();
                     CheckForInterruptedExecution();
@@ -380,7 +377,7 @@ namespace KitWright.Editor.MCP.Server
             resourceProviderToDispose?.Dispose();
 
             if (hadState)
-                MCPInstanceRegistry.Remove(_applicationPaths.ProjectPath);
+                MCPInstanceRegistry.Remove(ApplicationPaths.ProjectRoot);
 
             return hadState;
         }
