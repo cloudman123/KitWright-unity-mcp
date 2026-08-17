@@ -10,7 +10,9 @@ namespace KitWright.Editor.Tests
     {
         // Deliberately hostile: 'Jump' also appears in a comment, in an attribute's string argument,
         // and as a call inside another method. Only the declaration should ever be found.
-        private const string Source = @"using UnityEngine;
+        // Normalised because a verbatim string carries this file's own line endings, and the
+        // asserts below are written with '\n' -- on a CRLF checkout they would all miss.
+        private static readonly string Source = @"using UnityEngine;
 
 public class Player : MonoBehaviour
 {
@@ -30,7 +32,7 @@ public class Player : MonoBehaviour
         if (health > 0) { Jump(); }
     }
 }
-";
+".Replace("\r\n", "\n");
 
         private static CSharpMemberEditor.EditOutcome Apply(params CSharpMemberEditor.MemberEdit[] edits) =>
             CSharpMemberEditor.Apply(Source, new List<CSharpMemberEditor.MemberEdit>(edits));
