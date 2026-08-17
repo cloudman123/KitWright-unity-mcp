@@ -25,6 +25,19 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(expected, ProjectIdentity.PinFromProjectPath(@"C:\Unity\PROJECT_TEST\"));
         }
 
+        // 10 apart so a fall-forward scan (which probes basePort..basePort+9) cannot land on the
+        // next project's reserved default and displace it in turn.
+        [Test]
+        public void PortOffset_SitsOnASlotTenApartAndIsStableForAPath()
+        {
+            const string path = @"C:\Unity\PROJECT_TEST";
+            var offset = ProjectIdentity.PortOffsetFromProjectPath(path);
+
+            Assert.AreEqual(offset, ProjectIdentity.PortOffsetFromProjectPath(@"c:/unity/project_test/"));
+            Assert.AreEqual(0, offset % 10);
+            Assert.That(offset, Is.InRange(0, 990));
+        }
+
         [Test]
         public void Pin_IsThePrefixOfTheFullIdentity()
         {

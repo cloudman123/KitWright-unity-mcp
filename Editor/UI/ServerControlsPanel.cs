@@ -57,11 +57,20 @@ namespace KitWright.Editor.MCP.Server
             portField.RegisterValueChangedCallback(evt =>
             {
                 _settings.MCPServerPort = evt.newValue;
+                if (_server != null && _server.IsRunning)
+                {
+                    // The port is part of the transport settings, so the write above already
+                    // scheduled a restart -- IsTransitioning is true from here on. Show the same
+                    // Connecting state as pressing Connect; the poll below rebuilds once the new
+                    // port is actually bound.
+                    UpdateConnectButton();
+                    InvokeRefreshStatus();
+                    return;
+                }
+
                 // The config sweep otherwise only runs on server start, so a port edit made
-                // while stopped never reaches the client files. While running, the live port
-                // is still the correct one to advertise -- the next start sweeps it.
-                if (_server == null || !_server.IsRunning)
-                    MCPClientConfigAutoRewrite.Schedule(_settings.MCPServerPort);
+                // while stopped never reaches the client files.
+                MCPClientConfigAutoRewrite.Schedule(_settings.MCPServerPort);
 
                 // Rebuild rather than refresh: the Client Configuration snippet renders the
                 // port into a read-only field that is only ever built once.
@@ -162,6 +171,30 @@ namespace KitWright.Editor.MCP.Server
 
             UpdateBrokerControls(_settings.MCPBrokerModeEnabled);
             UpdateBrokerStatus();
+
+            // Nothing notifies this window when the server restarts itself -- a port edit while
+            // running goes through HandleSettingsChanged, and a start that had to fall forward
+            // lands on a port the fields never saw. Poll the state we render instead.
+            var observed = (_server?.IsTransitioning, _server?.IsRunning, _server?.Port);
+            parent.schedule.Execute(() =>
+            {
+                var current = (_server?.IsTransitioning, _server?.IsRunning, _server?.Port);
+                if (current == observed)
+                    return;
+
+                observed = current;
+
+                // A restart moves through three states, and rebuilding on each would flash the
+                // whole window; the two labels carry it until the server settles.
+                if (_server != null && _server.IsTransitioning)
+                {
+                    UpdateConnectButton();
+                    InvokeRefreshStatus();
+                    return;
+                }
+
+                _rebuildWindow();
+            }).Every(500);
         }
 
         private static void LockLabelWidth(VisualElement field)
@@ -215,7 +248,7 @@ namespace KitWright.Editor.MCP.Server
 
             // Starting takes a visible moment, so report the transition instead of looking dead.
             // ◌ shares the ■ / ▶ Unicode block, so it renders in the editor's default font.
-            if (_connecting)
+            if (_connecting || _server?.IsTransitioning == true)
             {
                 _connectText.text = "Connecting...";
                 _connectIcon.text = "◌";

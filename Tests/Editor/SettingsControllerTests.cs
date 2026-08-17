@@ -2,6 +2,7 @@
 
 using System;
 using System.IO;
+using KitWright.Editor.MCP.Server;
 using KitWright.Editor.Services;
 using KitWright.Editor.Settings;
 using NUnit.Framework;
@@ -185,6 +186,68 @@ namespace KitWright.Editor
                 Assert.AreEqual("/tmp/unity-mono", reloaded.MCPBrokerMonoPath);
                 StringAssert.Contains("\"mcpBrokerModeEnabled\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"mcpBrokerMonoPath\": \"/tmp/unity-mono\"", ReadSettingsJson(projectPath));
+            }
+            finally
+            {
+                DeleteTempProjectPath(projectPath);
+            }
+        }
+
+        [Test]
+        public void Port_IsDerivedFromProjectPath_ForAProjectWithNoSettingsFile()
+        {
+            var projectPath = CreateTempProjectPath();
+
+            try
+            {
+                var port = new SettingsController(new TestApplicationPaths(projectPath)).MCPServerPort;
+
+                Assert.AreEqual(8765 + ProjectIdentity.PortOffsetFromProjectPath(projectPath), port);
+                Assert.AreEqual(0, (port - 8765) % 10, "Derived ports sit on the 10-apart slots.");
+                StringAssert.Contains($"\"port\": {port}", ReadSettingsJson(projectPath));
+            }
+            finally
+            {
+                DeleteTempProjectPath(projectPath);
+            }
+        }
+
+        // An existing file holding 8765 is indistinguishable from a user who typed 8765, so it is
+        // left alone. This is the assertion that fails if the derivation is ever moved back onto
+        // the load path.
+        [Test]
+        public void Port_IsNeverDerivedForAProjectThatAlreadyHasSettings()
+        {
+            var projectPath = CreateTempProjectPath();
+
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(projectPath, "UserSettings"));
+                File.WriteAllText(
+                    Path.Combine(projectPath, "UserSettings", "KitWrightMcpSettings.json"),
+                    "{\"enabled\":false,\"port\":8765}");
+
+                Assert.AreEqual(8765, new SettingsController(new TestApplicationPaths(projectPath)).MCPServerPort);
+            }
+            finally
+            {
+                DeleteTempProjectPath(projectPath);
+            }
+        }
+
+        [Test]
+        public void Port_OutOfTcpRangeInTheFileFallsBackToTheDefault()
+        {
+            var projectPath = CreateTempProjectPath();
+
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(projectPath, "UserSettings"));
+                File.WriteAllText(
+                    Path.Combine(projectPath, "UserSettings", "KitWrightMcpSettings.json"),
+                    "{\"enabled\":false,\"port\":70000}");
+
+                Assert.AreEqual(8765, new SettingsController(new TestApplicationPaths(projectPath)).MCPServerPort);
             }
             finally
             {

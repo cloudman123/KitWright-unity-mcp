@@ -70,6 +70,21 @@ namespace KitWright.Editor.MCP.Server
                 }
             }
         }
+        /// <summary>
+        /// True while a start or a settings-driven restart is in flight; still reports
+        /// <see cref="IsRunning"/> until the restart reaches StopAsync. The scheduled flag is the
+        /// only one set synchronously with the settings write -- the others land a frame later.
+        /// </summary>
+        public bool IsTransitioning
+        {
+            get
+            {
+                lock (_lifecycleLock)
+                {
+                    return _startTask != null || _restartInProgress || _restartScheduled;
+                }
+            }
+        }
         public int Port { get; private set; }
         public MCPInteractionLog InteractionLog { get; }
 
@@ -645,7 +660,7 @@ namespace KitWright.Editor.MCP.Server
 
         private static int NormalizePort(int port)
         {
-            return port > 0 ? port : 8765;
+            return port > 0 && port <= 65535 ? port : 8765;
         }
 
         private void ScheduleRestart()

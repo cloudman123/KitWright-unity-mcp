@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using KitWright.Editor.MCP.Server;
 using KitWright.Editor.Services;
 using UnityEngine;
 
@@ -64,7 +65,26 @@ namespace KitWright.Editor.Settings
                 applicationPaths.ProjectPath,
                 SettingsDirectoryName,
                 SettingsFileName);
+            // Only a project with no settings file yet gets the derived port. An existing file
+            // holding 8765 may hold it because the user typed it — a firewall rule, an SSH tunnel
+            // or a hand-written client config can depend on that — and nothing on disk tells the
+            // deliberate 8765 apart from the old shared default.
+            var firstRun = !File.Exists(_settingsPath);
             _settings = LoadSettings();
+            if (firstRun)
+                DeriveProjectPort(applicationPaths.ProjectPath);
+        }
+
+        // The port a project defaults to depended on which editor started first, because every
+        // project asked for the same one and lost the race to the fall-forward scan. Deriving it
+        // from the project path keeps this project on the same port across restarts.
+        private void DeriveProjectPort(string projectPath)
+        {
+            lock (_lock)
+            {
+                _settings.port = DefaultPort + ProjectIdentity.PortOffsetFromProjectPath(projectPath);
+                SaveSettings(_settings);
+            }
         }
 
         public event Action OnSettingsChanged;
@@ -424,7 +444,9 @@ namespace KitWright.Editor.Settings
             if (settings == null)
                 return;
 
-            settings.port = settings.port > 0 ? settings.port : DefaultPort;
+            // Out of TCP range is as unusable as <= 0, and this is the path a hand-edited file takes
+            // -- the property setter never sees it.
+            settings.port = settings.port > 0 && settings.port <= MaxPort ? settings.port : DefaultPort;
             settings.activityLogCapacity = settings.activityLogCapacity > 0 ? settings.activityLogCapacity : DefaultActivityLogCapacity;
             settings.mcpBrokerMonoPath = settings.mcpBrokerMonoPath ?? string.Empty;
             settings.toolExportProfile = NormalizeToolExportProfile(settings.toolExportProfile);

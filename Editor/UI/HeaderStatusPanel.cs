@@ -95,10 +95,20 @@ namespace KitWright.Editor.MCP.Server
             if (_statusLabel == null)
                 return;
 
+            // The Connect button already reads Connecting..., so anything here just repeats it.
+            if (_server?.IsTransitioning == true)
+            {
+                _statusLabel.text = string.Empty;
+                _statusLabel.tooltip = null;
+                return;
+            }
+
             if (_server?.IsRunning == true)
             {
                 var attached = _server.IsAttachedToExistingTransport;
-                var url = $"http://127.0.0.1:{_server.Port}/";
+                // Pinned, like the client configs: a URL copied out of this tooltip has to reach
+                // this project rather than whichever editor holds the port.
+                var url = ClientConfigPanel.BuildServerUrl(_server.Port);
 
                 var rawProfile = _settings?.MCPToolExportProfile ?? "core";
                 var profileDisplay = string.IsNullOrEmpty(rawProfile) ? "Core" : char.ToUpperInvariant(rawProfile[0]) + rawProfile.Substring(1);
