@@ -39,7 +39,7 @@ Describe your game in one sentence — your AI assistant builds it in Unity thro
 If you just want to get connected fast, do these three things:
 
 - Install the Unity package from the Git URL
-- Start `KitWright > MCP Server`
+- Open `Window > KitWright > MCP Window` and start the server from the **Server** tab
 - Use the built-in one-click client configuration
 
 ### 1. Install via UPM (Git URL)
@@ -95,25 +95,27 @@ com.unity.nuget.newtonsoft-json
 
 ### 2. Start the MCP Server
 
-**Menu: KitWright → MCP Server** to start the server.
+**Menu: Window → KitWright → MCP Window**, then start the server from the **Server** tab.
 
 The server starts on `http://127.0.0.1:8765/` by default.
 
-Direct in-process HTTP is the default transport. If you need stronger connection continuity across Unity script recompiles or Play Mode domain reloads, enable **Experimental Broker Mode** in the MCP Server window. It runs a tiny local broker with Unity's bundled Mono, keeps the same `127.0.0.1` port for MCP clients, and requires no client config change.
+**Broker Mode** is the default transport. It runs a tiny local broker with Unity's bundled Mono, keeps the same `127.0.0.1` port for MCP clients, requires no client config change, and holds the connection across Unity script recompiles and Play Mode domain reloads. If the broker cannot start, the server falls back to direct in-process HTTP automatically; you can also turn broker mode off in the **Server** tab to use direct HTTP always.
 
-Open **KitWright → Tool Exposure** if you want to edit the exact tools exposed by `core` or `full`.
+The window has five tabs: **Server**, **Settings**, **Skills**, **Tool Exposure**, and **Integrations**.
 
-Open **KitWright → MCP Settings** if you need to adjust `execute_code` safety defaults or plugin debug logging.
+Open the **Tool Exposure** tab if you want to edit the exact tools exposed by `core` or `full`.
+
+Open the **Settings** tab if you need to adjust `execute_code` safety defaults or plugin debug logging.
 
 ### 3. Configure Your AI Client
 
-Use the built-in **One-Click MCP Configuration** in the `KitWright > MCP Server` window first.
+Use the built-in **One-Click MCP Configuration** in the **Server** tab first.
 
 Select your target client, click **Configure**, and the package writes the recommended MCP config entry for you.
 
 For Claude Code, Cursor, and Codex, click **Configure + Skills** to also install the default project MCP workflow skill.
 
-If you want project-specific AI guidance for the current Unity project, open **KitWright → Project Skills** to choose supported platforms and install the default `unity-mcp-workflow` skill.
+If you want project-specific AI guidance for the current Unity project, open the **Skills** tab to choose supported platforms and install the default `unity-mcp-workflow` skill.
 
 If you prefer to edit config files manually, use the examples below as fallback references:
 
@@ -151,7 +153,7 @@ If you prefer to edit config files manually, use the examples below as fallback 
 <details>
 <summary>LM Studio</summary>
 
-LM Studio's `mcp.json` location can vary by version and platform. Prefer **Program > Install > Edit mcp.json** in LM Studio. KitWright's one-click Configure button opens LM Studio's `lmstudio://add_mcp` link and only updates an existing config file if one is already present, instead of creating a guessed path.
+LM Studio is not one of the one-click targets — its `mcp.json` location varies by version and platform. Open **Program > Install > Edit mcp.json** in LM Studio and paste the entry below.
 
 ```json
 {
@@ -248,11 +250,11 @@ Open your AI client and try: *"Create a 3D platformer level with 5 floating plat
 - This package is **Editor-only**. It does not add runtime components to your built game.
 - The MCP server starts on `http://127.0.0.1:8765/` by default.
 - Local MCP server settings are stored in `UserSettings/KitWrightMcpSettings.json`.
-- The package defaults to the `core` MCP tool profile to reduce tool-list noise for AI clients. `core` currently exposes 38 high-signal tools centered on `execute_code`, play mode control, input simulation, screenshots, performance inspection, logs, compilation checks, structured object location and component editing, editor selection / prefab-stage state, live C# API reflection, Unity documentation lookup, and `execute_menu_item` as a low-friction fallback. Switch to `full` in the MCP Server window if you want all 263 tools exposed.
-- `execute_code` safety checks and the stricter filesystem guard are enabled by default from **KitWright > MCP Settings**. The guard blocks obvious destructive snippets, broad `System.IO` writes, raw file streams, and absolute/user/system/traversal paths, but it is not a complete sandbox. Clients may still override the default per call with the optional `safety_checks` argument.
-- Plugin debug logging is off by default and can also be enabled from **KitWright > MCP Settings**. Warnings and errors are always written to the Unity Console.
+- The package defaults to the `core` MCP tool profile to reduce tool-list noise for AI clients. `core` currently exposes 38 high-signal tools centered on `execute_code`, play mode control, input simulation, screenshots, performance inspection, logs, compilation checks, structured object location and component editing, editor selection / prefab-stage state, live C# API reflection, Unity documentation lookup, and `execute_menu_item` as a low-friction fallback. Switch to `full` in the **Server** tab if you want all 263 tools exposed.
+- `execute_code` safety checks and the stricter filesystem guard are enabled by default from the **Settings** tab. The guard blocks obvious destructive snippets, broad `System.IO` writes, raw file streams, and absolute/user/system/traversal paths, but it is not a complete sandbox. Clients may still override the default per call with the optional `safety_checks` argument.
+- Plugin debug logging is off by default and can also be enabled from the **Settings** tab. Warnings and errors are always written to the Unity Console.
 - All exposed MCP tools run directly. There is no extra approval toggle.
-- **Menu: `KitWright > Check for Updates`** can refresh Git installs in place or download and import the latest `unitypackage` automatically.
+- The window checks for updates in the background and shows an **Update** button in its header when a newer release exists — it can refresh Git installs in place or download and import the latest `unitypackage` automatically.
 
 ## Why This Project
 
@@ -266,13 +268,14 @@ Open your AI client and try: *"Create a 3D platformer level with 5 floating plat
 
 ## Highlights
 
-- **263 Built-in Tools** — Scene editing, assets, scripts, play mode control, screenshots, performance analysis, prompts, resources, structured object location, SerializedObject-based component editing, editor-state inspection, menu-item fallback, and editor automation across 57 modules
+- **263 Built-in Tools** — Scene editing, assets, scripts, play mode control, screenshots, performance analysis, prompts, resources, structured object location, SerializedObject-based component editing, editor-state inspection, menu-item fallback, and editor automation across 56 modules. Full list: [TOOLS.md](TOOLS.md)
 - **Structured Returns + `instanceId` Chaining** — Tools return `{success, message, data}` JSON with stable `instanceId` fields so agents can chain `by_id` calls reliably instead of re-resolving by name
-- **`IKitWrightCommand` for `execute_code`** — New snippet template with auto-Undo (`ctx.RegisterObjectCreation/Modification/DestroyObject`), structured logs (`ctx.Log/LogWarning/LogError`), and a tracked changelog returned to the agent
+- **`IKitWrightCommand` for `execute_code`** — New snippet template with auto-Undo (`ctx.RegisterObjectCreation` / `ctx.RegisterObjectModification` / `ctx.DestroyObject`), structured logs (`ctx.Log/LogWarning/LogError`), and a tracked changelog returned to the agent
 - **Resources & Prompts** — Live project context, scene/selection/error resources, resource templates, and reusable workflow prompts
 - **Input Simulation + Screenshots** — Drive play mode with keyboard/mouse simulation and verify results with game/scene captures
-- **Built-in Updating** — Check for updates from the Unity menu and either re-pull the Git package or auto-import the latest `unitypackage`
-- **One-Click Client Configuration** — Generate MCP config entries for Claude Code, Cursor, LM Studio, VS Code, Kiro, Trae, Codex, and similar clients directly from the Unity window
+- **Built-in Updating** — The MCP Window surfaces new releases and either re-pulls the Git package or auto-imports the latest `unitypackage`
+- **Integrations Tab** — Detects Hot Reload, Memory Profiler, Addressables, Input System, Timeline, URP, and Test Framework, and shows which tools each one unlocks
+- **One-Click Client Configuration** — Write MCP config entries for 19 targets directly from the Unity window: Claude Code, Cursor, VS Code (+ Insiders), Codex, Windsurf, Cline, Kiro, Trae, Rider (+ Junie), Kimi Code, Qwen Code, Antigravity, Kilo Code, OpenCode, GitHub Copilot CLI, CodeBuddy CLI, and Roo Code
 - **Tool Exposure Control** — Edit the exact tools exposed by `core` and `full`
 - **Project Skills Manager** — Configure project-level skills for supported AI clients, currently installing the default `unity-mcp-workflow` skill
 - **MCP Settings** — Adjust `execute_code` safety defaults and enable verbose plugin debug logging when troubleshooting MCP connections or tool execution
@@ -312,22 +315,26 @@ The legacy template (`public static string Run()`) is still supported — useful
 
 ## Comparison With Coplay
 
-The table below compares this repository with the publicly documented behavior of Coplay's open-source `unity-mcp` repository on GitHub.
+The table below compares this repository with the publicly documented behavior of Coplay's open-source `unity-mcp` repository on GitHub (checked against v10.0.0 and the public docs site).
 
 | Area | KitWright MCP for Unity | Coplay `unity-mcp` |
 |------|--------------------------|--------------------|
-| Unity-side architecture | Embedded Unity Editor package with built-in HTTP MCP server | Unity bridge plus local Python MCP server |
+| Unity-side architecture | Embedded Unity Editor package with built-in HTTP MCP server | Unity bridge plus a Python MCP server, run locally or remote-hosted with API-key auth |
 | Extra local prerequisites | Unity package only for core workflows | Unity + Python 3.10+ + `uv` according to the public quick start |
-| Primary workflow style | `execute_code` first, then focused helper tools | Broad `manage_*` tool families exposed through the bridge |
-| Default tool exposure | Compact `core` profile with optional `full` expansion | Public docs emphasize a broad always-available tool surface |
+| Tool surface | 263 fine-grained tools across 56 modules, chained by `instanceId` | ~51 wide `manage_*` entrypoints with an `action` enum per tool (README states "47 focused entrypoints") |
+| Primary workflow style | `execute_code` first, then focused helper tools | `manage_*` families first; `execute_code` is available in the `scripting_ext` group |
+| Default tool exposure | Compact `core` profile with optional `full` expansion | Tool groups toggled per session via `manage_tools` |
+| Asset generation | Not built-in (compose external APIs via `execute_code`) | `generate_image` / `generate_audio` / `generate_model` via fal.ai, Tripo, Meshy, plus Sketchfab import |
+| UI Toolkit and ProBuilder | Not built-in (uGUI creation tools only) | `manage_ui` for UXML/USS/UIDocument and `manage_probuilder` for in-editor modeling |
 | Built-in context model | Project resources, resource templates, workflow prompts, interaction history | Public README emphasizes tool families and bridge/server workflow |
 | Play mode validation | Built-in play mode control, screenshots, logs, and input simulation in the package | Public README emphasizes broad Unity management and automation tools |
-| C# API introspection | `reflect_api` — declared members, full signatures per member, extension methods, obsolete members, interfaces, and `search` by substring scoped to `unity` / `packages` / `project` / `all`. Adds candidate suggestions when a type or member name does not resolve, case-insensitive member matching, and `include_non_public` for private and internal members | `unity_reflect` — `get_type` / `get_member` / `search` with the same scope filter, extension-method resolution, and interface and obsolete-member listings. Public members only, and an unresolved name returns `found: false` with no suggestions |
+| C# API introspection | `reflect_api` — declared members, full signatures per member, extension methods, obsolete members, interfaces, and `search` by substring scoped to `unity` / `packages` / `project` / `all`. Adds candidate suggestions when a type or member name does not resolve, case-insensitive member matching, and `include_non_public` for private and internal members | `unity_reflect` — `get_type` / `get_member` / `search` with a comparable scope filter, extension-method resolution, and interface and obsolete-member listings |
+| Documentation | `README.md` plus [TOOLS.md](TOOLS.md), both generated from the `[ToolProvider]` sources | Auto-generated docs site with a detail page per tool covering parameters, actions, and examples |
 | Tool exposure switching | `set_tool_profile` switches `minimal` / `core` / `extended` / `full` from the client and pushes `tools/list_changed` | `manage_tools` enables and disables tool groups per session |
 | Tool annotations | `annotations.readOnlyHint` on read-only tools | `readOnlyHint` and `destructiveHint` on annotated tools |
 | Positioning | Lightweight, direct, MIT-licensed Unity MCP server for AI-driven editor control | Full-featured Unity bridge maintained by Coplay with Python-backed server setup |
 
-Source for Coplay column: [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp)
+Source for Coplay column: [CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) and its [tool reference](https://coplaydev.github.io/unity-mcp/reference/tools)
 
 ## Comparison With Unity AI Assistant
 
@@ -359,48 +366,42 @@ The current open-source package exposes four high-value capability layers:
 
 ## Built-in Tools
 
-KitWright MCP for Unity currently ships with **263 tool functions** across 57 modules:
+<!-- tools-summary:start -->
+KitWright MCP for Unity ships **263 tool functions across 56 modules** (`core` profile exposes 38 of them).
 
-| Category | Tools |
-|----------|-------|
-| **GameObject** | `create_primitive`, `create_game_object`, `delete_game_object`, `find_game_objects`, `get_game_object_info`, `set_transform`, `duplicate_game_object`, `rename_game_object`, `set_parent`, `add_component`, `set_tag_and_layer`, `set_active` |
-| **Hierarchy** | `get_hierarchy` |
-| **Components** | `get_component_properties`, `list_components`, `set_component_property`, `set_component_properties` |
-| **Component Batch** | `copy_component`, `paste_component_values`, `add_component_to_many` |
-| **Scripts** | `create_script`, `edit_script`, `patch_script` |
-| **Assets** | `create_material`, `assign_material`, `find_assets`, `delete_asset`, `rename_asset`, `copy_asset` |
-| **Asset Import** | `get_asset_import_settings`, `set_asset_import_settings` |
-| **References** | `find_references`, `find_broken_references` |
-| **Mesh** | `get_mesh_info` |
-| **Materials** | `get_material_properties`, `set_material_property` |
-| **Files** | `read_file`, `write_file`, `search_files`, `list_directory`, `exists` |
-| **Scene** | `get_scene_info`, `list_scenes`, `save_scene`, `open_scene`, `create_new_scene`, `enter_play_mode`, `exit_play_mode`, `set_time_scale`, `get_time_scale` |
-| **Physics** | `physics_raycast`, `physics_overlap`, `physics2d_overlap_point` |
-| **Particles** | `particle_control` |
-| **Lighting** | `get_lighting_settings`, `set_lighting_settings`, `bake_lightmaps` |
-| **Timeline** | `director_evaluate` |
-| **Prefabs** | `create_prefab`, `instantiate_prefab`, `unpack_prefab`, `open_prefab_stage`, `save_prefab_stage`, `close_prefab_stage` |
-| **ScriptableObject** | `create_scriptable_object`, `get_scriptable_object`, `set_scriptable_object_properties` |
-| **UI** | `create_canvas`, `create_button`, `create_text`, `create_image`, `raycast_at_point` |
-| **Animation** | `create_animation_clip`, `create_animator_controller`, `assign_animator`, `get_animator_state`, `set_animator_parameter`, `play_animator_state` |
-| **Camera** | `get_camera_properties`, `set_camera_projection`, `set_camera_settings`, `set_camera_culling_mask` |
-| **Screenshot** | `capture_game_view`, `capture_simulator_view`, `capture_scene_view`, `capture_editor_window` |
-| **Script Execution** | `execute_code`, `get_execute_code_history`, `replay_execute_code`, `clear_execute_code_history` |
-| **Reflection** | `reflect_api` |
-| **Tool Exposure** | `set_tool_profile` |
-| **Input Simulation** | `simulate_key_press`, `simulate_key_combo`, `simulate_mouse_click`, `simulate_mouse_drag` |
-| **Performance** | `get_performance_snapshot`, `analyze_scene_complexity` |
-| **Profiler** | `profiler_start`, `profiler_stop`, `profiler_status`, `get_frame_timing`, `get_counters`, `get_object_memory`, `get_top_memory_objects`, `memory_take_snapshot`, `memory_list_snapshots`, `memory_compare_snapshots`, `frame_debugger_enable`, `frame_debugger_disable`, `frame_debugger_get_events` |
-| **Memory Snapshot** | `memory_take_full_snapshot`, `memory_list_full_snapshots`, `memory_open_snapshot_in_profiler`, `memory_query_top_objects`, `memory_query_references` |
-| **Packages** | `install_package`, `remove_package`, `list_packages` |
-| **Compilation** | `wait_for_compilation`, `request_recompile`, `get_compilation_errors`, `get_reload_recovery_status` |
-| **Testing** | `run_tests`, `get_test_job`, `cancel_test_run` |
-| **Editor State** | `get_editor_state`, `get_selection`, `set_selection`, `get_prefab_stage`, `get_active_tool`, `set_active_tool`, `get_windows`, `get_tags`, `add_tag`, `remove_tag`, `get_layers`, `add_layer`, `get_build_settings` |
-| **Project Settings** | `get_project_settings` |
-| **Undo** | `undo`, `redo`, `get_undo_state` |
-| **Menu Items** | `execute_menu_item` |
-| **Visual Feedback** | `select_object`, `focus_on_object`, `ping_asset`, `log_message`, `show_dialog`, `get_console_logs` |
-| **Docs** | `fetch_docs`, `get_script_reference_url`, `search_manual` |
+| Module | Tools | Module | Tools |
+|--------|-------|--------|-------|
+| **EditorState** | 18 | **Screenshot** | 4 |
+| **GameObject** | 14 | **Script** | 4 |
+| **Scene** | 14 | **Texture** | 4 |
+| **Profiler** | 13 | **Build** | 3 |
+| **Prefab** | 10 | **ComponentBatch** | 3 |
+| **Asset** | 8 | **Docs** | 3 |
+| **Terrain** | 8 | **Lighting** | 3 |
+| **AssemblyDefinition** | 7 | **Package** | 3 |
+| **Prefs** | 7 | **Physics** | 3 |
+| **SpriteAtlas** | 7 | **ScriptableObject** | 3 |
+| **Visual** | 7 | **Sprite** | 3 |
+| **Addressable** | 6 | **Testing** | 3 |
+| **Animation** | 6 | **Undo** | 3 |
+| **Audio** | 6 | **AssetImport** | 2 |
+| **Code** | 6 | **EditorWindowInteraction** | 2 |
+| **InputActions** | 6 | **Material** | 2 |
+| **NavMesh** | 6 | **Performance** | 2 |
+| **Shader** | 6 | **References** | 2 |
+| **UI** | 6 | **Batch** | 1 |
+| **File** | 5 | **Hierarchy** | 1 |
+| **MemorySnapshot** | 5 | **Interop** | 1 |
+| **SceneView** | 5 | **MenuItem** | 1 |
+| **Volume** | 5 | **Mesh** | 1 |
+| **Camera** | 4 | **Particle** | 1 |
+| **Compilation** | 4 | **ProjectSettings** | 1 |
+| **ComponentProperty** | 4 | **Reflection** | 1 |
+| **InputSimulation** | 4 | **Timeline** | 1 |
+| **LodConstraint** | 4 | **ToolExposure** | 1 |
+
+> 📖 Every tool with its description: [TOOLS.md](TOOLS.md).
+<!-- tools-summary:end -->
 
 > 📊 See [PROFILER_TOOLS.md](PROFILER_TOOLS.md) for the full Profiler tool reference, implementation notes, known limitations, and test report.
 
@@ -428,7 +429,7 @@ public static class MyCustomTools
 
 Public static methods on the class are discovered automatically, converted to snake_case (`spawn_enemies`), and exposed via MCP with JSON Schema definitions generated from the parameter list. Mark a method `[ReadOnlyTool]` when it does not modify the scene or project, and clients receive `annotations.readOnlyHint` for it.
 
-Project-declared tools are exposed under **every** profile, including the default `core`, since writing one is already an explicit opt-in — a custom tool would otherwise be invisible to the profile most clients connect with. They still appear in **KitWright → Tool Exposure**, so a profile configured there can turn them off like any built-in tool.
+Project-declared tools are exposed under **every** profile, including the default `core`, since writing one is already an explicit opt-in — a custom tool would otherwise be invisible to the profile most clients connect with. They still appear in the **Tool Exposure** tab, so a profile configured there can turn them off like any built-in tool.
 
 ## Architecture
 
@@ -437,7 +438,7 @@ MCP Server (HTTP JSON-RPC 2.0)
     └─ MCPRequestHandler (protocol handling)
         └─ MCPExecutionBridge
             └─ FunctionInvoker (reflection-based invocation)
-                └─ Tool Functions (263 built-in tools across 57 modules)
+                └─ Tool Functions (263 built-in tools across 56 modules)
 ```
 
 ```
@@ -448,6 +449,7 @@ External AI Client → HTTP Request → MCPRequestHandler → MCPExecutionBridge
 
 - Unity 2022.3 or later
 - `com.unity.nuget.newtonsoft-json` — pulled in automatically by UPM and OpenUPM installs; Asset Store imports offer it in the Package Manager dependency dialog
+- `com.unity.ugui` and `com.unity.test-framework` — declared dependencies, already present in a default Unity project
 
 ## Contributing
 

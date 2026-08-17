@@ -47,3 +47,7 @@ CLAUDE.md.meta
 # internal docs (not shipped)
 docs/
 docs.meta
+
+# python tooling
+__pycache__/
+__pycache__.meta

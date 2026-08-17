@@ -7,7 +7,7 @@ Thanks for your interest in contributing! Here's how to get started.
 1. Create or open a clean Unity `2022.3+` test project
 2. Add this repository to the project as a local package or Git package
 3. Open the project in Unity Editor and wait for compilation to finish
-4. Open **KitWright → MCP Server**
+4. Open **Window → KitWright → MCP Window**
 5. Start the server and confirm it is reachable at `http://127.0.0.1:8765/`
 
 ## Code Style
@@ -25,6 +25,7 @@ Thanks for your interest in contributing! Here's how to get started.
 4. Use `[ToolParam("description")]` on parameters
 5. Method signature: `public static string MethodName(...)`
 6. Use `Undo.*` APIs for scene-modifying tools
+7. Run `python scripts/generate_tools_doc.py` so `TOOLS.md` and the README tool tables pick up the new tool
 
 See [README.md](README.md#adding-custom-tools) for a full example.
 
@@ -32,7 +33,7 @@ See [README.md](README.md#adding-custom-tools) for a full example.
 
 Before submitting a PR, please verify the change in a Unity test project:
 
-1. Open **KitWright → MCP Server**
+1. Open **Window → KitWright → MCP Window**
 2. Confirm the MCP server starts successfully
 3. Run at least one read-only workflow such as `get_scene_info`
 4. If your change affects scene editing, run at least one write workflow such as `create_game_object`

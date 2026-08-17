@@ -21,7 +21,7 @@
 
 ---
 
-KitWright MCP for Unity 是一个采用 MIT 协议 of Unity 编辑器 MCP 服务器，让 Claude Code、Cursor、LM Studio、Windsurf、Codex、VS Code Copilot 等 AI 助手直接操作正在运行 of Unity 项目。
+KitWright MCP for Unity 是一个采用 MIT 协议的 Unity 编辑器 MCP 服务器，让 Claude Code、Cursor、LM Studio、Windsurf、Codex、VS Code Copilot 等 AI 助手直接操作正在运行的 Unity 项目。
 
 一句话描述你的游戏 — AI 助手通过 KitWright MCP for Unity 的 263 个内置工具自动创建场景、编写脚本、验证运行态、模拟输入、分析性能并完成编辑器自动化，把所有逻辑串联起来。
 
@@ -39,7 +39,7 @@ KitWright MCP for Unity 是一个采用 MIT 协议 of Unity 编辑器 MCP 服务
 如果你只想尽快跑起来，先做这三步：
 
 - 用 Git URL 安装 Unity 包
-- 打开 `KitWright > MCP Server`
+- 打开 `Window > KitWright > MCP Window`，在 **Server** 页签启动服务
 - 使用内置的一键客户端配置
 
 ### 1. 通过 UPM 安装 (Git URL)
@@ -95,25 +95,27 @@ com.unity.nuget.newtonsoft-json
 
 ### 2. 启动 MCP Server
 
-**菜单：KitWright → MCP Server** 启动服务。
+**菜单：Window → KitWright → MCP Window**，然后在 **Server** 页签启动服务。
 
 默认从 `http://127.0.0.1:8765/` 启动。
 
-默认传输仍然是进程内 Direct HTTP。如果你需要在 Unity 脚本重编译或进入 Play Mode 触发域重载时尽量保持 MCP 客户端连接，可以在 MCP Server 窗口启用 **Experimental Broker Mode**。它会用 Unity 自带 Mono 启动一个很小的本地 broker，客户端仍然连接同一个 `127.0.0.1` 端口，不需要改 MCP 配置。
+默认传输是 **Broker Mode**。它会用 Unity 自带 Mono 启动一个很小的本地 broker，客户端仍然连接同一个 `127.0.0.1` 端口，不需要改 MCP 配置，并且能在 Unity 脚本重编译或进入 Play Mode 触发域重载时尽量保持 MCP 客户端连接。如果 broker 启动失败，服务器会自动回退到进程内 Direct HTTP；你也可以在 **Server** 页签关闭 broker 模式，始终使用 Direct HTTP。
 
-如果你想编辑 `core` 或 `full` 各自暴露哪些工具，可以打开 **KitWright → Tool Exposure**。
+窗口共有五个页签：**Server**、**Settings**、**Skills**、**Tool Exposure**、**Integrations**。
 
-如果需要调整 `execute_code` 安全默认值或插件 debug 日志，可以打开 **KitWright → MCP Settings**。
+如果你想编辑 `core` 或 `full` 各自暴露哪些工具，可以打开 **Tool Exposure** 页签。
+
+如果需要调整 `execute_code` 安全默认值或插件 debug 日志，可以打开 **Settings** 页签。
 
 ### 3. 配置 AI 客户端
 
-优先使用 `KitWright > MCP Server` 窗口里的 **一键 MCP 配置**。
+优先使用 **Server** 页签里的 **一键 MCP 配置**。
 
 选择目标客户端后点击 **Configure**，插件会直接帮你写入推荐的 MCP 配置项。
 
 对于 Claude Code、Cursor 和 Codex，也可以点击 **Configure + Skills**，同时安装默认的项目级 MCP 工作流 skill。
 
-如果你希望为当前 Unity 项目配置项目级 AI 指引，可以打开 **KitWright → Project Skills**，为支持的平台安装默认的 `unity-mcp-workflow` skill。
+如果你希望为当前 Unity 项目配置项目级 AI 指引，可以打开 **Skills** 页签，为支持的平台安装默认的 `unity-mcp-workflow` skill。
 
 如果你更想手动编辑配置文件，再参考下面这些示例：
 
@@ -151,7 +153,7 @@ com.unity.nuget.newtonsoft-json
 <details>
 <summary>LM Studio</summary>
 
-LM Studio 的 `mcp.json` 路径会随版本和平台变化。建议优先在 LM Studio 中通过 **Program > Install > Edit mcp.json** 打开当前生效的配置文件。KitWright 的一键 Configure 会打开 LM Studio 官方 `lmstudio://add_mcp` 链接，并且只在发现已有配置文件时顺手更新它，不会创建一个猜测出来的路径。
+LM Studio 不在一键配置的目标列表中——它的 `mcp.json` 路径会随版本和平台变化。请在 LM Studio 中通过 **Program > Install > Edit mcp.json** 打开配置文件，手动粘贴下面的配置项。
 
 ```json
 {
@@ -250,11 +252,11 @@ url = "http://127.0.0.1:8765/"
 - 这是一个 **仅限 Editor** 的包，不会向最终构建产物添加运行时代码。
 - MCP Server 默认从 `http://127.0.0.1:8765/` 启动。
 - 本地 MCP Server 配置保存在 `UserSettings/KitWrightMcpSettings.json`。
-- 插件默认使用 `core` MCP 工具暴露配置，减少 AI 客户端的工具噪音；`core` 当前暴露 38 个高频工具，覆盖 `execute_code`、运行模式控制、输入模拟、截图、性能检查、日志、编译检查、结构化对象定位与组件编辑、编辑器选中与 prefab stage 状态读写，以及 `execute_menu_item` 兜底入口。如果你需要完整工具集，可在 MCP Server 窗口切换到 `full`，暴露全部 263 个工具。
-- `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **KitWright > MCP Settings** 设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径，但它不是完整沙箱。客户端仍可在单次调用中用可选 `safety_checks` 参数显式覆盖。
-- 插件 debug 日志默认关闭，也可在 **KitWright > MCP Settings** 中开启；Warning 和 Error 始终会输出到 Unity Console。
+- 插件默认使用 `core` MCP 工具暴露配置，减少 AI 客户端的工具噪音；`core` 当前暴露 38 个高频工具，覆盖 `execute_code`、运行模式控制、输入模拟、截图、性能检查、日志、编译检查、结构化对象定位与组件编辑、编辑器选中与 prefab stage 状态读写，以及 `execute_menu_item` 兜底入口。如果你需要完整工具集，可在 **Server** 页签切换到 `full`，暴露全部 263 个工具。
+- `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **Settings** 页签设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径，但它不是完整沙箱。客户端仍可在单次调用中用可选 `safety_checks` 参数显式覆盖。
+- 插件 debug 日志默认关闭，也可在 **Settings** 页签中开启；Warning 和 Error 始终会输出到 Unity Console。
 - 所有已暴露的 MCP 工具都会直接执行，不再提供额外的 approval 开关。
-- **菜单：`KitWright > Check for Updates`** 可按安装来源自动更新：Git 安装会直接重新拉取，`.unitypackage` 导入会自动下载并导入最新版。
+- 窗口会在后台检查新版本，有更新时在标题栏显示 **Update** 按钮：Git 安装会直接重新拉取，`.unitypackage` 导入会自动下载并导入最新版。
 
 ## 能力概览
 
@@ -268,13 +270,14 @@ url = "http://127.0.0.1:8765/"
 
 ## 核心特性
 
-- **263 个内置工具** — 覆盖场景编辑、脚本、资产、运行态控制、截图、性能分析、Prompts、Resources、结构化对象定位、SerializedObject 组件编辑、编辑器状态读写、菜单项兜底以及编辑器自动化，共 57 个模块
+- **263 个内置工具** — 覆盖场景编辑、脚本、资产、运行态控制、截图、性能分析、Prompts、Resources、结构化对象定位、SerializedObject 组件编辑、编辑器状态读写、菜单项兜底以及编辑器自动化，共 56 个模块。完整清单见 [TOOLS.md](TOOLS.md)
 - **结构化返回 + `instanceId` 链式调用** — 工具返回 `{success, message, data}` JSON 并附带稳定的 `instanceId`，agent 后续直接 `by_id` 调用，不再受重名困扰
-- **`execute_code` 的 `IKitWrightCommand` 模板** — 新模板自动 Undo（`ctx.RegisterObjectCreation/Modification/DestroyObject`）、结构化日志（`ctx.Log/LogWarning/LogError`），并把改动列表回传给 agent
+- **`execute_code` 的 `IKitWrightCommand` 模板** — 新模板自动 Undo（`ctx.RegisterObjectCreation` / `ctx.RegisterObjectModification` / `ctx.DestroyObject`）、结构化日志（`ctx.Log/LogWarning/LogError`），并把改动列表回传给 agent
 - **Resources 与 Prompts** — 暴露实时项目上下文、场景/选择/错误资源、资源模板，以及常见 Unity 工作流的可复用 MCP Prompt
 - **输入模拟 + 截图验证** — 在 Play Mode 中模拟键盘/鼠标，再用 Game View / Scene View 截图验证结果
-- **内置更新** — 直接在 Unity 菜单中检查更新，并根据安装方式自动重新拉取 Git 包或导入最新 `unitypackage`
-- **一键客户端配置** — 直接在 Unity 窗口里为 Claude Code、Cursor、LM Studio、VS Code、Kiro、Trae、Codex 等客户端生成 MCP 配置
+- **内置更新** — MCP Window 会提示新版本，并根据安装方式自动重新拉取 Git 包或导入最新 `unitypackage`
+- **Integrations 页签** — 自动检测 Hot Reload、Memory Profiler、Addressables、Input System、Timeline、URP 和 Test Framework，并显示各自解锁了哪些工具
+- **一键客户端配置** — 直接在 Unity 窗口里为 19 个目标写入 MCP 配置：Claude Code、Cursor、VS Code（含 Insiders）、Codex、Windsurf、Cline、Kiro、Trae、Rider（含 Junie）、Kimi Code、Qwen Code、Antigravity、Kilo Code、OpenCode、GitHub Copilot CLI、CodeBuddy CLI、Roo Code
 - **工具暴露控制** — 编辑 `core` 和 `full` 各自暴露的具体工具
 - **项目 Skills 管理器** — 为支持的 AI 客户端配置项目级 skills，目前安装默认的 `unity-mcp-workflow` skill
 - **插件设置** — 排查 MCP 连接或工具执行问题时，可开关详细 debug 日志
@@ -314,22 +317,26 @@ public class CommandScript : IKitWrightCommand
 
 ## 与 Coplay 的对比
 
-下表基于 Coplay 官方公开 GitHub README 所描述的能力与安装方式进行对比。
+下表基于 Coplay 官方公开 GitHub 仓库（v10.0.0）与文档站所描述的能力与安装方式进行对比。
 
 | 维度 | KitWright MCP for Unity | Coplay `unity-mcp` |
 |------|-------------------------|--------------------|
-| Unity 侧架构 | Unity 包内置 HTTP MCP server | Unity bridge + 本地 Python MCP server |
+| Unity 侧架构 | Unity 包内置 HTTP MCP server | Unity bridge + Python MCP server，可本地运行或部署为带 API Key 鉴权的远程服务 |
 | 额外本地依赖 | `core` 工作流下只需要 Unity 包本身 | 官方 quick start 要求 Python 3.10+ 与 `uv` |
-| 主要交互模型 | 以 `execute_code` 为主，再配合少量高频辅助工具 | 以大量 `manage_*` 工具族为主 |
-| 默认工具暴露 | 默认 `core` 精简工具集，可切 `full` | 公开文档强调广泛工具面 |
+| 工具面 | 263 个细粒度工具、56 个模块，靠 `instanceId` 链式调用 | 约 51 个大粒度 `manage_*` 入口，每个工具内部再用 `action` 枚举分派（README 表述为 47 个入口）|
+| 主要交互模型 | 以 `execute_code` 为主，再配合少量高频辅助工具 | 以 `manage_*` 工具族为主；`execute_code` 位于 `scripting_ext` 工具组 |
+| 默认工具暴露 | 默认 `core` 精简工具集，可切 `full` | 通过 `manage_tools` 按会话开关工具组 |
+| 资产生成 | 不内置（可用 `execute_code` 组合外部 API）| `generate_image` / `generate_audio` / `generate_model`，接入 fal.ai、Tripo、Meshy，并支持 Sketchfab 导入 |
+| UI Toolkit 与 ProBuilder | 不内置（只有 uGUI 创建工具）| `manage_ui` 处理 UXML/USS/UIDocument，`manage_probuilder` 提供编辑器内建模 |
 | 上下文能力 | 内建项目资源、资源模板、工作流 prompts、交互历史 | 公开 README 主要强调 bridge/server 与工具族 |
 | Play Mode 验证 | 包内置运行模式控制、截图、日志、输入模拟 | 公开 README 强调广泛 Unity 管理与自动化能力 |
-| C# API 反射查询 | `reflect_api`：声明成员、单成员完整签名、扩展方法、过时成员、接口，以及按子串搜索类型（范围 `unity` / `packages` / `project` / `all`）；另有解析失败时的候选名、忽略大小写的成员匹配，以及 `include_non_public` 查看私有与内部成员 | `unity_reflect`：`get_type` / `get_member` / `search`，同样支持范围过滤、扩展方法解析、接口与过时成员清单；仅限公开成员，且名字解析不到时只返回 `found: false`，没有候选提示 |
+| C# API 反射查询 | `reflect_api`：声明成员、单成员完整签名、扩展方法、过时成员、接口，以及按子串搜索类型（范围 `unity` / `packages` / `project` / `all`）；另有解析失败时的候选名、忽略大小写的成员匹配，以及 `include_non_public` 查看私有与内部成员 | `unity_reflect`：`get_type` / `get_member` / `search`，同样支持范围过滤、扩展方法解析、接口与过时成员清单 |
+| 文档 | `README.md` 与 [TOOLS.md](TOOLS.md)，均由 `[ToolProvider]` 源码生成 | 自动生成的文档站，每个工具一页，含参数、action 与示例 |
 | 客户端切换工具集 | `set_tool_profile` 可从客户端切换 `minimal` / `core` / `extended` / `full`，并推送 `tools/list_changed` | `manage_tools` 按会话启用/停用工具组 |
 | 工具注解 | 只读工具输出 `annotations.readOnlyHint` | 已注解工具输出 `readOnlyHint` 与 `destructiveHint` |
-| 定位 | 轻量、直接、MIT 协议 of Unity MCP 服务器 | Coplay 维护 of 全功能 Unity bridge 方案 |
+| 定位 | 轻量、直接、MIT 协议的 Unity MCP 服务器 | Coplay 维护的全功能 Unity bridge 方案 |
 
-Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp)
+Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-mcp) 及其[工具文档](https://coplaydev.github.io/unity-mcp/reference/tools)
 
 ## 与 Unity AI Assistant 的对比
 
@@ -341,7 +348,7 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 | 协议 / License | MIT 开源 | Unity Terms of Service，私有 |
 | 部署 | Editor 内嵌 HTTP MCP server，纯本地 | Editor + 原生 Relay 子进程 + Unity Cloud 后端 |
 | 计费 | 免费，用户自带 AI 客户端 | Credits 点数制（Unity Dashboard）|
-| 工具暴露 | 263 工具 / 57 模块，`core` (38) / `full` profile | ~15 个 MCP 工具（多数为 `Manage*` 大粒度族）|
+| 工具暴露 | 263 工具 / 56 模块，`core` (38) / `full` profile | ~15 个 MCP 工具（多数为 `Manage*` 大粒度族）|
 | 通用逃生口 | `execute_code` — Roslyn 优先内存编译、`IKitWrightCommand` + Undo、无沙箱（客户端层审批）| `RunCommand` — 命名空间黑名单沙箱 |
 | Play Mode 验证 | 完整闭环：进入 / 模拟输入 / 截图 / 读日志 / 退出 | 仅进入/退出，无输入模拟 |
 | 资产生成器 | 不内建（通过 `execute_code` 组合外部 API）| 内建 Image / Mesh / PBR / Sound / Animation 五类生成器 |
@@ -361,47 +368,42 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 
 ## 内置工具
 
-KitWright MCP for Unity 当前提供 **263 个工具函数**，覆盖 57 个模块：
+<!-- tools-summary:start -->
+KitWright MCP for Unity 当前提供 **263 个工具函数，覆盖 56 个模块**（`core` profile 暴露其中 38 个）。
 
-| 分类 | 工具 |
-|------|------|
-| **游戏对象** | `create_primitive`, `create_game_object`, `delete_game_object`, `find_game_objects`, `get_game_object_info`, `set_transform`, `duplicate_game_object`, `rename_game_object`, `set_parent`, `add_component`, `set_tag_and_layer`, `set_active` |
-| **层级** | `get_hierarchy` |
-| **组件** | `get_component_properties`, `list_components`, `set_component_property`, `set_component_properties` |
-| **组件批处理** | `copy_component`, `paste_component_values`, `add_component_to_many` |
-| **脚本** | `create_script`, `edit_script`, `patch_script` |
-| **资产** | `create_material`, `assign_material`, `find_assets`, `delete_asset`, `rename_asset`, `copy_asset` |
-| **资产导入** | `get_asset_import_settings`, `set_asset_import_settings` |
-| **引用关系** | `find_references`, `find_broken_references` |
-| **网格** | `get_mesh_info` |
-| **材质属性** | `get_material_properties`, `set_material_property` |
-| **文件** | `read_file`, `write_file`, `search_files`, `list_directory`, `exists` |
-| **场景** | `get_scene_info`, `list_scenes`, `save_scene`, `open_scene`, `create_new_scene`, `enter_play_mode`, `exit_play_mode`, `set_time_scale`, `get_time_scale` |
-| **物理查询** | `physics_raycast`, `physics_overlap`, `physics2d_overlap_point` |
-| **粒子系统** | `particle_control` |
-| **灯光** | `get_lighting_settings`, `set_lighting_settings`, `bake_lightmaps` |
-| **Timeline** | `director_evaluate` |
-| **预制体** | `create_prefab`, `instantiate_prefab`, `unpack_prefab`, `open_prefab_stage`, `save_prefab_stage`, `close_prefab_stage` |
-| **ScriptableObject** | `create_scriptable_object`, `get_scriptable_object`, `set_scriptable_object_properties` |
-| **UI** | `create_canvas`, `create_button`, `create_text`, `create_image`, `raycast_at_point` |
-| **动画** | `create_animation_clip`, `create_animator_controller`, `assign_animator`, `get_animator_state`, `set_animator_parameter`, `play_animator_state` |
-| **相机** | `get_camera_properties`, `set_camera_projection`, `set_camera_settings`, `set_camera_culling_mask` |
-| **截图** | `capture_game_view`, `capture_simulator_view`, `capture_scene_view`, `capture_editor_window` |
-| **脚本执行** | `execute_code`, `get_execute_code_history`, `replay_execute_code`, `clear_execute_code_history` |
-| **反射** | `reflect_api` |
-| **工具暴露** | `set_tool_profile` |
-| **输入模拟** | `simulate_key_press`, `simulate_key_combo`, `simulate_mouse_click`, `simulate_mouse_drag` |
-| **性能分析** | `get_performance_snapshot`, `analyze_scene_complexity` |
-| **Profiler** | `profiler_start`, `profiler_stop`, `profiler_status`, `get_frame_timing`, `get_counters`, `get_object_memory`, `get_top_memory_objects`, `memory_take_snapshot`, `memory_list_snapshots`, `memory_compare_snapshots`, `frame_debugger_enable`, `frame_debugger_disable`, `frame_debugger_get_events` |
-| **内存快照** | `memory_take_full_snapshot`, `memory_list_full_snapshots`, `memory_open_snapshot_in_profiler`, `memory_query_top_objects`, `memory_query_references` |
-| **包管理** | `install_package`, `remove_package`, `list_packages` |
-| **编译** | `wait_for_compilation`, `request_recompile`, `get_compilation_errors`, `get_reload_recovery_status` |
-| **测试** | `run_tests`, `get_test_job`, `cancel_test_run` |
-| **编辑器状态** | `get_editor_state`, `get_selection`, `set_selection`, `get_prefab_stage`, `get_active_tool`, `set_active_tool`, `get_windows`, `get_tags`, `add_tag`, `remove_tag`, `get_layers`, `add_layer`, `get_build_settings` |
-| **项目设置** | `get_project_settings` |
-| **撤销/重做** | `undo`, `redo`, `get_undo_state` |
-| **菜单项** | `execute_menu_item` |
-| **可视化反馈** | `select_object`, `focus_on_object`, `ping_asset`, `log_message`, `show_dialog`, `get_console_logs` |
+| 模块 | 工具数 | 模块 | 工具数 |
+|------|--------|------|--------|
+| **EditorState** | 18 | **Screenshot** | 4 |
+| **GameObject** | 14 | **Script** | 4 |
+| **Scene** | 14 | **Texture** | 4 |
+| **Profiler** | 13 | **Build** | 3 |
+| **Prefab** | 10 | **ComponentBatch** | 3 |
+| **Asset** | 8 | **Docs** | 3 |
+| **Terrain** | 8 | **Lighting** | 3 |
+| **AssemblyDefinition** | 7 | **Package** | 3 |
+| **Prefs** | 7 | **Physics** | 3 |
+| **SpriteAtlas** | 7 | **ScriptableObject** | 3 |
+| **Visual** | 7 | **Sprite** | 3 |
+| **Addressable** | 6 | **Testing** | 3 |
+| **Animation** | 6 | **Undo** | 3 |
+| **Audio** | 6 | **AssetImport** | 2 |
+| **Code** | 6 | **EditorWindowInteraction** | 2 |
+| **InputActions** | 6 | **Material** | 2 |
+| **NavMesh** | 6 | **Performance** | 2 |
+| **Shader** | 6 | **References** | 2 |
+| **UI** | 6 | **Batch** | 1 |
+| **File** | 5 | **Hierarchy** | 1 |
+| **MemorySnapshot** | 5 | **Interop** | 1 |
+| **SceneView** | 5 | **MenuItem** | 1 |
+| **Volume** | 5 | **Mesh** | 1 |
+| **Camera** | 4 | **Particle** | 1 |
+| **Compilation** | 4 | **ProjectSettings** | 1 |
+| **ComponentProperty** | 4 | **Reflection** | 1 |
+| **InputSimulation** | 4 | **Timeline** | 1 |
+| **LodConstraint** | 4 | **ToolExposure** | 1 |
+
+> 📖 每个工具及其说明见 [TOOLS.md](TOOLS.md)。
+<!-- tools-summary:end -->
 
 > 📊 完整的 Profiler 工具参考、实现细节、已知限制和测试报告见 [PROFILER_TOOLS_CN.md](PROFILER_TOOLS_CN.md)。
 
@@ -435,7 +437,7 @@ MCP Server (HTTP JSON-RPC 2.0)
     └─ MCPRequestHandler (协议处理)
         └─ MCPExecutionBridge
             └─ FunctionInvoker (反射式调用)
-                └─ Tool Functions (263 个内置工具，57 个模块)
+                └─ Tool Functions (263 个内置工具，56 个模块)
 ```
 
 ```
@@ -446,6 +448,7 @@ MCP Server (HTTP JSON-RPC 2.0)
 
 - Unity 2022.3 或更高版本
 - `com.unity.nuget.newtonsoft-json` —— UPM 和 OpenUPM 安装会自动拉取；Asset Store 导入时会在 Package Manager 依赖对话框中提示安装
+- `com.unity.ugui` 与 `com.unity.test-framework` —— 包清单中声明的依赖，默认 Unity 项目已自带
 
 ## 参与贡献
 
