@@ -37,6 +37,10 @@ namespace KitWright.Editor
             Assert.AreEqual(string.Empty, HttpMCPTransport.ExtractPin("/"));
             Assert.AreEqual(string.Empty, HttpMCPTransport.ExtractPin("/p"));
             Assert.AreEqual(string.Empty, HttpMCPTransport.ExtractPin(null));
+
+            // An uppercase marker must not read as pinless: that would be a one-keystroke way
+            // around the wrong-project check.
+            Assert.AreEqual("aaaa1111", HttpMCPTransport.ExtractPin("/P/aaaa1111/"));
         }
 
         [Test]

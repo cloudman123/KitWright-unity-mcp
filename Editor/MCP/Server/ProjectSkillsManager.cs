@@ -53,7 +53,7 @@ namespace KitWright.Editor.MCP.Server
                     "When a GameObject has multiple components of the same type, target a specific one with `component_instance_id` instead of the type name to avoid hitting the wrong component.",
                     "Set component fields with `set_component_property(ies)`: it now writes through SerializedObject, so `[SerializeField] private` fields are reachable. Pass Object references as JSON `{\"fileID\": <instanceId>}` (preferred) or `{\"assetPath\": \"Assets/...\"}`. The response reports per-field success/failure.",
                     "Inspect editor-level state through dedicated tools: `get_selection`, `set_selection`, `get_prefab_stage`, `get_active_tool`, `get_windows`, `get_tags`, `get_layers`, `get_build_settings`. Do not write `execute_code` snippets just to read this.",
-                    "When no specialized MCP tool covers an editor action, try `execute_menu_item` (e.g. 'GameObject/2D Object/Sprite', 'Window/Layouts/Default', 'Edit/Project Settings...') before falling back to `execute_code`.",
+                    "When no specialized MCP tool covers an editor action, try `execute_menu_item` (e.g. 'GameObject/2D Object/Sprite', 'Window/Layouts/Default', 'Edit/Undo') before falling back to `execute_code`. A path ending in '...' is refused because that is the editor's convention for an item that opens a modal dialog and freezes the editor; pass `allow_modal=true` only for a path you know opens an ordinary dockable window.",
                     "When Tool Exposure uses the default `core` profile, rely on the focused workflow tools: `execute_code`, recompilation, Play Mode control, hierarchy, console logs, screenshots, input simulation, and performance inspection.",
                     "When Tool Exposure uses the default `full` profile, all registered MCP tools are available. Prefer specific tools for simple scene, asset, GameObject, component, prefab, camera, UI, package, animation, file, or visual-feedback operations.",
                     "If Tool Exposure has been customized and a named tool is unavailable, adapt to the exposed tool list and report which expected tool is missing.",
@@ -1016,10 +1016,13 @@ platform: {platform.ToString().ToLowerInvariant()}
 If native MCP tools are not directly available, probe the local HTTP endpoint:
 
 ```bash
-curl -sS -m 1 -X POST http://127.0.0.1:8765/mcp \
+curl -sS -m 1 -X POST {{SERVER_URL}}mcp \
   -H 'Content-Type: application/json' \
   -d '{""jsonrpc"":""2.0"",""id"":1,""method"":""tools/list""}'
 ```
+
+That URL carries this project's pin. A pinless or stale-port URL is answered by whichever
+editor happens to hold the port, which may be a different Unity project.
 
 For multi-line `execute_code` calls over curl, generate JSON with a real encoder instead of hand-escaping C#:
 
@@ -1150,8 +1153,7 @@ UnityEditor.Undo.RecordObject(rect, ""Update cancel zone"");
 rect.sizeDelta = new UnityEngine.Vector2(220f, 116f);
 UnityEditor.EditorUtility.SetDirty(rect);
 UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(obj.scene);
-UnityEditor.SceneManagement.EditorSceneManager.SaveScene(obj.scene);
-return ""Scene saved: size "" + before + "" -> "" + rect.sizeDelta;
+return ""Scene dirtied: size "" + before + "" -> "" + rect.sizeDelta + "" (call save_scene to write it)"";
 ```
 
 ## Recompile And Reload
@@ -1216,7 +1218,20 @@ $@"
 - Source repository: `https://github.com/kitwright/unity-mcp`
 ";
 
-            return header + body + footer;
+            // The curl fallback has to name a URL, and a hardcoded one is a loaded gun: ports are
+            // per-project now, so a stale or pinless URL is answered by whichever sibling editor
+            // holds that port.
+            return header + body.Replace("{{SERVER_URL}}", CurrentServerUrl()) + footer;
+        }
+
+        private static string CurrentServerUrl()
+        {
+            var services = RootScopeServices.Services;
+            if (services?.GetService(typeof(MCPServerService)) is MCPServerService server && server.IsRunning)
+                return ClientConfigPanel.BuildServerUrl(server.Port);
+
+            var settings = services?.GetService(typeof(ISettingsController)) as ISettingsController;
+            return ClientConfigPanel.BuildServerUrl(settings?.MCPServerPort ?? 8765);
         }
 
         private static ProjectSkillsManifest CreateDefaultManifest()

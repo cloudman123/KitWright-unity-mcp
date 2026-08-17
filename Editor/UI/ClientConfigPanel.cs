@@ -808,9 +808,16 @@ namespace KitWright.Editor.MCP.Server
             return BuildServerUrl(port);
         }
 
+        // The pin says which project this URL was written for. Without it a config left on a stale
+        // port reaches whichever sibling editor now owns that port, and that editor answers —
+        // applying the edits to the wrong project. HttpMCPTransport refuses a mismatched pin with a
+        // 404, but only if the client actually sends one, which is what this path segment is for.
         internal static string BuildServerUrl(int port)
         {
-            return $"http://127.0.0.1:{port}/";
+            var pin = ProjectIdentity.PinFromProjectPath(GetProjectRootPath());
+            return pin.Length == 0
+                ? $"http://127.0.0.1:{port}/"
+                : $"http://127.0.0.1:{port}/p/{pin}/";
         }
 
         private static string GetProjectRootPath()

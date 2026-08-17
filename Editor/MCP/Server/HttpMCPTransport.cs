@@ -101,7 +101,9 @@ namespace KitWright.Editor.MCP.Server
             var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             for (var i = 0; i < segments.Length - 1; i++)
             {
-                if (segments[i] == "p")
+                // Case-insensitive: the pin comparison below is, so an ordinal marker match here
+                // would let "/P/<pin>/" read as pinless and walk straight past the check.
+                if (string.Equals(segments[i], "p", StringComparison.OrdinalIgnoreCase))
                     return segments[i + 1];
             }
 
@@ -645,7 +647,7 @@ namespace KitWright.Editor.MCP.Server
                 $"<link rel=\"icon\" href=\"{favicon}\"></head>" +
                 "<body style=\"font-family:system-ui;background:#1b1b1e;color:#ddd;text-align:center;padding-top:80px\">" +
                 $"<h1 style=\"color:{color}\">KitWright MCP: {status}</h1>" +
-                $"<p>Listening on http://127.0.0.1:{_port}/</p>" +
+                $"<p>Listening on http://127.0.0.1:{_port}/{(_projectPin.Length == 0 ? string.Empty : "p/" + _projectPin + "/")}</p>" +
                 "</body></html>";
             return SendRawResponseAsync(stream, 200, "OK", "text/html; charset=utf-8", body, ct);
         }

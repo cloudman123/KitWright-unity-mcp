@@ -78,6 +78,21 @@ namespace KitWright.Editor.Tests
                     MCPClientConfigAutoRewrite.RewriteJson(globalPath, "mcpServers", "kitwright", url),
                     "The global file holds the stale entry and must be repaired.");
                 StringAssert.Contains("8765", File.ReadAllText(globalPath));
+
+                // One global file, one entry name, several projects: an entry already pinned to a
+                // sibling project belongs to that project's editor.
+                var foreignPinned =
+                    "{\"mcpServers\":{\"kitwright\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:8766/p/deadbeef/\"}}}";
+                File.WriteAllText(globalPath, foreignPinned);
+
+                Assert.IsFalse(
+                    MCPClientConfigAutoRewrite.RewriteJson(globalPath, "mcpServers", "kitwright", url, true),
+                    "An entry pinned to another project must be left alone in the global file.");
+                Assert.AreEqual(foreignPinned, File.ReadAllText(globalPath));
+
+                Assert.IsTrue(
+                    MCPClientConfigAutoRewrite.RewriteJson(globalPath, "mcpServers", "kitwright", url),
+                    "The project-scoped sweep still repairs a stale pin, since that file is ours.");
             }
             finally
             {

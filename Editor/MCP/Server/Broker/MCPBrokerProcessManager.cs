@@ -7,6 +7,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using KitWright.Editor.Services;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -172,7 +173,8 @@ namespace KitWright.Editor.MCP.Server
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = mono,
-                        Arguments = Quote(brokerExe) + " --port " + port + " --token " + spawnToken,
+                        Arguments = Quote(brokerExe) + " --port " + port + " --token " + spawnToken +
+                                    " --pin " + ProjectIdentity.PinFromProjectPath(ApplicationPaths.ProjectRoot),
                         WorkingDirectory = Path.GetDirectoryName(brokerExe),
                         UseShellExecute = false,
                         CreateNoWindow = true

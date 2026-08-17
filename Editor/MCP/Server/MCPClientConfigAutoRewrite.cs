@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using KitWright.Editor.Services;
 using UnityEditor;
 using UnityEngine;
 
@@ -21,8 +22,9 @@ namespace KitWright.Editor.MCP.Server
         /// <summary>Schedule a sweep on the editor thread. Safe to call from any thread.</summary>
         public static void Schedule(int port)
         {
-            var serverUrl = ClientConfigPanel.BuildServerUrl(port);
-            EditorApplication.delayCall += () => Run(serverUrl);
+            // The URL is built inside the callback because the pin comes from Application.dataPath,
+            // which only the editor thread may read.
+            EditorApplication.delayCall += () => Run(ClientConfigPanel.BuildServerUrl(port));
         }
 
         public static void Run(string serverUrl)
@@ -43,9 +45,16 @@ namespace KitWright.Editor.MCP.Server
                             continue;
 
                         var serverName = ClientConfigPanel.ServerEntryName;
+
+                        // Every project writes the same entry name into the one global file, so an
+                        // entry already pinned to a sibling project is that project's — repointing
+                        // it would steal its client config. The project-scoped file is this
+                        // project's by definition, so a stale pin there is still ours to repair.
+                        var global = string.Equals(path, target.GlobalConfigPath, StringComparison.OrdinalIgnoreCase);
+
                         var changed = target.IsToml
-                            ? RewriteToml(path, serverName, serverUrl)
-                            : RewriteJson(path, target.RootKey, serverName, serverUrl);
+                            ? RewriteToml(path, serverName, serverUrl, global)
+                            : RewriteJson(path, target.RootKey, serverName, serverUrl, global);
 
                         if (changed)
                             rewritten.Add($"{target.Name} ({path})");
@@ -62,7 +71,8 @@ namespace KitWright.Editor.MCP.Server
         }
 
         internal static bool RewriteJson(
-            string configPath, string targetRootKey, string serverName, string serverUrl)
+            string configPath, string targetRootKey, string serverName, string serverUrl,
+            bool leaveOtherProjectsAlone = false)
         {
             var json = File.ReadAllText(configPath);
             if (!(JsonCodec.Deserialize(json) is Dictionary<string, object> root))
@@ -83,6 +93,12 @@ namespace KitWright.Editor.MCP.Server
                     value is string existing &&
                     !UrlsEqual(existing, serverUrl))
                 {
+                    if (leaveOtherProjectsAlone && TargetsAnotherProject(existing))
+                    {
+                        WarnLeftAlone(configPath, existing);
+                        continue;
+                    }
+
                     entry[key] = serverUrl;
                     changed = true;
                 }
@@ -94,7 +110,8 @@ namespace KitWright.Editor.MCP.Server
             return changed;
         }
 
-        private static bool RewriteToml(string path, string serverName, string serverUrl)
+        private static bool RewriteToml(
+            string path, string serverName, string serverUrl, bool leaveOtherProjectsAlone = false)
         {
             var content = File.ReadAllText(path);
             var header = "[mcp_servers." + serverName + "]";
@@ -107,12 +124,43 @@ namespace KitWright.Editor.MCP.Server
                 end = content.Length;
 
             var section = content.Substring(start, end - start);
+            if (leaveOtherProjectsAlone)
+            {
+                var current = Regex.Match(section, "url\\s*=\\s*\"([^\"]*)\"");
+                if (current.Success && TargetsAnotherProject(current.Groups[1].Value))
+                {
+                    WarnLeftAlone(path, current.Groups[1].Value);
+                    return false;
+                }
+            }
+
             var updated = Regex.Replace(section, "url\\s*=\\s*\"[^\"]*\"", "url = \"" + serverUrl + "\"");
             if (updated == section)
                 return false;
 
             File.WriteAllText(path, content.Substring(0, start) + updated + content.Substring(end));
             return true;
+        }
+
+        // A suppressed repair is also what a project that moved to a new folder sees: its own old
+        // pin now reads as a sibling's, and the client just stops working. Silence there is
+        // indistinguishable from a bug, so name the file and the way out.
+        private static void WarnLeftAlone(string configPath, string existingUrl)
+        {
+            Debug.LogWarning(
+                $"[KitWright MCP Server] Left the '{ClientConfigPanel.ServerEntryName}' entry in '{configPath}' alone: " +
+                $"'{existingUrl}' is pinned to a different project. If this project moved, press Configure to claim " +
+                "the entry for its current path.");
+        }
+
+        private static bool TargetsAnotherProject(string url)
+        {
+            var pin = HttpMCPTransport.ExtractPin(url);
+            if (pin.Length == 0)
+                return false;
+
+            var ours = ProjectIdentity.PinFromProjectPath(ApplicationPaths.ProjectRoot);
+            return !string.Equals(pin, ours, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool UrlsEqual(string a, string b)
