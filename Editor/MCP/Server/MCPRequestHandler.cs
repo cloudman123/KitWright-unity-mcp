@@ -58,6 +58,7 @@ namespace KitWright.Editor.MCP.Server
                     "initialize" => HandleInitialize(request),
                     "notifications/initialized" => null,
                     "notifications/cancelled" => null,
+                    "logging/setLevel" => HandleLoggingSetLevel(request),
                     "tools/list" => HandleToolsList(request),
                     "tools/call" => await HandleToolsCallAsync(request, ct),
                     "prompts/list" => HandlePromptsList(request),
@@ -74,6 +75,17 @@ namespace KitWright.Editor.MCP.Server
                 Debug.LogError($"[KitWright MCP Server] Error handling request: {ex.Message}\n{ex.StackTrace}");
                 return CreateErrorResponse(request?.Id, -32603, $"Internal error: {ex.Message}");
             }
+        }
+
+        private MCPResponse HandleLoggingSetLevel(MCPRequest request)
+        {
+            if (request.Params != null && request.Params.TryGetValue("level", out var levelObj) && levelObj is string levelName)
+            {
+                SSE.SSESessionManager.Instance.SetLoggingLevel(request.SessionId, levelName);
+                return new MCPResponse { Id = request.Id, Result = new Dictionary<string, object>() };
+            }
+
+            return CreateErrorResponse(request.Id, -32602, "Invalid params: 'level' is required");
         }
 
         private MCPResponse HandleInitialize(MCPRequest request)
@@ -97,7 +109,8 @@ namespace KitWright.Editor.MCP.Server
                     // onto the next POST response (SSE) after the exposed tool set changes.
                     ["tools"] = new Dictionary<string, object> { ["listChanged"] = true },
                     ["resources"] = new Dictionary<string, object>(),
-                    ["prompts"] = new Dictionary<string, object>()
+                    ["prompts"] = new Dictionary<string, object>(),
+                    ["logging"] = new Dictionary<string, object>()
                 }
             };
 

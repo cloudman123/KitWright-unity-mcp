@@ -27,7 +27,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindObject(target, find_method, searchInactive: true);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target, find_method });
+                return ObjectsHelper.NotFound("target", target, find_method);
 
             var items = go.GetComponents<Component>()
                 .Where(c => c != null)
@@ -42,27 +42,59 @@ namespace KitWright.Editor.Tools.Builtins
         }
 
         [Description("Get all serialized properties on a component, including [SerializeField] private fields. " +
-                     "Component can be addressed by type name on a GameObject, or directly by component instanceId.")]
+                     "Component can be addressed by type name on a GameObject, or directly by component instanceId. " +
+                     "On a component with many properties, pass name_filter to return only the ones you need — " +
+                     "the response then reports how many were left out, so a filtered read is never mistaken for the whole component.")]
         [ReadOnlyTool]
         public static object GetComponentProperties(
             [ToolParam("GameObject identifier (omit if using component_instance_id)", Required = false)] string target = null,
             [ToolParam("Component type name (e.g. 'Rigidbody'). Omit if using component_instance_id.", Required = false)] string component = null,
             [ToolParam("Component instanceId (alternative to target+component)", Required = false)] string component_instance_id = null,
-            [ToolParam("How to resolve target", Required = false)] string find_method = null)
+            [ToolParam("How to resolve target", Required = false)] string find_method = null,
+            [ToolParam("Comma-separated name substrings; a property is kept if it contains any of them (case-insensitive). Matches Unity's serialized names, so 'resolution' finds 'm_ReferenceResolution'. Empty = every property.", Required = false)] string name_filter = null)
         {
             var resolved = ResolveComponent(target, component, component_instance_id, find_method);
             if (resolved.Error != null) return resolved.Error;
 
             var props = ComponentSerializer.ReadProperties(resolved.Component);
-            return Response.Success(
-                $"{props.Count} properties on {resolved.Component.GetType().Name}.",
+            var total = props.Count;
+            var terms = SplitFilterTerms(name_filter);
+            if (terms.Length > 0)
+                props = props.Where(p => MatchesAnyTerm(p.Name, terms)).ToList();
+
+            var typeName = resolved.Component.GetType().Name;
+            var message = terms.Length > 0
+                ? $"{props.Count} of {total} properties on {typeName} (filter: {name_filter})."
+                : $"{props.Count} properties on {typeName}.";
+
+            return Response.Success(message,
                 new
                 {
                     componentInstanceId = ObjectIdCodec.GetSerializableId(resolved.Component),
-                    type = resolved.Component.GetType().Name,
+                    type = typeName,
                     gameObject = new { instanceId = ObjectIdCodec.GetSerializableId(resolved.Component.gameObject), name = resolved.Component.gameObject.name },
                     properties = props
                 });
+        }
+
+        internal static string[] SplitFilterTerms(string filter)
+        {
+            if (string.IsNullOrWhiteSpace(filter))
+                return Array.Empty<string>();
+            return filter.Split(',')
+                .Select(t => t.Trim())
+                .Where(t => t.Length > 0)
+                .ToArray();
+        }
+
+        internal static bool MatchesAnyTerm(string name, string[] terms)
+        {
+            foreach (var term in terms)
+            {
+                if (name != null && name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
         }
 
         [Description("Set a single property or field on a component. " +
@@ -165,8 +197,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var go = ObjectsHelper.FindObject(target, findMethod, searchInactive: true);
             if (go == null)
-                return new ResolvedComponent { Error = Response.Error("TARGET_NOT_FOUND",
-                    new { target, find_method = findMethod }) };
+                return new ResolvedComponent { Error = ObjectsHelper.NotFound("target", target, findMethod) };
 
             if (string.IsNullOrEmpty(componentName))
                 return new ResolvedComponent { Error = Response.Error("COMPONENT_REQUIRED") };

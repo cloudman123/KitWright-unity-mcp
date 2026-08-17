@@ -242,7 +242,7 @@ namespace KitWright.Editor.Tools.Builtins
             var go = ObjectsHelper.FindTarget(target);
             if (go == null)
             {
-                error = Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+                error = ObjectsHelper.NotFound("target", target);
                 return false;
             }
             terrain = go.GetComponent<Terrain>();

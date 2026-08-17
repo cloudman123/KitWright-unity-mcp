@@ -24,7 +24,6 @@ namespace KitWright.Editor.Tools.Helpers
         public sealed class PropertySnapshot
         {
             public string Name;
-            public string DisplayName;
             public string Type;
             public object Value;
         }
@@ -51,7 +50,6 @@ namespace KitWright.Editor.Tools.Helpers
                     list.Add(new PropertySnapshot
                     {
                         Name = prop.name,
-                        DisplayName = prop.displayName,
                         Type = prop.propertyType.ToString(),
                         Value = ReadPropertyValue(prop)
                     });

@@ -16,12 +16,58 @@ namespace KitWright.Editor.Threading
         private readonly int _mainThreadId;
         private bool _disposed;
 
+        private static long s_lastPumpUtcTicks = DateTime.UtcNow.Ticks;
+
+        // Under the 30s most MCP clients allow, so our explanation beats their bare timeout.
+        private const int StallProbeMs = 20_000;
+
+        // A slow tool keeps the pump ticking while it awaits; only a stalled pump means blocked.
+        private const int PumpStaleMs = 5_000;
+
         public bool IsMainThread => Thread.CurrentThread.ManagedThreadId == _mainThreadId;
+
+        internal static TimeSpan SinceLastPump =>
+            TimeSpan.FromTicks(DateTime.UtcNow.Ticks - Interlocked.Read(ref s_lastPumpUtcTicks));
+
+        internal static bool LooksBlocked(bool alreadyCompleted, TimeSpan sinceLastPump)
+        {
+            return !alreadyCompleted && sinceLastPump.TotalMilliseconds >= PumpStaleMs;
+        }
+
+        internal static string BlockedMessage(TimeSpan sinceLastPump)
+        {
+            return BlockedMessage(sinceLastPump, Win32Dialogs.BlockingDialog());
+        }
+
+        internal static string BlockedMessage(TimeSpan sinceLastPump, string dialog)
+        {
+            var cause = string.IsNullOrEmpty(dialog)
+                ? "The usual cause is a modal dialog waiting for a click in the Unity window - most often " +
+                  "'Scene(s) Have Been Modified' after something tried to replace a scene with unsaved changes."
+                : $"A modal dialog is open and owns the editor's message loop: {dialog}.";
+
+            return $"EDITOR_NOT_PUMPING: the Unity editor loop has not ticked for {sinceLastPump.TotalSeconds:F0}s, " +
+                   $"so this call is queued and cannot run. {cause} " +
+                   "Bring Unity to the front and dismiss it, then retry. " +
+                   "The queued call still runs once the editor resumes.";
+        }
 
         public EditorThreadHelper()
         {
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             EditorApplication.update += ProcessQueues;
+        }
+
+        private static void FailIfEditorIsBlocked<T>(TaskCompletionSource<T> tcs)
+        {
+            Task.Delay(StallProbeMs).ContinueWith(_ =>
+            {
+                var idle = SinceLastPump;
+                if (!LooksBlocked(tcs.Task.IsCompleted, idle))
+                    return;
+
+                tcs.TrySetException(new TimeoutException(BlockedMessage(idle)));
+            }, TaskScheduler.Default);
         }
 
         public Task<T> ExecuteOnEditorThreadAsync<T>(Func<T> func)
@@ -58,6 +104,7 @@ namespace KitWright.Editor.Threading
                 TaskScheduler.Default);
 
             _funcQueue.Enqueue((() => func(), tcs));
+            FailIfEditorIsBlocked(outerTcs);
             return outerTcs.Task;
         }
 
@@ -106,11 +153,13 @@ namespace KitWright.Editor.Threading
             if (ctRegistration.HasValue)
                 outerTcs.Task.ContinueWith(_ => ctRegistration.Value.Dispose(), TaskContinuationOptions.ExecuteSynchronously);
 
+            FailIfEditorIsBlocked(outerTcs);
             return outerTcs.Task;
         }
 
         private void ProcessQueues()
         {
+            Interlocked.Exchange(ref s_lastPumpUtcTicks, DateTime.UtcNow.Ticks);
             if (_disposed) return;
 
             int processedCount = 0;

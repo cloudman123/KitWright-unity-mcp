@@ -20,7 +20,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Number of LOD levels (1-8)", Required = false)] int levels = 3)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             levels = Mathf.Clamp(levels, 1, 8);
             var group = go.GetComponent<LODGroup>() ?? Undo.AddComponent<LODGroup>(go);
@@ -52,7 +52,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("GameObject name, hierarchy path, or instance ID")] string target)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
             var group = go.GetComponent<LODGroup>();
             if (group == null) return Response.Error("NO_LOD_GROUP", new { target });
 
@@ -81,7 +81,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Activate (and lock) the constraint immediately", Required = false)] bool activate = true)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var (componentType, canonical) = ResolveConstraintType(type);
             if (componentType == null)
@@ -121,7 +121,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("GameObject name, hierarchy path, or instance ID")] string target)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var constraints = go.GetComponents<IConstraint>();
             if (constraints.Length == 0) return Response.Error("NO_CONSTRAINTS", new { target });

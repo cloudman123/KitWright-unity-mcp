@@ -186,7 +186,7 @@ namespace KitWright.Editor.Tools.Builtins
             profile = null;
             error = null;
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) { error = Response.Error("GAME_OBJECT_NOT_FOUND", new { target }); return false; }
+            if (go == null) { error = ObjectsHelper.NotFound("target", target); return false; }
             var volume = go.GetComponent<Volume>();
             if (volume == null) { error = Response.Error("NO_VOLUME", new { target }); return false; }
             profile = volume.sharedProfile;

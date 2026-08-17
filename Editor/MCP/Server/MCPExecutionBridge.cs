@@ -44,6 +44,9 @@ namespace KitWright.Editor.MCP.Server
             Dictionary<string, object> arguments,
             CancellationToken ct)
         {
+            if (ToolRegistry.RunsOffEditorThread(toolName))
+                return await InvokeOffEditorThreadAsync(toolName, arguments);
+
             return await _threadHelper.ExecuteAsyncOnEditorThreadAsync(async () =>
             {
                 try
@@ -108,6 +111,27 @@ namespace KitWright.Editor.MCP.Server
                     return exError;
                 }
             }, ct);
+        }
+
+        // No state bookkeeping, no domain-reload record, no interaction log: all of that writes
+        // SessionState, which is main-thread only, and this path exists precisely for when the
+        // main thread is stuck inside a modal.
+        private async Task<string> InvokeOffEditorThreadAsync(string toolName, Dictionary<string, object> arguments)
+        {
+            var functionCall = new FunctionCall
+            {
+                FunctionName = toolName,
+                Parameters = System.Linq.Enumerable.ToDictionary(arguments, kvp => kvp.Key, kvp => ConvertArgumentToString(kvp.Value))
+            };
+
+            try
+            {
+                return await _invoker.InvokeAsync(functionCall) ?? "Completed successfully";
+            }
+            catch (Exception ex)
+            {
+                return ToolResultFormatter.Error("TOOL_EXCEPTION", new { tool = toolName, message = ex.Message });
+            }
         }
 
         private string ConvertArgumentToString(object value)

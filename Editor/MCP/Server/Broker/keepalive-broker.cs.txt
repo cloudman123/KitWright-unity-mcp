@@ -26,6 +26,9 @@ namespace KitWright.UnityMcp.Broker
         private const int BackendUnavailableCode = -32001;
         private const string BackendUnavailableMessage =
             "Unity MCP backend is reloading or reconnecting. Retry shortly.";
+        private const string BackendReloadingNotice =
+            "Unity is recompiling scripts, so this tool did not run. This is not a failure: " +
+            "wait a few seconds and call it again.";
         private const string TokenHeader = "X-KitWright-Broker-Token";
         private const string SessionHeader = "X-KitWright-Broker-Session";
         private const string ReqIdHeader = "X-KitWright-Broker-ReqId";
@@ -704,15 +707,23 @@ namespace KitWright.UnityMcp.Broker
 
         private static void WriteBackendUnavailableResponse(NetworkStream stream, string requestBody)
         {
-            var idLiteral = ExtractJsonRpcIdLiteral(requestBody);
-            var body = "{\"jsonrpc\":\"2.0\",\"id\":" + idLiteral +
-                       ",\"error\":{\"code\":" + BackendUnavailableCode +
-                       ",\"message\":\"" + EscapeJson(BackendUnavailableMessage) +
-                       "\",\"data\":{\"retryable\":true,\"reason\":\"unity_backend_reloading\"}}}";
+            var idLiteral = ExtractTopLevelLiteral(requestBody, "id");
+
+            // A tool call that lands mid-reload is a wait, not a failure, so it comes back as
+            // ordinary tool output telling the agent to retry. Protocol calls (initialize,
+            // tools/list) still error: a fake result for those would corrupt the handshake.
+            var body = ExtractTopLevelLiteral(requestBody, "method") == "\"tools/call\""
+                ? "{\"jsonrpc\":\"2.0\",\"id\":" + idLiteral +
+                  ",\"result\":{\"isError\":false,\"content\":[{\"type\":\"text\",\"text\":\"" +
+                  EscapeJson(BackendReloadingNotice) + "\"}]}}"
+                : "{\"jsonrpc\":\"2.0\",\"id\":" + idLiteral +
+                  ",\"error\":{\"code\":" + BackendUnavailableCode +
+                  ",\"message\":\"" + EscapeJson(BackendUnavailableMessage) +
+                  "\",\"data\":{\"retryable\":true,\"reason\":\"unity_backend_reloading\"}}}";
             WriteResponse(stream, 200, "OK", "application/json; charset=utf-8", BrokerHeaderLine(), body);
         }
 
-        private static string ExtractJsonRpcIdLiteral(string json)
+        private static string ExtractTopLevelLiteral(string json, string property)
         {
             if (string.IsNullOrEmpty(json))
                 return "null";
@@ -744,7 +755,7 @@ namespace KitWright.UnityMcp.Broker
 
                 if (ch == '"')
                 {
-                    if (depth == 1 && IsPropertyNameAt(json, i, "id", out var valueStart))
+                    if (depth == 1 && IsPropertyNameAt(json, i, property, out var valueStart))
                         return ReadJsonValueLiteral(json, valueStart);
 
                     inString = true;

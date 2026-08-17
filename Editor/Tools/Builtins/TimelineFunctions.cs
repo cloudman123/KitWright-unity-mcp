@@ -23,7 +23,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(target);
             if (go == null)
-                return Response.Error("TARGET_NOT_FOUND", new { target });
+                return ObjectsHelper.NotFound("target", target);
 
             // Find the PlayableDirector purely by reflected type name so no compile-time dependency
             // on the Playables/Timeline assemblies is required.

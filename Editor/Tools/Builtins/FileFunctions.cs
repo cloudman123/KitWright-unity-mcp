@@ -10,35 +10,77 @@ namespace KitWright.Editor.Tools.Builtins
     [ToolProvider("File")]
     internal static class FileFunctions
     {
-        [Description("Read the contents of a file")]
+        private const int MaxReadChars = 10000;
+
+        [Description("Read the contents of a file. Returns the content plus the sha256 of the file as it was read; " +
+                     "pass that sha256 back to write_file or edit_script so a rewrite is rejected if someone changed " +
+                     "the file in between. A file longer than the read cap comes back truncated AND WITHOUT a sha256, " +
+                     "because rewriting a whole file from a truncated copy would delete the tail — patch it with " +
+                     "patch_script or edit_script_members instead.")]
         [ReadOnlyTool]
-        public static string ReadFile(
+        public static object ReadFile(
             [ToolParam("Path to the file (relative to project root or absolute)")] string path)
         {
             var fullPath = PathSafety.ResolveProjectPath(path);
             if (!File.Exists(fullPath))
-                return ToolResultFormatter.Error("FILE_NOT_FOUND", new { path });
+                return Response.Error("FILE_NOT_FOUND", new { path });
 
             var content = File.ReadAllText(fullPath);
-            if (content.Length > 10000)
-                content = content.Substring(0, 10000) + "\n... (truncated, file is " + content.Length + " chars)";
+            var truncated = content.Length > MaxReadChars;
 
-            return content;
+            if (!truncated)
+            {
+                return Response.Success($"Read {path}.", new
+                {
+                    path,
+                    length = content.Length,
+                    sha256 = CodeFunctions.ComputeSha256(content),
+                    content
+                });
+            }
+
+            return Response.Success($"Read {path} (truncated).", new
+            {
+                path,
+                length = content.Length,
+                truncated = true,
+                content = content.Substring(0, MaxReadChars)
+            },
+            $"Only the first {MaxReadChars} of {content.Length} chars are shown, so no sha256 is issued and " +
+            "write_file/edit_script will refuse a whole-file rewrite. Use patch_script or edit_script_members " +
+            "to change part of it.");
         }
 
-        [Description("Write content to a file (creates or overwrites)")]
+        [Description("Write content to a file, creating it or overwriting it whole. " +
+                     "Overwriting an existing file requires expected_sha256 (from read_file) so a concurrent edit " +
+                     "is not silently discarded; creating a new file does not, since there is nothing to lose.")]
         public static string WriteFile(
             [ToolParam("Path to the file")] string path,
-            [ToolParam("Content to write")] string content)
+            [ToolParam("Content to write")] string content,
+            [ToolParam("SHA256 from read_file. Required when the file already exists; the write is rejected with STALE_FILE if it changed since.", Required = false)]
+            string expected_sha256 = null)
         {
             var fullPath = PathSafety.ResolveProjectPath(path);
+            var exists = File.Exists(fullPath);
+
+            if (exists)
+            {
+                if (string.IsNullOrEmpty(expected_sha256))
+                    return ToolResultFormatter.Error("SHA_REQUIRED", new { path },
+                        "This file already exists and write_file replaces it whole. Call read_file and pass its " +
+                        "sha256 as expected_sha256, so an edit made since you read it is not discarded.");
+
+                var staleError = CodeFunctions.CheckPrecondition(path, File.ReadAllText(fullPath), expected_sha256);
+                if (staleError != null) return staleError;
+            }
+
             var directory = Path.GetDirectoryName(fullPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
             File.WriteAllText(fullPath, content);
             AssetDatabase.Refresh();
-            return $"Written {content.Length} chars to {path}";
+            return $"Written {content.Length} chars to {path} (sha256: {CodeFunctions.ComputeSha256(content)})";
         }
 
         [Description("Search for files by name pattern in the project")]

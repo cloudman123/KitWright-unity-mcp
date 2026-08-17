@@ -22,7 +22,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(name);
             if (go == null)
-                return ToolResultFormatter.Error("GAME_OBJECT_NOT_FOUND", new { name });
+                return ObjectsHelper.NotFoundText("name", name);
 
             Selection.activeGameObject = go;
             EditorGUIUtility.PingObject(go);
@@ -36,7 +36,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(name);
             if (go == null)
-                return ToolResultFormatter.Error("GAME_OBJECT_NOT_FOUND", new { name });
+                return ObjectsHelper.NotFoundText("name", name);
 
             Selection.activeGameObject = go;
             if (SceneView.lastActiveSceneView != null)
@@ -97,7 +97,9 @@ namespace KitWright.Editor.Tools.Builtins
                      "Supports reading from the live log cache, clearing the cache, time-based filtering, " +
                      "case-insensitive text filtering, collapsing repeated identical messages into one " +
                      "'message (xN)' line so spammy warnings don't drown out unique entries, and optionally " +
-                     "including each entry's stack trace (truncated separately from the message).")]
+                     "including each entry's stack trace (truncated separately from the message) or the time " +
+                     "each entry was logged. Unity rich-text markup (<color>, <b>, ...) is stripped from every " +
+                     "message, so filter_text matches the readable text rather than the markup.")]
         [ReadOnlyTool]
         public static string GetConsoleLogs(
             [ToolParam("Filter by log type: 'all', 'log', 'warning', 'error'", Required = false)] string log_type = "all",
@@ -107,7 +109,8 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Only include cached log entries from the last N seconds (cache/auto only)", Required = false)] int since_seconds = 0,
             [ToolParam("Only include entries whose message contains this text (case-insensitive)", Required = false)] string filter_text = null,
             [ToolParam("Collapse repeated identical messages into one line with a (xN) count", Required = false)] bool group_duplicates = false,
-            [ToolParam("Include each entry's stack trace, indented below the message (its own truncation cap, separate from the message's).", Required = false)] bool include_stack_trace = false)
+            [ToolParam("Include each entry's stack trace, indented below the message (its own truncation cap, separate from the message's).", Required = false)] bool include_stack_trace = false,
+            [ToolParam("Prefix each entry with the HH:mm:ss it was logged (cache/auto only; the Editor console keeps no timestamps).", Required = false)] bool include_timestamps = false)
         {
             count = Mathf.Clamp(count, 1, 200);
             since_seconds = Mathf.Clamp(since_seconds, 0, 86400);
@@ -124,7 +127,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             if (source == "cache" || source == "auto")
             {
-                var cachedLogs = logsRepository?.GetRecentLogs(log_type, count, since_seconds, filter_text, group_duplicates, include_stack_trace);
+                var cachedLogs = logsRepository?.GetRecentLogs(log_type, count, since_seconds, filter_text, group_duplicates, include_stack_trace, include_timestamps);
                 if (!string.IsNullOrEmpty(cachedLogs))
                     return cachedLogs;
 
@@ -203,8 +206,8 @@ namespace KitWright.Editor.Tools.Builtins
                     // split it once so the primary line and the (optional) trace get their
                     // own truncation caps instead of the trace silently disappearing.
                     var newlineIndex = message?.IndexOf('\n') ?? -1;
-                    var firstLine = message == null ? string.Empty
-                        : newlineIndex >= 0 ? message.Substring(0, newlineIndex) : message;
+                    var firstLine = UnityLogsRepository.StripRichText(message == null ? string.Empty
+                        : newlineIndex >= 0 ? message.Substring(0, newlineIndex) : message);
                     if (!UnityLogsRepository.MatchesTextFilter(firstLine, filter_text))
                         continue;
 

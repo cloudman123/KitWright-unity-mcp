@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using KitWright.Editor.Services;
 using UnityEditor;
@@ -783,22 +782,11 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        private static ComparableVersion ParseComparableVersion(string version)
+        internal static Version ParseComparableVersion(string version)
         {
-            var normalized = NormalizeVersion(version);
-            var match = Regex.Match(normalized, @"^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)");
-            if (!match.Success)
-                return default;
-
-            return new ComparableVersion(
-                ParsePart(match.Groups["major"].Value),
-                ParsePart(match.Groups["minor"].Value),
-                ParsePart(match.Groups["patch"].Value));
-        }
-
-        private static int ParsePart(string value)
-        {
-            return int.TryParse(value, out var parsed) ? parsed : 0;
+            // Version.TryParse reads the numeric core only, so a -rc / +build suffix is cut first.
+            var core = NormalizeVersion(version).Split('-', '+')[0];
+            return Version.TryParse(core, out var parsed) ? parsed : new Version(0, 0, 0);
         }
 
         private static string SanitizeFileName(string fileName)
@@ -960,52 +948,5 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        private readonly struct ComparableVersion : IComparable<ComparableVersion>
-        {
-            private readonly int _major;
-            private readonly int _minor;
-            private readonly int _patch;
-
-            public ComparableVersion(int major, int minor, int patch)
-            {
-                _major = major;
-                _minor = minor;
-                _patch = patch;
-            }
-
-            public int CompareTo(ComparableVersion other)
-            {
-                var majorCompare = _major.CompareTo(other._major);
-                if (majorCompare != 0)
-                    return majorCompare;
-
-                var minorCompare = _minor.CompareTo(other._minor);
-                if (minorCompare != 0)
-                    return minorCompare;
-
-                return _patch.CompareTo(other._patch);
-            }
-
-            public static bool operator >(ComparableVersion left, ComparableVersion right) => left.CompareTo(right) > 0;
-            public static bool operator <(ComparableVersion left, ComparableVersion right) => left.CompareTo(right) < 0;
-            public static bool operator ==(ComparableVersion left, ComparableVersion right) => left.CompareTo(right) == 0;
-            public static bool operator !=(ComparableVersion left, ComparableVersion right) => !(left == right);
-
-            public override bool Equals(object obj)
-            {
-                return obj is ComparableVersion other && this == other;
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    var hashCode = _major;
-                    hashCode = (hashCode * 397) ^ _minor;
-                    hashCode = (hashCode * 397) ^ _patch;
-                    return hashCode;
-                }
-            }
-        }
     }
 }

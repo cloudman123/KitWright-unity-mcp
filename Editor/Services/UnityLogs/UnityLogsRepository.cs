@@ -2,7 +2,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 namespace KitWright.Editor.Services.UnityLogs
@@ -21,7 +23,8 @@ namespace KitWright.Editor.Services.UnityLogs
                 return;
 
             _isListening = true;
-            Application.logMessageReceived += OnLogReceived;
+            // Threaded, so a log raised while a modal owns the main thread still reaches subscribers.
+            Application.logMessageReceivedThreaded += OnLogReceived;
         }
 
         public void StopListening()
@@ -30,11 +33,12 @@ namespace KitWright.Editor.Services.UnityLogs
                 return;
 
             _isListening = false;
-            Application.logMessageReceived -= OnLogReceived;
+            Application.logMessageReceivedThreaded -= OnLogReceived;
         }
 
         public string GetRecentLogs(string logType = "all", int count = 30, int sinceSeconds = 0,
-            string filterText = null, bool groupDuplicates = false, bool includeStackTrace = false)
+            string filterText = null, bool groupDuplicates = false, bool includeStackTrace = false,
+            bool includeTimestamps = false)
         {
             count = Mathf.Clamp(count, 1, 200);
             var filter = (logType ?? "all").ToLowerInvariant();
@@ -50,6 +54,7 @@ namespace KitWright.Editor.Services.UnityLogs
                 return null;
 
             var lines = new List<string>();
+            var stamps = includeTimestamps ? new List<string>() : null;
 
             for (int i = snapshot.Count - 1; i >= 0 && lines.Count < count; i--)
             {
@@ -60,12 +65,13 @@ namespace KitWright.Editor.Services.UnityLogs
                 if (!MatchesFilter(entry.Type, filter))
                     continue;
 
-                var firstLine = FirstLine(entry.Message);
+                var firstLine = StripRichText(FirstLine(entry.Message));
                 if (!MatchesTextFilter(firstLine, filterText))
                     continue;
 
                 var stackSuffix = includeStackTrace ? FormatStackTrace(entry.StackTrace) : string.Empty;
                 lines.Add($"[{ToLabel(entry.Type)}] {TruncateLine(firstLine)}{stackSuffix}");
+                stamps?.Add(entry.Timestamp.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " ");
             }
 
             if (lines.Count == 0)
@@ -77,7 +83,7 @@ namespace KitWright.Editor.Services.UnityLogs
             }
 
             var sb = new StringBuilder();
-            var uniqueCount = AppendLines(sb, lines, groupDuplicates);
+            var uniqueCount = AppendLines(sb, lines, groupDuplicates, stamps);
 
             var timeSuffix = sinceSeconds > 0 ? $", last {sinceSeconds}s" : string.Empty;
             var textSuffix = string.IsNullOrEmpty(filterText) ? string.Empty : $", text: '{filterText}'";
@@ -85,6 +91,18 @@ namespace KitWright.Editor.Services.UnityLogs
                 ? $", {uniqueCount} unique"
                 : string.Empty;
             return $"Console logs ({lines.Count} entries{groupSuffix}, filter: {filter}, source: cache{timeSuffix}{textSuffix}):\n{sb}";
+        }
+
+        // Whitelisted tag names only, so a log containing List<int> or XML survives.
+        private static readonly Regex RichTextTag = new Regex(
+            @"</?(?:b|i|u|s|color|size|material|quad|sprite|align|alpha|allcaps|cspace|font|gradient|indent|line-height|line-indent|link|lowercase|uppercase|smallcaps|margin|mark|mspace|nobr|noparse|page|pos|rotate|space|style|sub|sup|voffset|width|br)(?:=[^<>]*)?\s*/?>",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        internal static string StripRichText(string line)
+        {
+            if (string.IsNullOrEmpty(line) || line.IndexOf('<') < 0)
+                return line;
+            return RichTextTag.Replace(line, string.Empty);
         }
 
         internal static bool MatchesTextFilter(string line, string filterText)
@@ -108,7 +126,6 @@ namespace KitWright.Editor.Services.UnityLogs
         // Stack traces get their own, larger cap: MaxEmittedLineLength (300) is sized for a
         // single message line, but a stack trace is legitimately many lines and callers ask
         // for it specifically to see those frames -- still capped so one giant trace can't
-        // blow up the response.
         private const int MaxStackTraceLength = 2000;
 
         internal static string FormatStackTrace(string stackTrace)
@@ -134,19 +151,23 @@ namespace KitWright.Editor.Services.UnityLogs
 
         // Appends lines to the builder; with grouping, identical lines collapse to one
         // "line (xN)" entry in first-seen order. Returns the number of lines written.
-        internal static int AppendLines(StringBuilder sb, List<string> lines, bool groupDuplicates)
+        // Prefixes stay out of the grouping key so timestamps don't split identical spam.
+        internal static int AppendLines(StringBuilder sb, List<string> lines, bool groupDuplicates,
+            List<string> prefixes = null)
         {
             if (!groupDuplicates)
             {
-                foreach (var line in lines)
-                    sb.AppendLine(line);
+                for (int i = 0; i < lines.Count; i++)
+                    sb.AppendLine(PrefixAt(prefixes, i) + lines[i]);
                 return lines.Count;
             }
 
             var order = new List<string>();
             var counts = new Dictionary<string, int>();
-            foreach (var line in lines)
+            var firstIndex = new Dictionary<string, int>();
+            for (int i = 0; i < lines.Count; i++)
             {
+                var line = lines[i];
                 if (counts.TryGetValue(line, out var existing))
                 {
                     counts[line] = existing + 1;
@@ -154,6 +175,7 @@ namespace KitWright.Editor.Services.UnityLogs
                 else
                 {
                     counts[line] = 1;
+                    firstIndex[line] = i;
                     order.Add(line);
                 }
             }
@@ -161,9 +183,14 @@ namespace KitWright.Editor.Services.UnityLogs
             foreach (var line in order)
             {
                 var n = counts[line];
-                sb.AppendLine(n > 1 ? $"{line} (x{n})" : line);
+                sb.AppendLine(PrefixAt(prefixes, firstIndex[line]) + (n > 1 ? $"{line} (x{n})" : line));
             }
             return order.Count;
+        }
+
+        private static string PrefixAt(List<string> prefixes, int index)
+        {
+            return prefixes != null && index < prefixes.Count ? prefixes[index] : string.Empty;
         }
 
         public void Clear()
@@ -198,6 +225,8 @@ namespace KitWright.Editor.Services.UnityLogs
                 while (_logs.Count > MaxLogs)
                     _logs.RemoveAt(0);
             }
+
+            _ = MCP.Server.SSE.SSESessionManager.Instance.BroadcastLogNotificationAsync(type, message, stackTrace);
         }
 
         private static bool MatchesFilter(LogType type, string filter)

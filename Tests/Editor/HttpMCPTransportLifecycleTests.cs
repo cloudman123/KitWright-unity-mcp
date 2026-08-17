@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using KitWright.Editor.MCP.Server;
+using KitWright.Editor.MCP.Server.SSE;
 using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEngine;
@@ -27,6 +28,13 @@ namespace KitWright.Editor
 
         // A full 64-hex identity; only the first ProjectIdentity.PinLength chars form the pin.
         private const string IdentityAaaa = "aaaa1111" + "00000000000000000000000000000000000000000000000000000000";
+
+        [TearDown]
+        public void ClearSseSessions()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 15_000;
+            SSESessionManager.Instance.ResetForTests();
+        }
 
         [Test]
         public void ExtractPin_ReadsThePSegmentAndIgnoresTheQuery()
@@ -523,6 +531,391 @@ namespace KitWright.Editor
             {
                 transport.Dispose();
             }
+        }
+
+        [Test]
+        public void OriginValidation_AcceptsAbsentAndLocalhost_RejectsExternalDomain()
+        {
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin(null), "Absent origin must be allowed.");
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin(""), "Empty origin must be allowed.");
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin("http://localhost:8765"));
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin("http://127.0.0.1:8765"));
+            Assert.IsTrue(HttpMCPTransport.IsValidOrigin("http://[::1]:8765"));
+            Assert.IsFalse(HttpMCPTransport.IsValidOrigin("http://evil-site.com"));
+            Assert.IsFalse(HttpMCPTransport.IsValidOrigin("http://attacker.local"));
+        }
+
+        [UnityTest]
+        public IEnumerator PostInitialize_ReturnsMcpSessionIdHeader()
+        {
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+            transport.OnRequestReceived += (request, sendResponse) =>
+                HandleInitializeRequest(request, sendResponse, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                using (var content = new StringContent(
+                    "{\"jsonrpc\":\"2.0\",\"id\":\"init-1\",\"method\":\"initialize\",\"params\":{}}",
+                    Encoding.UTF8,
+                    "application/json"))
+                {
+                    var responseTask = client.PostAsync("http://127.0.0.1:" + port + "/", content);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+                    Assert.IsTrue(response.Headers.Contains("Mcp-Session-Id"), "Initialize response must carry Mcp-Session-Id header.");
+                    var sessionId = string.Join("", response.Headers.GetValues("Mcp-Session-Id"));
+                    Assert.IsTrue(SSESessionManager.Instance.TryGetSession(sessionId, out _), "Session must be registered in SSESessionManager.");
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_WithoutValidSession_Returns404()
+        {
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", "non-existent-session-id");
+
+                    var responseTask = client.SendAsync(req);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "Invalid Mcp-Session-Id must return 404 Not Found.");
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_WithValidSession_ReceivesSseHeadersAndPing()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 100; // fast ping for testing
+            var session = SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient())
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+                    Assert.AreEqual("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+
+                    using (var stream = response.Content.ReadAsStreamAsync().Result)
+                    {
+                        var buffer = new byte[256];
+                        var readTask = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(readTask, 2f);
+                        var text = Encoding.UTF8.GetString(buffer, 0, readTask.Result);
+                        Assert.That(text, Does.Contain(": ping\n\n"), "Stream should receive ping heartbeat.");
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator PostRequest_WithoutSessionId_StillSucceeds()
+        {
+            // A session exists, so the server has handed an id out; a client that never echoes it
+            // must still be served, or every config written before sessions existed breaks.
+            SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+            transport.OnRequestReceived += (request, sendResponse) =>
+                sendResponse(new MCPResponse
+                {
+                    Id = request.Id,
+                    Result = new Dictionary<string, object> { ["served"] = true }
+                });
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                using (var content = new StringContent(
+                    "{\"jsonrpc\":\"2.0\",\"id\":\"no-session\",\"method\":\"tools/list\",\"params\":{}}",
+                    Encoding.UTF8,
+                    "application/json"))
+                {
+                    var responseTask = client.PostAsync("http://127.0.0.1:" + port + "/", content);
+                    yield return WaitForTask(responseTask, 3f);
+                    var response = responseTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode,
+                        "A POST without Mcp-Session-Id must still be served.");
+                    Assert.That(response.Content.ReadAsStringAsync().Result, Does.Contain("served"));
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator LoggingSetLevel_FiltersAndPushesLogNotification()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 30_000; // keep pings out of the read
+            var session = SSESessionManager.Instance.CreateSession();
+            SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "warning");
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient())
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask, 3f);
+                    Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
+
+                    using (var stream = responseTask.Result.Content.ReadAsStreamAsync().Result)
+                    {
+                        // Below the configured level: must never reach the client.
+                        var belowTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                            LogType.Log, "BelowThresholdMessage", null);
+                        yield return WaitForTask(belowTask, 2f);
+
+                        var aboveTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                            LogType.Error, "AboveThresholdMessage", null);
+                        yield return WaitForTask(aboveTask, 2f);
+
+                        var buffer = new byte[2048];
+                        var readTask = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(readTask, 2f);
+                        var text = Encoding.UTF8.GetString(buffer, 0, readTask.Result);
+
+                        Assert.That(text, Does.Contain("notifications/message"));
+                        Assert.That(text, Does.Contain("AboveThresholdMessage"));
+                        Assert.That(text, Does.Contain("\"level\":\"error\""));
+                        Assert.That(text, Does.Not.Contain("BelowThresholdMessage"),
+                            "A log under the level the client set must be dropped.");
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_DuplicateSession_Returns409Conflict()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 1000;
+            var session = SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client1 = new HttpClient())
+                using (var client2 = new HttpClient())
+                {
+                    var req1 = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req1.Headers.Add("Accept", "text/event-stream");
+                    req1.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask1 = client1.SendAsync(req1, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask1, 3f);
+                    Assert.AreEqual(HttpStatusCode.OK, responseTask1.Result.StatusCode);
+
+                    var req2 = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req2.Headers.Add("Accept", "text/event-stream");
+                    req2.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask2 = client2.SendAsync(req2);
+                    yield return WaitForTask(responseTask2, 3f);
+                    Assert.AreEqual(HttpStatusCode.Conflict, responseTask2.Result.StatusCode, "Second stream for same session must return 409 Conflict.");
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GetStream_ReceivesPingAndEvictsOnDisconnect()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 50;
+            var session = SSESessionManager.Instance.CreateSession();
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                var client = new HttpClient();
+                var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                req.Headers.Add("Accept", "text/event-stream");
+                req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                yield return WaitForTask(responseTask, 3f);
+                Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
+                Assert.IsNotNull(session.ActiveStream, "Session should have active stream.");
+
+                responseTask.Result.Dispose();
+                client.Dispose();
+
+                var waited = 0f;
+                while (session.ActiveStream != null && waited < 2f)
+                {
+                    yield return new WaitForSecondsRealtime(0.1f);
+                    waited += 0.1f;
+                }
+
+                Assert.IsNull(session.ActiveStream, "Disconnected client stream must be evicted.");
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RepeatedLog_IsCollapsedButReportsHowManyWereSuppressed()
+        {
+            SSESessionManager.Instance.PingIntervalMs = 30_000;
+            var session = SSESessionManager.Instance.CreateSession();
+            SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "info");
+
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient())
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:" + port + "/");
+                    req.Headers.Add("Accept", "text/event-stream");
+                    req.Headers.Add("Mcp-Session-Id", session.SessionId);
+
+                    var responseTask = client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    yield return WaitForTask(responseTask, 3f);
+                    Assert.AreEqual(HttpStatusCode.OK, responseTask.Result.StatusCode);
+
+                    using (var stream = responseTask.Result.Content.ReadAsStreamAsync().Result)
+                    {
+                        for (int i = 0; i < 3; i++)
+                        {
+                            var task = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                                LogType.Error, "SpammedMessage", null);
+                            yield return WaitForTask(task, 2f);
+                        }
+
+                        var buffer = new byte[4096];
+                        var firstRead = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(firstRead, 2f);
+                        var first = Encoding.UTF8.GetString(buffer, 0, firstRead.Result);
+
+                        Assert.That(first, Does.Contain("SpammedMessage"));
+                        Assert.That(first, Does.Not.Contain("repeated"),
+                            "Nothing was suppressed before the first send.");
+                        Assert.AreEqual(1, CountOccurrences(first, "notifications/message"),
+                            "Two repeats inside the dedup window must not each get a frame.");
+
+                        // Past the dedup window, so the next identical log is sent again.
+                        yield return new WaitForSecondsRealtime(0.3f);
+
+                        var repeatTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
+                            LogType.Error, "SpammedMessage", null);
+                        yield return WaitForTask(repeatTask, 2f);
+
+                        var secondRead = stream.ReadAsync(buffer, 0, buffer.Length);
+                        yield return WaitForTask(secondRead, 2f);
+                        var second = Encoding.UTF8.GetString(buffer, 0, secondRead.Result);
+
+                        Assert.That(second, Does.Contain("[previous message repeated 2x]"),
+                            "The dropped repeats must be counted, not lost.");
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        private static int CountOccurrences(string haystack, string needle)
+        {
+            int count = 0;
+            for (int i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+                 i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+            {
+                count++;
+            }
+            return count;
         }
 
         private sealed class HttpResult

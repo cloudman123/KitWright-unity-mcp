@@ -814,10 +814,7 @@ namespace KitWright.Editor.MCP.Server
         // 404, but only if the client actually sends one, which is what this path segment is for.
         internal static string BuildServerUrl(int port)
         {
-            var pin = ProjectIdentity.PinFromProjectPath(GetProjectRootPath());
-            return pin.Length == 0
-                ? $"http://127.0.0.1:{port}/"
-                : $"http://127.0.0.1:{port}/p/{pin}/";
+            return $"http://127.0.0.1:{port}/p/{ProjectIdentity.PinFromProjectPath(GetProjectRootPath())}/";
         }
 
         private static string GetProjectRootPath()

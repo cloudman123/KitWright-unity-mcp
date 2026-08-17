@@ -145,6 +145,15 @@ namespace KitWright.Editor.Tools
             return method.GetCustomAttribute<ReadOnlyToolAttribute>() != null;
         }
 
+        public static bool RunsOffEditorThread(string snakeCaseName)
+        {
+            if (string.IsNullOrEmpty(snakeCaseName))
+                return false;
+
+            var method = GetMethod(snakeCaseName);
+            return method != null && method.IsDefined(typeof(OffEditorThreadAttribute), false);
+        }
+
         // --- Public Registration API ---
 
         /// <summary>

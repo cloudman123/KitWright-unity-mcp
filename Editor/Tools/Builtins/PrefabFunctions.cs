@@ -18,7 +18,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(game_object_name);
             if (go == null)
-                return Response.Error("GAME_OBJECT_NOT_FOUND", new { game_object_name });
+                return ObjectsHelper.NotFound("game_object_name", game_object_name);
 
             if (!Directory.Exists(save_path))
                 Directory.CreateDirectory(save_path);
@@ -65,7 +65,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(game_object_name);
             if (go == null)
-                return Response.Error("GAME_OBJECT_NOT_FOUND", new { game_object_name });
+                return ObjectsHelper.NotFound("game_object_name", game_object_name);
 
             if (!PrefabUtility.IsPartOfAnyPrefab(go))
                 return Response.Error("NOT_PREFAB_INSTANCE", new { game_object_name });
@@ -208,7 +208,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(game_object_name);
             if (go == null)
-                return Response.Error("GAME_OBJECT_NOT_FOUND", new { game_object_name });
+                return ObjectsHelper.NotFound("game_object_name", game_object_name);
 
             if (!PrefabUtility.IsPartOfAnyPrefab(go))
                 return Response.Error("NOT_PREFAB_INSTANCE", new { game_object_name });
@@ -227,7 +227,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var go = ObjectsHelper.FindTarget(game_object_name);
             if (go == null)
-                return Response.Error("GAME_OBJECT_NOT_FOUND", new { game_object_name });
+                return ObjectsHelper.NotFound("game_object_name", game_object_name);
 
             if (!PrefabUtility.IsPartOfAnyPrefab(go))
                 return Response.Error("NOT_PREFAB_INSTANCE", new { game_object_name });
@@ -262,7 +262,7 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 var go = ObjectsHelper.FindTarget(target);
                 if (go == null)
-                    return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+                    return ObjectsHelper.NotFound("target", target);
                 if (!PrefabUtility.IsPartOfAnyPrefab(go))
                     return Response.Error("NOT_PREFAB_INSTANCE", new { target });
                 asset = PrefabUtility.GetCorrespondingObjectFromSource(go);

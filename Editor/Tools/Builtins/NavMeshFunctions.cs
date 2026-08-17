@@ -60,7 +60,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Agent height", Required = false)] float height = 2f)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var agent = go.GetComponent<NavMeshAgent>() ?? Undo.AddComponent<NavMeshAgent>(go);
             agent.speed = speed;
@@ -77,7 +77,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Carve a hole in the NavMesh instead of only blocking agents", Required = false)] bool carving = true)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var obstacle = go.GetComponent<NavMeshObstacle>() ?? Undo.AddComponent<NavMeshObstacle>(go);
             obstacle.carving = carving;
@@ -95,7 +95,7 @@ namespace KitWright.Editor.Tools.Builtins
                 return Response.Error("PLAY_MODE_REQUIRED", new { hint = "NavMeshAgent path-finding only runs in Play Mode." });
 
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var agent = go.GetComponent<NavMeshAgent>();
             if (agent == null) return Response.Error("NO_NAVMESH_AGENT", new { target });

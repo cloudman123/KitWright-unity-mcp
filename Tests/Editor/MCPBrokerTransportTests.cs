@@ -280,7 +280,7 @@ namespace KitWright.Editor
         }
 
         [UnityTest]
-        public IEnumerator BrokerTransport_ReturnsRetryableErrorWhenBackendIsUnavailable()
+        public IEnumerator BrokerTransport_TellsToolCallsToRetryButErrorsProtocolCallsWhenBackendIsUnavailable()
         {
             var root = CreateTempRoot();
             var paths = CreateBrokerPaths(root);
@@ -299,10 +299,11 @@ namespace KitWright.Editor
                 var elapsed = DateTime.UtcNow - startedAt;
 
                 Assert.Less(elapsed.TotalSeconds, 2.0, "Unavailable backend responses should not wait for the client timeout.");
-                Assert.That(requestTask.Result, Does.Contain("\"id\":\"test\""));
-                Assert.That(requestTask.Result, Does.Contain("\"code\":-32001"));
-                Assert.That(requestTask.Result, Does.Contain("Unity MCP backend is reloading or reconnecting"));
-                Assert.That(requestTask.Result, Does.Contain("\"retryable\":true"));
+                AssertToolCallToldToRetry(requestTask.Result);
+
+                var listTask = SendToolsListAsync(port);
+                yield return WaitForTask(listTask, 3f);
+                AssertProtocolCallErrored(listTask.Result);
             }
             finally
             {
@@ -342,8 +343,7 @@ namespace KitWright.Editor
                 var elapsed = DateTime.UtcNow - startedAt;
 
                 Assert.Less(elapsed.TotalSeconds, 2.0, "Detached backend responses should not wait for the client timeout.");
-                Assert.That(requestTask.Result, Does.Contain("\"code\":-32001"));
-                Assert.That(requestTask.Result, Does.Contain("\"retryable\":true"));
+                AssertToolCallToldToRetry(requestTask.Result);
             }
             finally
             {
@@ -392,8 +392,7 @@ namespace KitWright.Editor
                 firstTransport = null;
 
                 yield return WaitForTask(queuedRequest, 3f);
-                Assert.That(queuedRequest.Result, Does.Contain("\"code\":-32001"));
-                Assert.That(queuedRequest.Result, Does.Contain("\"retryable\":true"));
+                AssertToolCallToldToRetry(queuedRequest.Result);
 
                 secondTransport = new MCPBrokerClientTransport(port, connection.Token);
                 secondTransport.OnRequestReceived += (request, sendResponse) =>
@@ -486,6 +485,39 @@ namespace KitWright.Editor
                     }
                 }
             };
+        }
+
+        private const string ReloadingNotice = "Unity is recompiling scripts, so this tool did not run";
+
+        // Broker protocol v3: a tools/call landing while no backend is attached is a wait, not a
+        // failure, so it comes back as ordinary tool output. Protocol calls still error, because a
+        // fake result for those would corrupt the handshake.
+        private static void AssertToolCallToldToRetry(string body)
+        {
+            Assert.That(body, Does.Contain("\"id\":\"test\""));
+            Assert.That(body, Does.Contain("\"isError\":false"));
+            Assert.That(body, Does.Contain(ReloadingNotice));
+            Assert.That(body, Does.Not.Contain("\"error\""));
+        }
+
+        private static void AssertProtocolCallErrored(string body)
+        {
+            Assert.That(body, Does.Contain("\"code\":-32001"));
+            Assert.That(body, Does.Contain("Unity MCP backend is reloading or reconnecting"));
+            Assert.That(body, Does.Contain("\"retryable\":true"));
+        }
+
+        private static async Task<string> SendToolsListAsync(int port)
+        {
+            using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) })
+            using (var content = new StringContent(
+                       "{\"jsonrpc\":\"2.0\",\"id\":\"test\",\"method\":\"tools/list\",\"params\":{}}",
+                       Encoding.UTF8,
+                       "application/json"))
+            {
+                var response = await client.PostAsync("http://127.0.0.1:" + port + "/", content);
+                return await response.Content.ReadAsStringAsync();
+            }
         }
 
         private static async Task<string> SendToolCallAsync(int port, string toolName)

@@ -26,7 +26,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Max distance for 3D attenuation", Required = false)] float? max_distance = null)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             var src = go.GetComponent<AudioSource>() ?? Undo.AddComponent<AudioSource>(go);
             Undo.RecordObject(src, "Configure AudioSource");
@@ -71,7 +71,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Add even if another AudioListener already exists in the scene", Required = false)] bool allow_multiple = false)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
 
             if (!allow_multiple)
             {
@@ -97,7 +97,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("GameObject name, hierarchy path, or instance ID")] string target)
         {
             var go = ObjectsHelper.FindTarget(target);
-            if (go == null) return Response.Error("GAME_OBJECT_NOT_FOUND", new { target });
+            if (go == null) return ObjectsHelper.NotFound("target", target);
             var src = go.GetComponent<AudioSource>();
             if (src == null) return Response.Error("NO_AUDIO_SOURCE", new { target });
             return Response.Success($"AudioSource on '{go.name}'.", Describe(src));

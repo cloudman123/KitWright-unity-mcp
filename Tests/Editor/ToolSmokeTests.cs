@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
@@ -30,46 +29,6 @@ namespace KitWright.Editor.Tests
             Assert.IsNotNull(ToolRegistry.GetMethod("get_project_settings"));
             Assert.IsNotNull(ToolRegistry.GetMethod("get_editor_pref"));
             Assert.IsNull(ToolRegistry.GetMethod("dismiss_dialog"));
-        }
-
-        // A trailing "..." is the editor's own convention for "opens a dialog", and a dialog freezes
-        // the editor until a human clicks it. Known ceiling, not covered here: an item that opens a
-        // dialog without the dots (Assets/Reimport All) still runs like any other.
-        [Test]
-        public void ExecuteMenuItem_RefusesAPathThatOpensAModalDialog()
-        {
-            StringAssert.Contains("\"code\":\"MENU_ITEM_OPENS_MODAL\"", InvokeMenuItem("File/Save As..."));
-        }
-
-        // File/Exit carries no dots, so the heuristic above cannot see it — and it does not block the
-        // editor, it ends it, taking this connection with it before any reply is written.
-        [Test]
-        public void ExecuteMenuItem_RefusesThePathThatQuitsTheEditor()
-        {
-            StringAssert.Contains("\"code\":\"MENU_ITEM_QUITS_EDITOR\"", InvokeMenuItem("File/Exit"));
-        }
-
-        // The guard must not swallow ordinary paths: this one reaches the editor and comes back
-        // NOT_FOUND, which is the proof it was never refused up front. Reaching the editor is also
-        // why Unity logs an error of its own, which the fixture has to expect.
-        [Test]
-        public void ExecuteMenuItem_LetsAnOrdinaryPathThrough()
-        {
-            LogAssert.Expect(LogType.Error, "ExecuteMenuItem failed because there is no menu named 'KitWright/No Such Menu Item'");
-
-            StringAssert.Contains("\"code\":\"MENU_ITEM_NOT_FOUND\"", InvokeMenuItem("KitWright/No Such Menu Item"));
-        }
-
-        private static string InvokeMenuItem(string menuPath)
-        {
-            var result = new FunctionInvoker().Invoke(new FunctionCall
-            {
-                FunctionName = "execute_menu_item",
-                Parameters = new Dictionary<string, string> { ["menu_path"] = menuPath }
-            });
-
-            StringAssert.Contains("\"success\":false", result);
-            return result;
         }
 
         [Test]

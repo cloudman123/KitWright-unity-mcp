@@ -7,8 +7,10 @@ namespace KitWright.Editor.MCP.Server
         // v2: pull responses carry AcceptSseHeader (client's Accept: text/event-stream),
         //     push requests may carry ContentTypeHeader to override the client-facing
         //     response content type (used for SSE-piggybacked notifications).
-        // 3: the broker checks the project pin in the request path. A v2 broker left running would
-        // keep forwarding another project's requests, so the bump forces it to be replaced.
+        // v3: the broker checks the project pin in the request path -- a v2 broker left running
+        //     would keep forwarding another project's requests, so the bump forces it to be
+        //     replaced; and a tools/call that arrives while no Unity backend is attached comes
+        //     back as an ordinary tool result telling the agent to retry, not a JSON-RPC error.
         public const int Version = 3;
         public const string Name = "kitwright-unity-mcp-broker";
         public const string HealthPath = "/_kitwright/broker/health";

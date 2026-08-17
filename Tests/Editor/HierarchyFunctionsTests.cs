@@ -49,14 +49,7 @@ namespace KitWright.Editor.Tests
                 if (secondRoot != null) UnityEngine.Object.DestroyImmediate(secondRoot);
                 if (inactiveByName != null) UnityEngine.Object.DestroyImmediate(inactiveByName);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -67,6 +60,9 @@ namespace KitWright.Editor.Tests
             bool canRestoreOriginalSetup = CanRestoreSceneSetup(originalSetup);
             if (!Application.isBatchMode && !canRestoreOriginalSetup)
                 Assert.Ignore("Skipping additive-scene test because the interactive editor has unsaved untitled scenes.");
+            if (!Application.isBatchMode && AnyLoadedSceneIsDirty())
+                Assert.Ignore("Skipping additive-scene test: replacing a modified scene opens Unity's save prompt, " +
+                              "and that modal blocks the editor loop the MCP server pumps on.");
 
             Scene additiveScene = default;
 
@@ -77,6 +73,8 @@ namespace KitWright.Editor.Tests
             string activeRootName = "KitWrightActiveRoot_" + suffix;
             string additiveRootName = "KitWrightAdditiveRoot_" + suffix;
             string inactiveRootName = "KitWrightInactiveAdditiveRoot_" + suffix;
+
+            SkipIfAnySceneDirty();
 
             try
             {
@@ -106,7 +104,7 @@ namespace KitWright.Editor.Tests
                 Assert.That(hierarchy, Does.Contain(activeRootName));
                 Assert.That(hierarchy, Does.Contain("Scene: " + additiveScene.name + " (additive)"));
                 Assert.That(hierarchy, Does.Contain(additiveRootName));
-                Assert.That(hierarchy, Does.Contain(inactiveRootName + " [INACTIVE]"));
+                Assert.That(hierarchy, Does.Match(inactiveRootName + @" #\S+ \[INACTIVE\]"));
 
                 var rootLookup = HierarchyFunctions.GetHierarchy(
                     root_name: inactiveRootName,
@@ -114,7 +112,7 @@ namespace KitWright.Editor.Tests
                     include_components: false,
                     include_inactive: true);
 
-                Assert.That(rootLookup, Does.Contain(inactiveRootName + " [INACTIVE]"));
+                Assert.That(rootLookup, Does.Match(inactiveRootName + @" #\S+ \[INACTIVE\]"));
                 Assert.That(rootLookup, Does.Not.Contain("GAME_OBJECT_NOT_FOUND"));
 
                 var sceneInfo = SceneFunctions.GetSceneInfo();
@@ -126,6 +124,8 @@ namespace KitWright.Editor.Tests
             }
             finally
             {
+                SettleDirtyScenes(tempFolder);
+
                 if (canRestoreOriginalSetup)
                 {
                     EditorSceneManager.RestoreSceneManagerSetup(originalSetup);
@@ -140,9 +140,7 @@ namespace KitWright.Editor.Tests
             }
         }
 
-        // ------------------------------------------------------------------
         //  Edge cases: GetHierarchy boundary conditions
-        // ------------------------------------------------------------------
 
         [Test]
         public void GetHierarchy_DepthZero_ClampedToOneStillReturnsHierarchy()
@@ -189,6 +187,48 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void NotFound_SuggestsNearMissesAndFlagsStaleInstanceIds()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject target = null;
+
+            try
+            {
+                target = new GameObject("SuggestProbe_" + suffix);
+
+                // Wrong case only: name resolution is case-sensitive, so this reaches the suggester.
+                var wrongCase = HierarchyFunctions.GetHierarchy(root_name: "suggestprobe_" + suffix);
+                StringAssert.Contains("GAME_OBJECT_NOT_FOUND", wrongCase);
+                StringAssert.Contains(target.name, wrongCase);
+                StringAssert.Contains("case-sensitive", wrongCase);
+
+                // One transposed character still lands inside the edit-distance budget.
+                var typo = ObjectsHelper.SuggestTargets("SuggestPorbe_" + suffix);
+                CollectionAssert.Contains(typo, target.name);
+
+                // A stale instance id cannot be name-matched, so it gets its own explanation.
+                var staleId = HierarchyFunctions.GetHierarchy(root_name: "-999999");
+                StringAssert.Contains("GAME_OBJECT_NOT_FOUND", staleId);
+                StringAssert.Contains("domain reload", staleId);
+                Assert.IsEmpty(ObjectsHelper.SuggestTargets("-999999"),
+                    "A numeric query must not be name-matched against the scene.");
+
+                Assert.AreEqual(0, ObjectsHelper.EditDistance("abc", "abc"));
+                Assert.AreEqual(1, ObjectsHelper.EditDistance("abc", "abd"));
+                Assert.AreEqual(2, ObjectsHelper.EditDistance("abc", "acb"));
+                Assert.AreEqual(3, ObjectsHelper.EditDistance("", "abc"));
+            }
+            finally
+            {
+                if (target != null) UnityEngine.Object.DestroyImmediate(target);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
         public void GetHierarchy_ExcludeInactive_DoesNotShowInactiveObjects()
         {
             var suffix = Guid.NewGuid().ToString("N");
@@ -216,14 +256,7 @@ namespace KitWright.Editor.Tests
                 if (activeObj != null) UnityEngine.Object.DestroyImmediate(activeObj);
                 if (inactiveObj != null) UnityEngine.Object.DestroyImmediate(inactiveObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -245,20 +278,13 @@ namespace KitWright.Editor.Tests
                     include_components: false,
                     include_inactive: true);
 
-                Assert.That(result, Does.Contain("InactiveMarkerTest_" + suffix + " [INACTIVE]"));
+                Assert.That(result, Does.Match("InactiveMarkerTest_" + suffix + @" #\S+ \[INACTIVE\]"));
             }
             finally
             {
                 if (inactiveObj != null) UnityEngine.Object.DestroyImmediate(inactiveObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -292,14 +318,46 @@ namespace KitWright.Editor.Tests
             {
                 if (testObj != null) UnityEngine.Object.DestroyImmediate(testObj);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void GetHierarchy_PrintsInstanceIdThatResolvesBackToTheObject()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject testObj = null;
+
+            try
+            {
+                testObj = new GameObject("IdTest_" + suffix);
+                var expectedId = ObjectIdCodec.GetSerializableId(testObj);
+
+                var withIds = HierarchyFunctions.GetHierarchy(
+                    root_name: testObj.name,
+                    depth: 1,
+                    include_components: false);
+
+                Assert.That(withIds, Does.Contain(testObj.name + " #" + expectedId));
+
+                Assert.AreSame(testObj, ObjectsHelper.FindTarget(expectedId));
+
+                var withoutIds = HierarchyFunctions.GetHierarchy(
+                    root_name: testObj.name,
+                    depth: 1,
+                    include_components: false,
+                    include_ids: false);
+
+                Assert.That(withoutIds, Does.Contain(testObj.name));
+                Assert.That(withoutIds, Does.Not.Contain("#" + expectedId));
+            }
+            finally
+            {
+                if (testObj != null) UnityEngine.Object.DestroyImmediate(testObj);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
             }
         }
 
@@ -329,15 +387,92 @@ namespace KitWright.Editor.Tests
             {
                 if (parent != null) UnityEngine.Object.DestroyImmediate(parent);
                 if (!wasDirty && scene.IsValid())
-                {
-                    var clearDirtiness = typeof(EditorSceneManager).GetMethod(
-                        "ClearSceneDirtiness",
-                        System.Reflection.BindingFlags.Static |
-                        System.Reflection.BindingFlags.Public |
-                        System.Reflection.BindingFlags.NonPublic);
-                    clearDirtiness?.Invoke(null, new object[] { scene });
-                }
+                    ClearSceneDirtiness(scene);
             }
+        }
+
+        [Test]
+        public void GetHierarchy_MaxNodes_StopsAtBudgetAndSaysSo()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject parent = null;
+
+            try
+            {
+                parent = new GameObject("CapParent_" + suffix);
+                for (int i = 0; i < 2; i++)
+                    new GameObject("CapChild" + i + "_" + suffix).transform.SetParent(parent.transform);
+
+                // Budget of 2 pays for the parent and the first child only.
+                var capped = HierarchyFunctions.GetHierarchy(
+                    root_name: parent.name, depth: 2, include_components: false, max_nodes: 2);
+
+                Assert.That(capped, Does.Contain("CapChild0_" + suffix));
+                Assert.That(capped, Does.Not.Contain("CapChild1_" + suffix));
+                Assert.That(capped, Does.Contain("truncated at max_nodes=2"));
+
+                // A budget that exactly fits must not report a truncation.
+                var exact = HierarchyFunctions.GetHierarchy(
+                    root_name: parent.name, depth: 2, include_components: false, max_nodes: 3);
+
+                Assert.That(exact, Does.Contain("CapChild1_" + suffix));
+                Assert.That(exact, Does.Not.Contain("truncated at max_nodes"));
+            }
+            finally
+            {
+                if (parent != null) UnityEngine.Object.DestroyImmediate(parent);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        // while the run is in flight, and swapping a dirty scene opens Unity's save prompt.
+        internal static void SkipIfAnySceneDirty()
+        {
+            if (!Application.isBatchMode && AnyLoadedSceneIsDirty())
+                Assert.Ignore("Skipping: replacing a modified scene opens Unity's save prompt, " +
+                              "and that modal blocks the editor loop the MCP server pumps on.");
+        }
+
+        internal static bool AnyLoadedSceneIsDirty()
+        {
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                if (SceneManager.GetSceneAt(i).isDirty)
+                    return true;
+            }
+            return false;
+        }
+
+        // Restoring over a dirty scene opens Unity's save prompt, which blocks the whole run.
+        // Only the scenes these tests created may be written: SkipIfAnySceneDirty proved every
+        // other loaded scene was clean before the swap, so anything dirty on one now came from
+        // the run itself, and saving it would commit test residue into the user's own project.
+        internal static void SettleDirtyScenes(string ownedPathPrefix)
+        {
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.isDirty || string.IsNullOrEmpty(scene.path))
+                    continue;
+
+                if (scene.path.StartsWith(ownedPathPrefix, StringComparison.Ordinal))
+                    EditorSceneManager.SaveScene(scene);
+                else
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        internal static void ClearSceneDirtiness(Scene scene)
+        {
+            var method = typeof(EditorSceneManager).GetMethod(
+                "ClearSceneDirtiness",
+                System.Reflection.BindingFlags.Static |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic);
+            method?.Invoke(null, new object[] { scene });
         }
 
         private static bool CanRestoreSceneSetup(SceneSetup[] setup)
