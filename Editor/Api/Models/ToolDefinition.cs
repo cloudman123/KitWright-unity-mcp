@@ -8,12 +8,11 @@ namespace KitWright.Editor.Api.Models
         public string name;
         public string description;
         public ToolParametersDef parameters;
-        public bool? readOnly;
+        public bool readOnly;
     }
 
     internal class ToolParametersDef
     {
-        public string type = "object";
         public Dictionary<string, ToolPropertyDef> properties = new Dictionary<string, ToolPropertyDef>();
         public List<string> required = new List<string>();
     }
@@ -22,7 +21,6 @@ namespace KitWright.Editor.Api.Models
     {
         public string type;
         public string description;
-        public string @default;
         public List<string> @enum;
     }
 }

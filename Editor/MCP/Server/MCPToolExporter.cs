@@ -62,7 +62,7 @@ namespace KitWright.Editor.MCP.Server
                 // readOnlyHint lets clients skip an approval prompt for tools that cannot change the
                 // project. Only the true case is emitted: the MCP default for an absent hint is
                 // "not read-only", which is already the safe answer for everything else.
-                if (tool.readOnly == true)
+                if (tool.readOnly)
                     mcpTool["annotations"] = new Dictionary<string, object> { ["readOnlyHint"] = true };
 
                 mcpTools.Add(mcpTool);
@@ -101,9 +101,6 @@ namespace KitWright.Editor.MCP.Server
 
                 if (prop.Value.@enum != null && prop.Value.@enum.Count > 0)
                     propertySchema["enum"] = prop.Value.@enum;
-
-                if (!string.IsNullOrEmpty(prop.Value.@default))
-                    propertySchema["default"] = prop.Value.@default;
 
                 properties[prop.Key] = propertySchema;
             }
