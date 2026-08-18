@@ -536,7 +536,7 @@
 
 | Tool | Description |
 |------|-------------|
-| `get_project_settings` | Report a flat snapshot of project settings: QualitySettings (level names + current level index/name), PlayerSettings (applicationIdentifier, productName, companyName, Android/Standalone scripting backend, Android target/min SDK versions), and the active build target. |
+| `get_project_settings` | Read project settings. |
 
 ## Reflection (1)
 

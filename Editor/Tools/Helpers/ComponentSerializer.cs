@@ -32,7 +32,7 @@ namespace KitWright.Editor.Tools.Helpers
         /// Returns every visible serialized property on the component. Skips Unity's "m_Script"
         /// field by default since it's noise for AI consumers.
         /// </summary>
-        public static List<PropertySnapshot> ReadProperties(UnityEngine.Object component, bool includeScriptField = false)
+        public static List<PropertySnapshot> ReadProperties(UnityEngine.Object component, bool includeScriptField = false, bool descend = false)
         {
             var list = new List<PropertySnapshot>();
             if (component == null) return list;
@@ -49,12 +49,12 @@ namespace KitWright.Editor.Tools.Helpers
 
                     list.Add(new PropertySnapshot
                     {
-                        Name = prop.name,
+                        Name = descend ? prop.propertyPath : prop.name,
                         Type = prop.propertyType.ToString(),
                         Value = ReadPropertyValue(prop)
                     });
                 }
-                while (prop.NextVisible(false));
+                while (prop.NextVisible(descend));
             }
             return list;
         }

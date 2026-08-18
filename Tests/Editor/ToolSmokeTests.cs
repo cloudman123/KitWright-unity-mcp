@@ -249,6 +249,10 @@ namespace KitWright.Editor.Tests
         public void ProjectAndUndoStateTools_ReturnStructuredSuccess()
         {
             AssertSuccess(ProjectSettingsFunctions.GetProjectSettings());
+            AssertSuccess(ProjectSettingsFunctions.GetProjectSettings("PhysicsManager"));
+            AssertSuccess(ProjectSettingsFunctions.GetProjectSettings("QualitySettings"));
+            AssertSuccess(ProjectSettingsFunctions.GetProjectSettings("PlayerSettings"));
+            AssertError(ProjectSettingsFunctions.GetProjectSettings("NopeManager"), "SETTINGS_SINGLETON_NOT_FOUND");
             AssertSuccess(UndoFunctions.GetUndoState());
         }
 
