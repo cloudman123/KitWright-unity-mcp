@@ -34,7 +34,9 @@ namespace KitWright.Editor.Tools.Builtins
                      "SceneManagement, ...) are added for you, and `return <anything>` becomes the response message.\n" +
                      "  2) Recommended for edits: implement IKitWrightCommand on a class — receives an ExecutionContext (ctx) " +
                      "with RegisterObjectCreation/RegisterObjectModification/DestroyObject (auto-Undo + tracked) and " +
-                     "Log/LogWarning/LogError (returned in the response).\n" +
+                     "Log/LogWarning/LogError (returned in the response). When a snippet mutates a scene object or asset, " +
+                     "call ctx.RegisterObjectModification(obj) BEFORE changing it — a bare EditorUtility.SetDirty marks the " +
+                     "change for saving but leaves the user with no Ctrl+Z.\n" +
                      "  3) Legacy: any class with `public static` Run() — return value becomes the response message.\n" +
                      "Before compiling, the editor's AssetDatabase is refreshed and pending compilation is awaited, " +
                      "so external file edits are picked up automatically without a separate request_recompile " +
