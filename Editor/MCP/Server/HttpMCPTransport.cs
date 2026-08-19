@@ -374,6 +374,13 @@ namespace KitWright.Editor.MCP.Server
                         return;
                     }
 
+                    if (!await Security.ClientApprovalGate.AuthorizeAsync(client, _port))
+                    {
+                        await SendHtmlStatusAsync(stream, HttpStatusCode.Forbidden, "Forbidden",
+                            "This client was not approved in the Unity editor. Approve it in the KitWright dialog, or disable client approval in the MCP Settings tab.", ct);
+                        return;
+                    }
+
                     request = ParseJsonRequest(httpRequest.Body);
                     if (request == null)
                     {

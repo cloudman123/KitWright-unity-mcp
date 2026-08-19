@@ -26,6 +26,12 @@ namespace KitWright.Editor.MCP.Server
                 value => settings.ExecuteCodeStrictFilesystemSafetyEnabled = value);
 
             AddSafetyBox(parent, new VisualElement().Card(),
+                "Require client approval",
+                "First connection from an unknown client executable shows an Allow/Deny dialog; approvals are remembered per user across projects. Batch mode and the editor itself are always allowed.",
+                settings.RequireClientApprovalEnabled,
+                value => settings.RequireClientApprovalEnabled = value);
+
+            AddSafetyBox(parent, new VisualElement().Card(),
                 "Auto-inject project namespaces",
                 "Off by default. When enabled, only namespaces from loaded Library/ScriptAssemblies assemblies are injected; explicit using directives remain the least ambiguous option.",
                 settings.ExecuteCodeProjectNamespaceInjectionEnabled,

@@ -23,6 +23,14 @@ namespace KitWright.Editor
 {
     public sealed class MCPBrokerTransportTests
     {
+        [OneTimeSetUp]
+        public void DisableClientApproval() =>
+            MCP.Server.Security.ClientApprovalGate.RequireApprovalOverride = () => false;
+
+        [OneTimeTearDown]
+        public void RestoreClientApproval() =>
+            MCP.Server.Security.ClientApprovalGate.RequireApprovalOverride = null;
+
         [UnityTest]
         public IEnumerator BrokerProcess_StartsWithHealthTokenAndStops()
         {
