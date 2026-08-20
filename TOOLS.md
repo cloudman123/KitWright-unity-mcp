@@ -107,7 +107,7 @@
 | `copy_asset` | Copy an asset to a new location |
 | `create_folder` | Create a project folder (and any missing parent folders) under Assets. |
 | `create_material` | Create a new material with a specified color |
-| `delete_asset` | Delete an asset |
+| `delete_asset` | Delete an asset by moving it to the OS trash (Recycle Bin). |
 | `find_assets` | Search for assets by type and name |
 | `move_asset` | Move or rename an asset to a new path (creates missing destination folders). |
 | `rename_asset` | Rename an asset |
@@ -155,7 +155,7 @@
 |------|-------------|
 | `add_to_sprite_atlas` | Add sprites, textures, or folders (as packables) to a SpriteAtlas. |
 | `create_sprite_atlas` | Create a new SpriteAtlas asset (.spriteatlas) at the given path. |
-| `delete_sprite_atlas` | Delete a SpriteAtlas asset. |
+| `delete_sprite_atlas` | Delete a SpriteAtlas asset by moving it to the OS trash (Recycle Bin). |
 | `get_sprite_atlas_info` | Get SpriteAtlas details: packables, sprite count, include-in-build, packing/texture settings. |
 | `list_sprite_atlases` | List all SpriteAtlas assets in the project, optionally scoped to a folder. |
 | `remove_from_sprite_atlas` | Remove packables from a SpriteAtlas. |
@@ -244,7 +244,7 @@
 | Tool | Description |
 |------|-------------|
 | `create_shader` | Create a new .shader source file in the project. |
-| `delete_shader` | Delete a .shader file from the project. |
+| `delete_shader` | Delete a .shader file by moving it to the OS trash (Recycle Bin). |
 | `get_shader_info` | Get metadata for a shader loaded in the project (by shader name as declared in the Shader "..." line): supported flag, render queue, LOD, and its exposed properties with types. |
 | `list_shaders` | List shader files (.shader) in the project. |
 | `read_shader` | Read the source of a .shader file in the project. |
@@ -266,7 +266,7 @@
 | Tool | Description |
 |------|-------------|
 | `exists` | Check if a file or directory exists |
-| `list_directory` | List files and directories in a directory |
+| `list_directory` | List files and directories directly inside a directory (top level only; use search_files to recurse into subdirectories) |
 | `read_file` | Read the contents of a file. |
 | `search_files` | Search for files by name pattern in the project |
 | `write_file` | Write content to a file, creating it or overwriting it whole. |

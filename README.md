@@ -456,6 +456,10 @@ External AI Client → HTTP Request → MCPRequestHandler → MCPExecutionBridge
 
 Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
 
+## Security
+
+Found a vulnerability? Report it privately — see the [Security Policy](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE) — Free to use, modify, distribute, and integrate into commercial or open-source projects.
