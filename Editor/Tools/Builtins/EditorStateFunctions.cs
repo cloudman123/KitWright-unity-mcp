@@ -35,7 +35,7 @@ namespace KitWright.Editor.Tools.Builtins
                 projectPath,
                 isPlaying = EditorApplication.isPlaying,
                 isPaused = EditorApplication.isPaused,
-                isCompiling = EditorApplication.isCompiling,
+                isCompiling = CompilationService.IsActuallyCompiling,
                 isUpdating = EditorApplication.isUpdating,
                 isPlayingOrWillChange = EditorApplication.isPlayingOrWillChangePlaymode,
                 applicationPath = EditorApplication.applicationPath,

@@ -1,6 +1,7 @@
 // Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Reflection;
+using KitWright.Editor.Services;
 using UnityEditor;
 
 namespace KitWright.Editor.Tools.Helpers
@@ -71,7 +72,7 @@ namespace KitWright.Editor.Tools.Helpers
             }
             if (DateTime.UtcNow.Ticks < GetDeadlineTicks())
                 return;
-            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            if (CompilationService.IsActuallyCompiling || EditorApplication.isUpdating)
                 return;
             Restore();
             Unhook();

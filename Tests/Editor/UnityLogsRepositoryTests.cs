@@ -80,6 +80,69 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void GetRecentLogs_KeepsMultiLineBodyAndMatchesFilterBelowTheFirstLine()
+        {
+            var token = "KitWrightMultiLine_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " header\nsecond line " + token + "-below");
+
+                var result = repository.GetRecentLogs(
+                    logType: "log",
+                    count: 10,
+                    sinceSeconds: 0,
+                    filterText: token + "-below");
+
+                Assert.That(result, Does.Contain(token + " header"));
+                Assert.That(result, Does.Contain("second line " + token + "-below"));
+            }
+        }
+
+        [Test]
+        public void SplitMessageAndStackTrace_SplitsAtTheFirstStackFrameAndKeepsMultiLineBodies()
+        {
+            UnityLogsRepository.SplitMessageAndStackTrace(
+                "Gradle build failed:\n> Task :app:compile FAILED\nUnityEngine.Debug:LogError (object)",
+                out var body, out var stack);
+
+            Assert.AreEqual("Gradle build failed:\n> Task :app:compile FAILED", body);
+            Assert.AreEqual("UnityEngine.Debug:LogError (object)", stack);
+
+            UnityLogsRepository.SplitMessageAndStackTrace("first\nsecond", out body, out stack);
+            Assert.AreEqual("first\nsecond", body);
+            Assert.IsNull(stack);
+
+            UnityLogsRepository.SplitMessageAndStackTrace(
+                "boom\n  at Foo.Bar () (at Assets/Foo.cs:12)", out body, out stack);
+            Assert.AreEqual("boom", body);
+            Assert.That(stack, Does.Contain("Assets/Foo.cs:12"));
+        }
+
+        [Test]
+        public void LogNotificationGuard_FollowsWhetherASubscriberIsAttached()
+        {
+            var sessions = MCP.Server.SSE.SSESessionManager.Instance;
+            sessions.ResetForTests();
+
+            try
+            {
+                Assert.IsFalse(sessions.HasLogSubscribers,
+                    "A log with no SSE session attached must not build a notification.");
+
+                sessions.SetLoggingLevel(null, "info");
+                Assert.IsTrue(sessions.HasLogSubscribers, "The guard must not mute a real subscriber.");
+            }
+            finally
+            {
+                sessions.ResetForTests();
+            }
+        }
+
+        [Test]
         public void HelperMethods_HandleEmptyTextAndLongLines()
         {
             Assert.IsTrue(UnityLogsRepository.MatchesTextFilter("Hello Console", "console"));
@@ -161,6 +224,14 @@ namespace KitWright.Editor.Tests
             var truncated = UnityLogsRepository.FormatStackTrace(longTrace);
             Assert.That(truncated, Does.StartWith("\n    " + new string('s', 2000)));
             Assert.That(truncated, Does.EndWith("... (+105 chars)"));
+        }
+
+        [Test]
+        public void MissingConsoleLevelBits_ReportsTheLevelsTheConsoleWindowIsHiding()
+        {
+            // 7682 = a reported consoleFlags value: LogLevelError (1<<9) on, Log (1<<7) and Warning (1<<8) off.
+            Assert.AreEqual(new[] { 1 << 7, 1 << 8 }, Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682));
+            Assert.IsEmpty(Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682 | (1 << 7) | (1 << 8)));
         }
     }
 }

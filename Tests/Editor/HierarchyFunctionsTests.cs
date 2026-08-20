@@ -1,7 +1,9 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
 using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
@@ -423,6 +425,74 @@ namespace KitWright.Editor.Tests
             finally
             {
                 if (parent != null) UnityEngine.Object.DestroyImmediate(parent);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void SingleTargetResolve_TwoObjectsShareAName_ErrorsInsteadOfPickingOne()
+        {
+            var name = "__KitWrightAmbiguous_" + Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject first = null;
+            GameObject second = null;
+
+            try
+            {
+                first = new GameObject(name);
+                second = new GameObject(name);
+
+                Assert.AreEqual(2, ObjectsHelper.FindObjects(name, findAll: true).Count,
+                    "Both objects must be in the search pool for the ambiguity to be real.");
+
+                var ambiguous = Assert.Throws<AmbiguousTargetException>(
+                    () => ObjectsHelper.FindObject(name));
+                Assert.AreEqual(2, ambiguous.Candidates.Count,
+                    "The error must name every candidate so the caller can re-target by id.");
+
+                var deleted = new FunctionInvoker().Invoke(new FunctionCall
+                {
+                    FunctionName = "delete_game_object",
+                    Parameters = new Dictionary<string, string> { ["target"] = name }
+                });
+
+                StringAssert.Contains("\"code\":\"AMBIGUOUS_TARGET\"", deleted);
+                Assert.IsFalse(first == null, "Neither match may be destroyed on an ambiguous delete.");
+                Assert.IsFalse(second == null, "Neither match may be destroyed on an ambiguous delete.");
+            }
+            finally
+            {
+                if (first != null) UnityEngine.Object.DestroyImmediate(first);
+                if (second != null) UnityEngine.Object.DestroyImmediate(second);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void FindGameObjects_MaxCap_ReportsThePreCapTotalAndTheShownCount()
+        {
+            var name = "__KitWrightCapped_" + Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject first = null;
+            GameObject second = null;
+
+            try
+            {
+                first = new GameObject(name);
+                second = new GameObject(name);
+
+                var capped = GameObjectFunctions.FindGameObjects(name, max: "1").ToString();
+
+                StringAssert.Contains("Found 2 object(s), showing 1", capped);
+            }
+            finally
+            {
+                if (first != null) UnityEngine.Object.DestroyImmediate(first);
+                if (second != null) UnityEngine.Object.DestroyImmediate(second);
                 if (!wasDirty && scene.IsValid())
                     ClearSceneDirtiness(scene);
             }

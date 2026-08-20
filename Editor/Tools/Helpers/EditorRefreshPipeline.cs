@@ -261,7 +261,21 @@ namespace KitWright.Editor.Tools.Helpers
             return await tcs.Task;
         }
 
-        private static ScriptChangeState CaptureScriptChangeState(bool scanForUnknownProjectScripts)
+        /// <summary>Prefixes a compilation report with a staleness warning, so a clean result read off
+        /// stale artifacts cannot be mistaken for "the code on disk compiles".</summary>
+        internal static string AnnotatePendingScriptChanges(ScriptChangeState state, string report)
+        {
+            var pending = state == null
+                ? 0
+                : state.OutOfDateSourceCount + state.UnknownProjectScriptCount;
+            if (pending == 0)
+                return report;
+
+            return $"Warning: {pending} script file(s) on disk are newer than the last compilation, so this result " +
+                   "predates them. Call request_recompile first.\n" + report;
+        }
+
+        internal static ScriptChangeState CaptureScriptChangeState(bool scanForUnknownProjectScripts)
         {
             try
             {

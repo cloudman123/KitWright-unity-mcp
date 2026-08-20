@@ -33,10 +33,10 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
-        public void EditorWindowInteractionTools_AreReadOnly()
+        public void EditorWindowInteractionTools_AreNotReadOnly()
         {
-            Assert.IsTrue(ToolRegistry.IsReadOnly(typeof(EditorWindowInteractionFunctions).GetMethod("SimulateEditorWindowClick")));
-            Assert.IsTrue(ToolRegistry.IsReadOnly(typeof(EditorWindowInteractionFunctions).GetMethod("SimulateEditorWindowKey")));
+            Assert.IsFalse(ToolRegistry.IsReadOnly(typeof(EditorWindowInteractionFunctions).GetMethod("SimulateEditorWindowClick")));
+            Assert.IsFalse(ToolRegistry.IsReadOnly(typeof(EditorWindowInteractionFunctions).GetMethod("SimulateEditorWindowKey")));
         }
     }
 }

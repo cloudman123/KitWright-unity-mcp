@@ -10,6 +10,23 @@ using UnityEngine.SceneManagement;
 
 namespace KitWright.Editor.Tools.Helpers
 {
+    // Distinct type so the invoker can answer an ambiguous single-target resolve as an error
+    // instead of acting on an arbitrary one of the matches.
+    internal sealed class AmbiguousTargetException : Exception
+    {
+        public string Target { get; }
+        public int MatchCount { get; }
+        public List<object> Candidates { get; }
+
+        public AmbiguousTargetException(string target, int matchCount, List<object> candidates)
+            : base($"'{target}' matched {matchCount} GameObjects; refusing to act on an arbitrary one.")
+        {
+            Target = target;
+            MatchCount = matchCount;
+            Candidates = candidates;
+        }
+    }
+
     /// <summary>
     /// Unified GameObject locator. All KitWright tools should resolve scene objects through here
     /// instead of calling <c>GameObject.Find</c> directly — that way name/path/id/tag/layer/component
@@ -26,7 +43,8 @@ namespace KitWright.Editor.Tools.Helpers
         public const string MethodByIdOrNameOrPath = "by_id_or_name_or_path";
 
         /// <summary>
-        /// Find a single GameObject. If multiple match and findAll is false, returns the first.
+        /// Find a single GameObject. Throws <see cref="AmbiguousTargetException"/> when more than
+        /// one object matches, so a destructive tool never picks an arbitrary one.
         /// </summary>
         public static GameObject FindObject(string target, string searchMethod = null,
             bool searchInactive = false, bool searchInChildren = false, GameObject root = null)
@@ -47,7 +65,8 @@ namespace KitWright.Editor.Tools.Helpers
         }
 
         /// <summary>
-        /// Core finder. <paramref name="findAll"/> false returns at most one element (the first match).
+        /// Core finder. <paramref name="findAll"/> false returns at most one element, and throws
+        /// <see cref="AmbiguousTargetException"/> rather than choosing between several matches.
         /// When the active prefab stage is open it is searched in addition to the active scene.
         /// </summary>
         public static List<GameObject> FindObjects(string target, string searchMethod = null,
@@ -208,7 +227,14 @@ namespace KitWright.Editor.Tools.Helpers
 
             var distinct = results.Distinct().ToList();
             if (!findAll && distinct.Count > 1)
-                return new List<GameObject> { distinct[0] };
+                throw new AmbiguousTargetException(target, distinct.Count,
+                    distinct.Take(MaxCandidates)
+                        .Select(go => (object)new
+                        {
+                            id = ObjectIdCodec.GetSerializableId(go),
+                            path = GetGameObjectPath(go)
+                        })
+                        .ToList());
 
             return distinct;
         }

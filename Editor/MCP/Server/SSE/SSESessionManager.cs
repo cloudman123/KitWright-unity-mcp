@@ -153,8 +153,17 @@ namespace KitWright.Editor.MCP.Server.SSE
             }
         }
 
+        /// <summary>False when no session (and no global level) could ever receive a log
+        /// notification, so callers can skip building one entirely.</summary>
+        internal bool HasLogSubscribers => !_sessions.IsEmpty || _globalMinSeverityLevel.HasValue;
+
+        internal static int NotificationsSerialized;
+
         public async Task BroadcastLogNotificationAsync(LogType type, string condition, string stackTrace)
         {
+            if (!HasLogSubscribers)
+                return;
+
             var severity = MapLogTypeToSeverity(type);
             var rank = SeverityRanks[severity];
 
@@ -179,6 +188,7 @@ namespace KitWright.Editor.MCP.Server.SSE
             if (suppressed > 0)
                 data = $"[previous message repeated {suppressed}x]\n{data}";
 
+            Interlocked.Increment(ref NotificationsSerialized);
             var notificationPayload = JsonCodec.Serialize(new Dictionary<string, object>
             {
                 ["jsonrpc"] = "2.0",
@@ -278,6 +288,7 @@ namespace KitWright.Editor.MCP.Server.SSE
 
             _sessions.Clear();
             _globalMinSeverityLevel = null;
+            NotificationsSerialized = 0;
 
             lock (_logDedupLock)
             {

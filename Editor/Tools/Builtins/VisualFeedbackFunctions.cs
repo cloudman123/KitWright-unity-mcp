@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
@@ -166,12 +167,20 @@ namespace KitWright.Editor.Tools.Builtins
 
             if (modeField == null || messageField == null) return ToolResultFormatter.Error("UNITY_CONSOLE_API_INCOMPATIBLE", new { message = "LogEntry fields not found" });
 
-            int totalCount = (int)getCountMethod.Invoke(null, null);
-            if (totalCount == 0) return "Console is empty (no log entries)";
-
-            startMethod.Invoke(null, null);
+            // LogEntries mirrors the Console window: its severity toggles filter GetCount and
+            // GetEntryInternal, so a user who muted Log+Warning while chasing an error would be
+            // told the console is empty while it is full. Force the level bits on for the read and
+            // restore the user's flags after. Mechanism from CoplayDev/unity-mcp issue #1239 (MIT).
+            var forcedBits = ForceConsoleLevelBits(logEntriesType, out var setFlagMethod);
             try
             {
+                int totalCount = (int)getCountMethod.Invoke(null, null);
+                if (totalCount == 0)
+                    return "Console reports no entries (the Console window's search box, if set, also filters this read)";
+
+                startMethod.Invoke(null, null);
+                try
+                {
                 var lines = new System.Collections.Generic.List<string>();
 
                 for (int i = totalCount - 1; i >= 0 && lines.Count < count; i--)
@@ -202,24 +211,23 @@ namespace KitWright.Editor.Tools.Builtins
                     if (filterLower == "warning" && !isWarning) continue;
                     if (filterLower == "log" && (isError || isWarning)) continue;
 
-                    // LogEntries concatenates "message\nstackTrace" into a single string;
-                    // split it once so the primary line and the (optional) trace get their
-                    // own truncation caps instead of the trace silently disappearing.
-                    var newlineIndex = message?.IndexOf('\n') ?? -1;
-                    var firstLine = UnityLogsRepository.StripRichText(message == null ? string.Empty
-                        : newlineIndex >= 0 ? message.Substring(0, newlineIndex) : message);
-                    if (!UnityLogsRepository.MatchesTextFilter(firstLine, filter_text))
+                    // LogEntries concatenates "message\nstackTrace" into a single string; split it
+                    // at the first stack frame so a multi-line message body survives intact and the
+                    // (optional) trace still gets its own truncation cap.
+                    UnityLogsRepository.SplitMessageAndStackTrace(message, out var messageBody, out var messageStack);
+                    var body = UnityLogsRepository.StripRichText(messageBody ?? string.Empty);
+                    if (!UnityLogsRepository.MatchesTextFilter(body, filter_text))
                         continue;
 
-                    var stackSuffix = string.Empty;
-                    if (include_stack_trace && newlineIndex >= 0)
-                        stackSuffix = UnityLogsRepository.FormatStackTrace(message.Substring(newlineIndex + 1));
+                    var stackSuffix = include_stack_trace
+                        ? UnityLogsRepository.FormatStackTrace(messageStack)
+                        : string.Empty;
 
-                    lines.Add($"[{typeLabel}] {UnityLogsRepository.TruncateLine(firstLine)}{stackSuffix}");
+                    lines.Add($"[{typeLabel}] {UnityLogsRepository.TruncateLine(body)}{stackSuffix}");
                 }
 
                 if (lines.Count == 0)
-                    return $"No {log_type} entries found in console";
+                    return $"No {log_type} entries matched in console (the Console window's search box, if set, also filters this read)";
 
                 var sb = new StringBuilder();
                 var uniqueCount = UnityLogsRepository.AppendLines(sb, lines, group_duplicates);
@@ -229,11 +237,40 @@ namespace KitWright.Editor.Tools.Builtins
                     ? $", {uniqueCount} unique"
                     : string.Empty;
                 return $"Console logs ({lines.Count} entries{groupSuffix}, filter: {log_type}, source: console{textSuffix}):\n{sb}";
+                }
+                finally
+                {
+                    // Only paired with StartGettingEntries, so it stays inside that branch.
+                    endMethod.Invoke(null, null);
+                }
             }
             finally
             {
-                endMethod.Invoke(null, null);
+                foreach (var bit in forcedBits)
+                    setFlagMethod.Invoke(null, new object[] { bit, false });
             }
+        }
+
+        // LogLevelLog, LogLevelWarning, LogLevelError in UnityEditor's console flags.
+        internal static readonly int[] ConsoleLevelBits = { 1 << 7, 1 << 8, 1 << 9 };
+
+        internal static int[] MissingConsoleLevelBits(int consoleFlags)
+        {
+            return ConsoleLevelBits.Where(bit => (consoleFlags & bit) == 0).ToArray();
+        }
+
+        private static int[] ForceConsoleLevelBits(Type logEntriesType, out MethodInfo setFlagMethod)
+        {
+            const BindingFlags anyStatic = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+            setFlagMethod = logEntriesType.GetMethod("SetConsoleFlag", anyStatic);
+            var flagsProperty = logEntriesType.GetProperty("consoleFlags", anyStatic);
+            if (setFlagMethod == null || !(flagsProperty?.GetValue(null, null) is int consoleFlags))
+                return Array.Empty<int>();
+
+            var forced = MissingConsoleLevelBits(consoleFlags);
+            foreach (var bit in forced)
+                setFlagMethod.Invoke(null, new object[] { bit, true });
+            return forced;
         }
 
         [Description("Clear the Unity Editor console. Removes all Debug.Log/Warning/Error entries from the Console window and the live log cache.")]

@@ -251,6 +251,23 @@ public class CommandSyntax : IKitWrightCommand
         }
 
         [Test]
+        public void CodeDomErrors_SkipMcsPhantomBomEntryButKeepRealDiagnostics()
+        {
+            var errors = new[]
+            {
+                new FakeCompilerError { ErrorNumber = "", ErrorText = "\uFEFF" },
+                new FakeCompilerError { ErrorNumber = null, ErrorText = "  \t\r\n" },
+                new FakeCompilerError { ErrorNumber = "CS0103", ErrorText = "The name 'x' does not exist", Line = 7 }
+            };
+
+            var result = CodeDomScriptCompiler.GetCodeDomErrors(errors);
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("CS0103", result[0].code);
+            Assert.AreEqual(7, result[0].line);
+        }
+
+        [Test]
         public void LoadedPaths_AreCachedAndDeduplicatedBySimpleName()
         {
             var first = ScriptCompilerReferences.GetLoadedPaths();
@@ -347,6 +364,17 @@ public class CommandSyntax : IKitWrightCommand
             }
             sb.Append("}");
             return sb.ToString();
+        }
+
+        // GetCodeDomErrors reads its members reflectively by name, so a duck-typed fake exercises the
+        // real filter without needing System.CodeDom or a compiler run.
+        private sealed class FakeCompilerError
+        {
+            public bool IsWarning { get; set; }
+            public int Line { get; set; }
+            public int Column { get; set; }
+            public string ErrorNumber { get; set; }
+            public string ErrorText { get; set; }
         }
 
         private sealed class FakeUnavailableCompiler : IScriptCompiler

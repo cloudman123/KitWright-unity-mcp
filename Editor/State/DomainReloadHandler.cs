@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using KitWright.Editor.MCP.Server;
+using KitWright.Editor.Services;
 using KitWright.Editor.Tools;
 using UnityEditor;
 using UnityEngine;
@@ -216,7 +217,7 @@ namespace KitWright.Editor.State
         private static bool ShouldDeferPendingCompletion()
         {
             return EditorApplication.isPlayingOrWillChangePlaymode ||
-                   EditorApplication.isCompiling ||
+                   CompilationService.IsActuallyCompiling ||
                    EditorApplication.isUpdating;
         }
 

@@ -1,6 +1,7 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using KitWright.Editor.Services;
 using KitWright.Editor.Settings;
 using UnityEditor;
 using KitWright.Editor.DI;
@@ -129,7 +130,7 @@ namespace KitWright.Editor.MCP.Server
                 return;
             }
 
-            if (EditorApplication.isCompiling)
+            if (CompilationService.IsActuallyCompiling)
                 return;
 
             if (RestartDeadlineExpired())

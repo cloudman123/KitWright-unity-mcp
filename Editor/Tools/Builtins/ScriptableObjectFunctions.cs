@@ -68,7 +68,7 @@ namespace KitWright.Editor.Tools.Builtins
             var resolved = LoadScriptableObject(asset_path);
             if (resolved.Error != null) return resolved.Error;
 
-            var props = ComponentSerializer.ReadProperties(resolved.Asset);
+            var props = ComponentSerializer.ReadProperties(resolved.Asset, out _);
             return Response.Success($"{props.Count} properties on {resolved.Asset.GetType().Name}.", new
             {
                 assetPath = asset_path,

@@ -92,7 +92,7 @@ namespace KitWright.Editor.Tools.Builtins
                 });
 
             // Nested pages (QualitySettings, TimeManager) hide every real field inside a container.
-            var all = ComponentSerializer.ReadProperties(target, descend: true);
+            var all = ComponentSerializer.ReadProperties(target, out _, descend: true);
             var shown = Math.Min(all.Count, MaxDumpedProperties);
 
             return Response.Success($"{singleton} read ({shown} of {all.Count} properties).", new

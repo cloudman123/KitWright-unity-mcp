@@ -90,6 +90,8 @@ namespace KitWright.Editor.MCP.Server
 
         public static IReadOnlyCollection<string> DefaultCoreTools => CoreTools;
 
+        public static IReadOnlyCollection<string> DefaultMinimalTools => MinimalTools;
+
         public static MCPToolExportProfile Parse(string value)
         {
             switch (value?.Trim().ToLowerInvariant())

@@ -372,10 +372,14 @@ namespace KitWright.Editor.Tools.Builtins
 
             int.TryParse(max, out var cap);
             if (cap <= 0) cap = 50;
+            var total = matches.Count;
             if (matches.Count > cap)
                 matches = matches.GetRange(0, cap);
 
-            return Response.Success($"Found {matches.Count} object(s).", GameObjectSerializer.DescribeMany(matches));
+            var message = matches.Count < total
+                ? $"Found {total} object(s), showing {matches.Count} (raise 'max' for more)."
+                : $"Found {total} object(s).";
+            return Response.Success(message, GameObjectSerializer.DescribeMany(matches));
         }
 
         [Description("Get full info on a GameObject: transform, components (with instance ids), active state, tag, layer.")]

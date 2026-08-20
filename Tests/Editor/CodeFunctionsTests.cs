@@ -1,12 +1,31 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System.IO;
 using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace KitWright.Editor.Tests
 {
     public sealed class CodeFunctionsTests
     {
+        // Under Temp/ rather than Assets/: a .cs dropped into Assets/ triggers a compile and
+        // domain reload, which kills the test run this assertion is in.
+        private const string Folder = "Temp/__KitWrightCodeFunctionsTests";
+
+        [SetUp]
+        public void SetUp()
+        {
+            Directory.CreateDirectory(FullPath(string.Empty));
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (Directory.Exists(FullPath(string.Empty)))
+                Directory.Delete(FullPath(string.Empty), true);
+        }
+
         [Test]
         public void ComputeSha256_DeterministicAndLowercase()
         {
@@ -30,54 +49,45 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
-        public void BraceImbalance_BalancedCode()
+        public void CreateScript_RefusesAnExistingFileAndLeavesItUntouched()
         {
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance("class A { void B() { } }", out _));
+            var original = "public class Probe { }";
+            File.WriteAllText(FullPath("Probe.cs"), original);
+
+            var refused = CodeFunctions.CreateScript("Probe", "public class Probe { void Clobbered() { } }", Folder);
+
+            StringAssert.Contains("SCRIPT_EXISTS", refused);
+            StringAssert.Contains("edit_script", refused);
+            StringAssert.Contains("patch_script", refused);
+            Assert.AreEqual(original, File.ReadAllText(FullPath("Probe.cs")),
+                "A refused create must leave the file untouched.");
         }
 
         [Test]
-        public void BraceImbalance_MissingClose()
+        public void EditScript_RejectsAnIntroducedNonBraceError_ButNotAPreexistingOne()
         {
-            Assert.IsTrue(CodeFunctions.TryGetBraceImbalance("class A { void B() { }", out var line));
-            Assert.Greater(line, 0);
+            // Braces balance in all three versions, so a brace count alone cannot tell them apart.
+            var sound = "public class Probe { void A() { B(1); } }";
+            var broken = "public class Probe { void A() { B(1; } }";
+
+            var soundPath = Folder + "/Sound.txt";
+            File.WriteAllText(FullPath("Sound.txt"), sound);
+            var rejected = CodeFunctions.EditScript(soundPath, broken, CodeFunctions.ComputeSha256(sound));
+            StringAssert.Contains("SYNTAX_REGRESSION", rejected);
+            Assert.AreEqual(sound, File.ReadAllText(FullPath("Sound.txt")));
+
+            var brokenPath = Folder + "/Broken.txt";
+            File.WriteAllText(FullPath("Broken.txt"), broken);
+            var stillBroken = "public class Probe { void A() { B(2; } }";
+            var applied = CodeFunctions.EditScript(brokenPath, stillBroken, CodeFunctions.ComputeSha256(broken));
+            StringAssert.Contains("Updated script", applied);
+            Assert.AreEqual(stillBroken, File.ReadAllText(FullPath("Broken.txt")));
         }
 
-        [Test]
-        public void BraceImbalance_ExtraClose_ReportsLine()
+        private static string FullPath(string fileName)
         {
-            Assert.IsTrue(CodeFunctions.TryGetBraceImbalance("class A { }\n}", out var line));
-            Assert.AreEqual(2, line);
-        }
-
-        [Test]
-        public void BraceImbalance_IgnoresBracesInStrings()
-        {
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance("class A { string s = \"}}}{{{\"; }", out _));
-        }
-
-        [Test]
-        public void BraceImbalance_IgnoresBracesInVerbatimStrings()
-        {
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance("class A { string s = @\"} \"\" }\"; }", out _));
-        }
-
-        [Test]
-        public void BraceImbalance_IgnoresBracesInComments()
-        {
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance("class A { // }}}\n/* {{{ */ }", out _));
-        }
-
-        [Test]
-        public void BraceImbalance_IgnoresBracesInCharLiterals()
-        {
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance("class A { char c = '}'; }", out _));
-        }
-
-        [Test]
-        public void BraceImbalance_EmptyOrNull()
-        {
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance("", out _));
-            Assert.IsFalse(CodeFunctions.TryGetBraceImbalance(null, out _));
+            var root = Path.GetDirectoryName(Application.dataPath) ?? string.Empty;
+            return Path.Combine(root, Folder, fileName);
         }
     }
 }

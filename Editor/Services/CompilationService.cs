@@ -17,11 +17,20 @@ namespace KitWright.Editor.Services
         private static readonly List<CompilerMessage> LatestMessages = new List<CompilerMessage>();
         private static TaskCompletionSource<bool> _compilationFinishedTcs = CreateCompletionSource();
         private static bool _subscribed;
+        private static volatile bool _pipelineCompilationRunning;
 
         public static CompilationService Instance { get; private set; }
 
-        public bool IsCompiling => EditorApplication.isCompiling;
+        public bool IsCompiling => IsActuallyCompiling;
         public EditorRefreshResult LastRefreshResult { get; private set; }
+
+        /// <summary>Adapted from CoplayDev/unity-mcp MCPForUnity/Editor/Services/EditorStateCache.cs (MIT).
+        /// EditorApplication.isCompiling stays true with nothing compiling whenever an assembly reload is
+        /// deferred (LockReloadAssemblies, Recompile-After-Finished-Playing), so gates that wait for it to
+        /// clear would never release. The event-tracked pipeline flag is authoritative there.</summary>
+        internal static bool IsActuallyCompiling => ResolveIsCompiling(EditorApplication.isCompiling, _pipelineCompilationRunning);
+
+        internal static bool ResolveIsCompiling(bool rawIsCompiling, bool pipelineRunning) => rawIsCompiling && pipelineRunning;
 
         static CompilationService()
         {
@@ -54,6 +63,8 @@ namespace KitWright.Editor.Services
                     return true;
                 }
             }
+            // Raw flag on purpose: this await is timeout-bounded, so a compile queued in a fresh
+            // domain (where compilationStarted never fired) must still be waited out.
             else if (!EditorApplication.isCompiling)
             {
                 return true;
@@ -87,9 +98,12 @@ namespace KitWright.Editor.Services
                 messages = LatestMessages.ToList();
             }
 
-            var filtered = messages
+            var matching = messages
                 .Where(message => message.type == CompilerMessageType.Error ||
                                   (includeWarnings && message.type == CompilerMessageType.Warning))
+                .ToList();
+
+            var filtered = matching
                 .Take(maxEntries)
                 .ToList();
 
@@ -108,7 +122,11 @@ namespace KitWright.Editor.Services
                 return $"- [{message.type}] {message.message}{location}";
             });
 
-            return "Compilation issues:\n" + string.Join("\n", lines);
+            var header = filtered.Count < matching.Count
+                ? $"Compilation issues ({matching.Count} total, showing first {filtered.Count}; raise maxEntries for the rest):"
+                : $"Compilation issues ({matching.Count} total):";
+
+            return header + "\n" + string.Join("\n", lines);
         }
 
         private static void EnsureInitialized()
@@ -141,6 +159,7 @@ namespace KitWright.Editor.Services
 
         private static void HandleCompilationStarted(object context)
         {
+            _pipelineCompilationRunning = true;
             lock (SyncRoot)
             {
                 LatestMessages.Clear();
@@ -163,6 +182,7 @@ namespace KitWright.Editor.Services
 
         private static void HandleCompilationFinished(object obj)
         {
+            _pipelineCompilationRunning = false;
             TaskCompletionSource<bool> waitSource = null;
             lock (SyncRoot)
             {
