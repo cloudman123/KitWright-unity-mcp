@@ -1,6 +1,8 @@
 // Copyright (C) KitWright. Licensed under MIT.
+using System;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using KitWright.Editor.Tools;
+using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEditor.PackageManager;
 
@@ -13,6 +15,8 @@ namespace KitWright.Editor.Tools.Builtins
         public static string InstallPackage(
             [ToolParam("Package identifier (e.g. 'com.unity.textmeshpro', 'com.unity.cinemachine')")] string package_id)
         {
+            // Resolve + import + domain reload stall while the editor is unfocused; keep it unthrottled.
+            NoThrottleLease.Acquire(TimeSpan.FromMinutes(10));
             var request = Client.Add(package_id);
             // Note: Package installation is async in Unity, we just kick it off
             return $"Package installation initiated for '{package_id}'. Check Package Manager for status.";
@@ -22,6 +26,7 @@ namespace KitWright.Editor.Tools.Builtins
         public static string RemovePackage(
             [ToolParam("Package name to remove")] string package_name)
         {
+            NoThrottleLease.Acquire(TimeSpan.FromMinutes(10));
             var request = Client.Remove(package_name);
             return $"Package removal initiated for '{package_name}'. Check Package Manager for status.";
         }

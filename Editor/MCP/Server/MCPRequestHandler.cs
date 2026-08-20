@@ -144,13 +144,21 @@ namespace KitWright.Editor.MCP.Server
                 PluginDebugLogger.Log($"[KitWright MCP Server] Calling tool: {toolName}");
                 var result = await _executionBridge.ExecuteToolAsync(toolName, arguments, ct);
 
+                var callResult = new Dictionary<string, object>
+                {
+                    ["content"] = BuildContentFromResult(result)
+                };
+                if (TryParseEnvelope(result, out var envelope, out var isError))
+                {
+                    callResult["structuredContent"] = envelope;
+                    if (isError)
+                        callResult["isError"] = true;
+                }
+
                 return new MCPResponse
                 {
                     Id = request.Id,
-                    Result = new Dictionary<string, object>
-                    {
-                        ["content"] = BuildContentFromResult(result)
-                    }
+                    Result = callResult
                 };
             }
             catch (Exception ex)
@@ -261,6 +269,60 @@ namespace KitWright.Editor.MCP.Server
             }
 
             return content;
+        }
+
+        // Only the {success, ...} envelope is promoted to structuredContent, so free-form JSON
+        // (or JSON-looking text) from a tool never lands there unvalidated.
+        internal static bool TryParseEnvelope(string result, out object envelope, out bool isError)
+        {
+            envelope = null;
+            isError = false;
+
+            if (string.IsNullOrEmpty(result) || result[0] != '{')
+                return false;
+
+            try
+            {
+                var parsed = Newtonsoft.Json.Linq.JObject.Parse(result);
+                if (parsed["success"]?.Type != Newtonsoft.Json.Linq.JTokenType.Boolean)
+                    return false;
+
+                // JsonCodec only understands plain dictionaries/lists, not JTokens.
+                envelope = ToPlainObject(parsed);
+                isError = !parsed.Value<bool>("success");
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static object ToPlainObject(Newtonsoft.Json.Linq.JToken token)
+        {
+            switch (token.Type)
+            {
+                case Newtonsoft.Json.Linq.JTokenType.Object:
+                    var dict = new Dictionary<string, object>();
+                    foreach (var property in ((Newtonsoft.Json.Linq.JObject)token).Properties())
+                        dict[property.Name] = ToPlainObject(property.Value);
+                    return dict;
+                case Newtonsoft.Json.Linq.JTokenType.Array:
+                    var list = new List<object>();
+                    foreach (var item in (Newtonsoft.Json.Linq.JArray)token)
+                        list.Add(ToPlainObject(item));
+                    return list;
+                case Newtonsoft.Json.Linq.JTokenType.Integer:
+                    return token.ToObject<long>();
+                case Newtonsoft.Json.Linq.JTokenType.Float:
+                    return token.ToObject<double>();
+                case Newtonsoft.Json.Linq.JTokenType.Boolean:
+                    return token.ToObject<bool>();
+                case Newtonsoft.Json.Linq.JTokenType.Null:
+                    return null;
+                default:
+                    return token.ToString();
+            }
         }
 
         private MCPResponse CreateErrorResponse(object requestId, int code, string message)

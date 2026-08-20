@@ -26,6 +26,16 @@ namespace KitWright.Editor
         private const string ServerName = "KitWright MCP Server - Test Project";
         private const string ProjectIdentityA = "project-a";
 
+        // Client approval would show a dialog if identifying the test's own connection ever
+        // fails; these tests exercise the transport, not the gate.
+        [OneTimeSetUp]
+        public void DisableClientApproval() =>
+            MCP.Server.Security.ClientApprovalGate.RequireApprovalOverride = () => false;
+
+        [OneTimeTearDown]
+        public void RestoreClientApproval() =>
+            MCP.Server.Security.ClientApprovalGate.RequireApprovalOverride = null;
+
         // A full 64-hex identity; only the first ProjectIdentity.PinLength chars form the pin.
         private const string IdentityAaaa = "aaaa1111" + "00000000000000000000000000000000000000000000000000000000";
 

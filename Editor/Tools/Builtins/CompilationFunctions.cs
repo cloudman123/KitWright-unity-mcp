@@ -30,6 +30,7 @@ namespace KitWright.Editor.Tools.Builtins
             try
             {
                 timeout_seconds = Mathf.Clamp(timeout_seconds, 5, 120);
+                NoThrottleLease.Acquire(TimeSpan.FromSeconds(timeout_seconds + 60));
 
                 var compilationService = GetCompilationService();
                 if (compilationService == null)
@@ -86,6 +87,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             MarkExternalSyncPending();
             timeout_seconds = Mathf.Clamp(timeout_seconds, 5, 120);
+            NoThrottleLease.Acquire(TimeSpan.FromSeconds(timeout_seconds + 60));
 
             var refreshResult = await EditorRefreshPipeline.RefreshAndRequestCompilationAsync(
                     forceUpdate: true,
@@ -93,10 +95,20 @@ namespace KitWright.Editor.Tools.Builtins
 
             if (refreshResult.KnownHotReloadDetected && !refreshResult.CompilationOrImportStarted)
             {
-                ClearExternalSyncPending();
-                return $"Code-patching plugin active ({Interop.HotReload.DisplayName}): this call did not start a Unity compilation — the plugin detours refresh/compile and hot-patches method bodies instead. " +
-                       "Ordinary method-body edits are patched live, in editor assemblies too; a change it cannot patch (const values, signatures, new types, lambda closures, attributes, field initializers) makes it run its own full recompile instead. " +
-                       "Either way the outcome is in get_code_patching_status: an AppliedChange naming your member means it is live, PartiallySupportedChange/UnsupportedChange/CompileError means it is not.";
+                // Within the grace window the plugin either patches or escalates to its own full recompile.
+                bool escalatedToCompile = await WaitForHotReloadOutcomeAsync(
+                    () => EditorApplication.isCompiling, TimeSpan.FromSeconds(3));
+
+                if (!escalatedToCompile)
+                {
+                    ClearExternalSyncPending();
+                    return ToolResultFormatter.Success(
+                        $"Code-patching plugin active ({Interop.HotReload.DisplayName}): this call did not start a Unity compilation — the plugin detours refresh/compile and hot-patches method bodies instead. " +
+                        "Its patch outcome (read after a 3s grace period; the newest entries are the most recent file changes) is in patch_status below: " +
+                        "a PatchApplied entry naming your member means it is live; PartiallySupportedChange/UndetectedChange/Failure/Error means the running code does NOT match the file.",
+                        new { patch_status = Interop.HotReload.GetStatus() });
+                }
+                // Escalated to a real compile: fall through to the normal wait path.
             }
 
             if (refreshResult.ScriptChangesStillPending)
@@ -183,6 +195,18 @@ namespace KitWright.Editor.Tools.Builtins
         {
             return RootScopeServices.Services?.GetService(typeof(CompilationService)) as CompilationService
                    ?? CompilationService.Instance;
+        }
+
+        internal static async Task<bool> WaitForHotReloadOutcomeAsync(Func<bool> compilationStarted, TimeSpan grace)
+        {
+            var deadline = DateTime.UtcNow + grace;
+            while (DateTime.UtcNow < deadline)
+            {
+                if (compilationStarted())
+                    return true;
+                await Task.Delay(250);
+            }
+            return compilationStarted();
         }
 
         internal static void MarkExternalSyncPending()

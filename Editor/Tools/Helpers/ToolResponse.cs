@@ -43,6 +43,19 @@ namespace KitWright.Editor.Tools.Helpers
     /// Pre-serialized <see cref="Response"/> errors, for call sites that must return a JSON
     internal static class ToolResultFormatter
     {
+        public static string Success(string message, object data = null, string hint = null)
+        {
+            try
+            {
+                return JsonConvert.SerializeObject(Response.Success(message, data, hint));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[KitWright] Failed to serialize tool success response: {ex.Message}");
+                return JsonConvert.SerializeObject(Response.Success(message, new { serialization_error = ex.Message }));
+            }
+        }
+
         public static string Error(string code, object data = null, string hint = null)
         {
             try

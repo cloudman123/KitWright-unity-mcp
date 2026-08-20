@@ -14,6 +14,7 @@ namespace KitWright.Editor.Threading
             = new ConcurrentQueue<(Func<object>, TaskCompletionSource<object>)>();
 
         private readonly int _mainThreadId;
+        private readonly SynchronizationContext _syncContext;
         private bool _disposed;
 
         private static long s_lastPumpUtcTicks = DateTime.UtcNow.Ticks;
@@ -55,7 +56,22 @@ namespace KitWright.Editor.Threading
         public EditorThreadHelper()
         {
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            _syncContext = SynchronizationContext.Current;
             EditorApplication.update += ProcessQueues;
+        }
+
+        // QueuePlayerLoopUpdate is main-thread-only, so off-thread callers go through the
+        // captured sync context. Unfocused post-to-exec: ~154ms with this wake vs ~238ms without
+        // (Unity's MCP bridge probe).
+        private void WakeEditorLoop()
+        {
+            if (IsMainThread)
+            {
+                EditorApplication.QueuePlayerLoopUpdate();
+                return;
+            }
+
+            _syncContext?.Post(static _ => EditorApplication.QueuePlayerLoopUpdate(), null);
         }
 
         private static void FailIfEditorIsBlocked<T>(TaskCompletionSource<T> tcs)
@@ -104,6 +120,7 @@ namespace KitWright.Editor.Threading
                 TaskScheduler.Default);
 
             _funcQueue.Enqueue((() => func(), tcs));
+            WakeEditorLoop();
             FailIfEditorIsBlocked(outerTcs);
             return outerTcs.Task;
         }
@@ -149,6 +166,7 @@ namespace KitWright.Editor.Threading
                 });
                 return (object)null;
             }, tcs));
+            WakeEditorLoop();
 
             if (ctRegistration.HasValue)
                 outerTcs.Task.ContinueWith(_ => ctRegistration.Value.Dispose(), TaskContinuationOptions.ExecuteSynchronously);
@@ -178,6 +196,10 @@ namespace KitWright.Editor.Threading
                 }
                 processedCount++;
             }
+
+            // Items past the per-frame cap get the next tick now, not after the throttle interval.
+            if (!_funcQueue.IsEmpty)
+                WakeEditorLoop();
         }
 
         public void Dispose()

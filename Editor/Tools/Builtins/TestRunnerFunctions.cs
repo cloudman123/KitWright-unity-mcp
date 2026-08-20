@@ -70,6 +70,8 @@ namespace KitWright.Editor.Tools.Builtins
                 (filter.assemblyNames != null && filter.assemblyNames.Length > 0);
 
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
+            // Released in RunFinished/CancelTestRun; the deadline is the backstop if neither fires.
+            NoThrottleLease.Acquire(TimeSpan.FromMinutes(30));
             string guid;
             try
             {
@@ -77,6 +79,7 @@ namespace KitWright.Editor.Tools.Builtins
             }
             catch (Exception ex)
             {
+                NoThrottleLease.Release();
                 return ToolResultFormatter.Exception(ex);
             }
 
@@ -221,6 +224,7 @@ namespace KitWright.Editor.Tools.Builtins
             var isTrackedJob = job.Value<string>("jobId") == guid;
             if (isTrackedJob)
             {
+                NoThrottleLease.Release();
                 job["status"] = "cancelled";
                 job.Remove("currentTest");
                 job.Remove("currentTestStartedAt");
@@ -372,6 +376,7 @@ namespace KitWright.Editor.Tools.Builtins
                 job["durationSeconds"] = Math.Round(result.Duration, 2);
                 job["failures"] = failures;
                 TestRunnerFunctions.SaveJob(job);
+                NoThrottleLease.Release();
             }
 
             private static int CountLeafTests(ITestAdaptor test)
