@@ -50,10 +50,31 @@ namespace KitWright.Editor.MCP.Server.Security
             if (!RequireApproval() || s_isBatchMode)
                 return Task.FromResult(true);
 
+            int clientPort;
+            try
+            {
+                clientPort = ((IPEndPoint)client.Client.RemoteEndPoint).Port;
+            }
+            catch
+            {
+                clientPort = 0;
+            }
+
+            return AuthorizeAsync(clientPort, serverPort);
+        }
+
+        /// <summary>
+        /// Broker mode overload: the broker forwards the client's TCP port, so the owning
+        /// process is resolved here instead of from a socket this process owns.
+        /// </summary>
+        public static Task<bool> AuthorizeAsync(int clientPort, int serverPort)
+        {
+            if (!RequireApproval() || s_isBatchMode)
+                return Task.FromResult(true);
+
             TcpClientProcessResolver.ClientProcessInfo info;
             try
             {
-                var clientPort = ((IPEndPoint)client.Client.RemoteEndPoint).Port;
                 info = (ResolverOverride ?? TcpClientProcessResolver.Resolve)(clientPort, serverPort);
             }
             catch
@@ -61,16 +82,22 @@ namespace KitWright.Editor.MCP.Server.Security
                 info = null;
             }
 
-            // The editor calling its own server (in-editor tests, broker) needs no prompt.
-            if (info != null && info.Pid == s_editorPid)
-                return Task.FromResult(true);
-
-            var identity = info?.ExecutablePath ?? info?.ProcessName ?? "unidentified process";
-            // The stdio broker is spawned by this package with the mono path from settings.
-            if (IsConfiguredBrokerPath(identity) || ClientApprovalStore.IsApproved(identity))
+            if (IsPreApproved(info, out var identity))
                 return Task.FromResult(true);
 
             return PromptAsync(identity, info);
+        }
+
+        internal static bool IsPreApproved(TcpClientProcessResolver.ClientProcessInfo info, out string identity)
+        {
+            identity = info?.ExecutablePath ?? info?.ProcessName ?? "unidentified process";
+
+            // The editor calling its own server (in-editor tests, broker pull/push) needs no prompt.
+            if (info != null && info.Pid == s_editorPid)
+                return true;
+
+            // The stdio broker is spawned by this package with the mono path from settings.
+            return IsConfiguredBrokerPath(identity) || ClientApprovalStore.IsApproved(identity);
         }
 
         private static Task<bool> PromptAsync(string identity, TcpClientProcessResolver.ClientProcessInfo info)

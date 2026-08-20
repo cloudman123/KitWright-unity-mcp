@@ -1,13 +1,19 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using KitWright.Editor.MCP.Server;
 using KitWright.Editor.MCP.Server.Security;
+using KitWright.Editor.Settings;
+using KitWright.Editor.State;
+using KitWright.Editor.Threading;
+using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 
@@ -16,12 +22,14 @@ namespace KitWright.Editor.Tests
     public sealed class McpServerTests
     {
         private string _tempRoot;
+        private Func<int, int, Task<bool>> _defaultBrokerAuthorize;
 
         [SetUp]
         public void SetUp()
         {
             _tempRoot = Path.Combine(Path.GetTempPath(), "kitwright-approval-" + Guid.NewGuid().ToString("N"));
             ClientApprovalStore.RootOverride = _tempRoot;
+            _defaultBrokerAuthorize = MCPBrokerClientTransport.AuthorizeClient;
         }
 
         [TearDown]
@@ -30,6 +38,7 @@ namespace KitWright.Editor.Tests
             ClientApprovalStore.RootOverride = null;
             ClientApprovalGate.RequireApprovalOverride = null;
             ClientApprovalGate.ResolverOverride = null;
+            MCPBrokerClientTransport.AuthorizeClient = _defaultBrokerAuthorize;
             if (Directory.Exists(_tempRoot))
                 Directory.Delete(_tempRoot, recursive: true);
         }
@@ -98,6 +107,78 @@ namespace KitWright.Editor.Tests
 
             using (var pair = await LoopbackPair.CreateAsync())
                 Assert.IsTrue(await ClientApprovalGate.AuthorizeAsync(pair.ServerSide, pair.ServerPort));
+        }
+
+        [Test]
+        public void Gate_UnapprovedClientProcess_IsRefusedUntilApproved()
+        {
+            var info = new TcpClientProcessResolver.ClientProcessInfo
+            {
+                Pid = 99999,
+                ExecutablePath = @"C:\clients\stranger.exe",
+                ProcessName = "stranger"
+            };
+
+            Assert.IsFalse(ClientApprovalGate.IsPreApproved(info, out var identity));
+            Assert.AreEqual(@"C:\clients\stranger.exe", identity);
+
+            ClientApprovalStore.Approve(identity);
+
+            Assert.IsTrue(ClientApprovalGate.IsPreApproved(info, out _));
+        }
+
+        [Test]
+        public async Task BrokerDispatch_ConsultsApprovalGateAndRefusesUnapprovedClient()
+        {
+            var gatedPorts = new List<int>();
+            MCPBrokerClientTransport.AuthorizeClient = (clientPort, brokerPort) =>
+            {
+                gatedPorts.Add(clientPort);
+                return Task.FromResult(clientPort == 4242);
+            };
+
+            var refusal = await MCPBrokerClientTransport.RefuseUnapprovedClientAsync(5353, 8765, "1");
+
+            Assert.IsNotNull(refusal, "an unapproved broker client must not reach tool dispatch");
+            StringAssert.Contains("-32001", refusal);
+            Assert.IsNull(await MCPBrokerClientTransport.RefuseUnapprovedClientAsync(4242, 8765, "1"));
+            CollectionAssert.AreEqual(new[] { 5353, 4242 }, gatedPorts);
+        }
+
+        [Test]
+        public void NegotiateProtocolVersion_EchoesSupportedRequestElseServerLatest()
+        {
+            Assert.AreEqual("2025-06-18", MCPRequestHandler.ProtocolVersion);
+            Assert.AreEqual("2024-11-05", MCPRequestHandler.NegotiateProtocolVersion("2024-11-05"));
+            Assert.AreEqual("2025-03-26", MCPRequestHandler.NegotiateProtocolVersion("2025-03-26"));
+            Assert.AreEqual("2025-06-18", MCPRequestHandler.NegotiateProtocolVersion(null));
+            Assert.AreEqual("2025-06-18", MCPRequestHandler.NegotiateProtocolVersion("1999-01-01"));
+        }
+
+        [Test]
+        public async Task Ping_IsAnsweredWithAnEmptyResult()
+        {
+            var settings = new SettingsController(_tempRoot);
+            using (var threadHelper = new EditorThreadHelper())
+            using (var resourceProvider = new MCPResourceProvider(null, null))
+            {
+                var handler = new MCPRequestHandler(
+                    new MCPToolExporter(settings),
+                    new MCPExecutionBridge(threadHelper, settings, new StateController(), new FunctionInvoker(), null),
+                    resourceProvider,
+                    new MCPPromptProvider("Test", _tempRoot),
+                    "KitWright MCP Server",
+                    "0.0.0",
+                    "pin");
+
+                var response = await handler.HandleRequestAsync(
+                    new MCPRequest { JsonRpc = "2.0", Id = 7, Method = "ping" }, CancellationToken.None);
+
+                Assert.IsNotNull(response, "ping must be answered");
+                Assert.IsNull(response.Error, "ping must not come back as an error");
+                Assert.IsNotNull(response.Result);
+                Assert.AreEqual(7, response.Id);
+            }
         }
 
         [Test]

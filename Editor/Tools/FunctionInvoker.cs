@@ -68,9 +68,27 @@ namespace KitWright.Editor.Tools
                 return ToolResultFormatter.Error(pex.Code,
                     new { param = pex.ParamName, provided = pex.Provided, expected = pex.Expected });
             }
-            catch (TargetInvocationException ex)
+            // An async tool throws out of the await rather than through reflection, so both shapes
+            // land here and the policy errors below stay reachable either way.
+            catch (Exception ex) when (ex is TargetInvocationException || ex is PathOutsideProjectException
+                                       || ex is AmbiguousTargetException)
             {
-                var inner = ex.InnerException ?? ex;
+                var inner = (ex as TargetInvocationException)?.InnerException ?? ex;
+                if (inner is PathOutsideProjectException)
+                    return ToolResultFormatter.Error("PATH_OUTSIDE_PROJECT",
+                        new { function = functionCall.FunctionName, message = inner.Message });
+                if (inner is AmbiguousTargetException ambiguous)
+                    return ToolResultFormatter.Error("AMBIGUOUS_TARGET",
+                        new
+                        {
+                            function = functionCall.FunctionName,
+                            target = ambiguous.Target,
+                            match_count = ambiguous.MatchCount,
+                            candidates = ambiguous.Candidates,
+                            message = inner.Message
+                        },
+                        "Re-call with find_method=by_id and one of the candidate ids, or find_method=by_path.");
+
                 Debug.LogError($"[KitWright] Function '{functionCall.FunctionName}' failed: {inner.Message}\n{inner.StackTrace}");
                 return ToolResultFormatter.Error("FUNCTION_FAILED",
                     new { function = functionCall.FunctionName, message = inner.Message });

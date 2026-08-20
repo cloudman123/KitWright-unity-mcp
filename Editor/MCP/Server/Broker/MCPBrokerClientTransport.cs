@@ -21,6 +21,11 @@ namespace KitWright.Editor.MCP.Server
         private const int ReconnectBackoffMs = 500;
         private const int RequestExecutionTimeoutSeconds = 300;
 
+        // Broker mode is the default transport, so first-connect approval has to run here too --
+        // gating only HttpMCPTransport would leave most installs ungated. Test seam.
+        internal static Func<int, int, Task<bool>> AuthorizeClient =
+            (clientPort, brokerPort) => Security.ClientApprovalGate.AuthorizeAsync(clientPort, brokerPort);
+
         private readonly int _port;
         private readonly string _token;
         private readonly string _baseUrl;
@@ -134,8 +139,16 @@ namespace KitWright.Editor.MCP.Server
                 if (request != null)
                     request.IsBrokerRedelivery = pull.IsRedelivery;
 
+                var refusal = request == null
+                    ? null
+                    : await RefuseUnapprovedClientAsync(pull.ClientPort, _port, request.Id);
+
                 var handler = OnRequestReceived;
-                if (request == null || handler == null)
+                if (refusal != null)
+                {
+                    responseJson = refusal;
+                }
+                else if (request == null || handler == null)
                 {
                     responseJson = SerializeResponse(CreateError(null, -32000, "MCP server is stopping or not ready."));
                 }
@@ -144,7 +157,9 @@ namespace KitWright.Editor.MCP.Server
                     var responseTcs = new TaskCompletionSource<MCPResponse>();
                     handler.Invoke(request, response => responseTcs.TrySetResult(response));
 
-                    using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(RequestExecutionTimeoutSeconds)))
+                    var budgetSeconds = Tools.ToolRegistry.TimeoutSecondsForRequest(
+                        request.Method, request.Params, RequestExecutionTimeoutSeconds);
+                    using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(budgetSeconds)))
                     using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token))
                     {
                         var completed = await Task.WhenAny(responseTcs.Task, Task.Delay(-1, linkedCts.Token));
@@ -203,6 +218,18 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
+        internal static async Task<string> RefuseUnapprovedClientAsync(int clientPort, int brokerPort, object requestId)
+        {
+            if (await AuthorizeClient(clientPort, brokerPort))
+                return null;
+
+            return SerializeResponse(CreateError(
+                requestId,
+                -32001,
+                "This MCP client is not approved to drive the Unity editor. Approve it in the Unity " +
+                "dialog, or turn off client approval in KitWright MCP settings."));
+        }
+
         private BrokerPullResult PullOnce()
         {
             var request = (HttpWebRequest)WebRequest.Create(_baseUrl + MCPBrokerProtocol.PullPath);
@@ -227,6 +254,7 @@ namespace KitWright.Editor.MCP.Server
 
                 var redeliveryText = response.Headers[MCPBrokerProtocol.RedeliveryHeader];
                 var acceptsSseText = response.Headers[MCPBrokerProtocol.AcceptSseHeader];
+                int.TryParse(response.Headers[MCPBrokerProtocol.ClientPortHeader], out var clientPort);
                 using (var stream = response.GetResponseStream())
                 using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
                 {
@@ -235,6 +263,7 @@ namespace KitWright.Editor.MCP.Server
                         RequestId = reqId,
                         IsRedelivery = string.Equals(redeliveryText, "1", StringComparison.Ordinal),
                         AcceptsSse = string.Equals(acceptsSseText, "1", StringComparison.Ordinal),
+                        ClientPort = clientPort,
                         Body = reader.ReadToEnd()
                     };
                 }
@@ -326,7 +355,7 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
-        private string SerializeResponse(MCPResponse response)
+        private static string SerializeResponse(MCPResponse response)
         {
             var dict = new Dictionary<string, object>
             {
@@ -392,6 +421,7 @@ namespace KitWright.Editor.MCP.Server
             public long RequestId;
             public bool IsRedelivery;
             public bool AcceptsSse;
+            public int ClientPort;
             public string Body;
         }
     }

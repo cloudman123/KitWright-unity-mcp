@@ -49,7 +49,7 @@ namespace KitWright.Editor.MCP.Server
             ProjectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
             RuntimeDirectory = Path.Combine(ProjectRoot, "Library", "KitWrightMcp", "Broker");
 
-            EditorApplication.quitting += Stop;
+            EditorApplication.quitting += StopOnQuit;
         }
 
         public static Task<bool> EnsureRunningAsync(int port, string monoPathOverride)
@@ -255,6 +255,16 @@ namespace KitWright.Editor.MCP.Server
         public static void Stop()
         {
             Stop(DefaultPaths);
+        }
+
+        // A -batchmode editor (our own CI runs -batchmode -runTests) shares the broker with any
+        // interactive editor on the same project, so its exit must not take the broker down.
+        internal static bool ShouldStopOnQuit(bool isBatchMode) => !isBatchMode;
+
+        private static void StopOnQuit()
+        {
+            if (ShouldStopOnQuit(Application.isBatchMode))
+                Stop();
         }
 
         internal static void Stop(MCPBrokerRuntimePaths paths)

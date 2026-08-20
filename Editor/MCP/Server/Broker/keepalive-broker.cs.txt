@@ -17,9 +17,13 @@ namespace KitWright.UnityMcp.Broker
 {
     internal static class Program
     {
-        private const int ProtocolVersion = 3;
+        private const int ProtocolVersion = 4;
         private const int PullTimeoutMs = 25000;
-        private const long HoldDeadlineMs = 300000;
+        private const int RequestReadTimeoutMs = 30000;
+        // Must stay above the editor's largest per-tool budget ([LongRunningTool], currently 1800s
+        // for build_player) so the editor answers first instead of this 504 racing a running build.
+        private const long HoldDeadlineMs = 1920000;
+        private const long ReloadGraceMs = 45000;
         private const long IdleExitMs = 600000;
         private const int MaxHeaderBytes = 64 * 1024;
         private const int MaxBodyBytes = 32 * 1024 * 1024;
@@ -36,6 +40,7 @@ namespace KitWright.UnityMcp.Broker
         private const string BrokerHeader = "X-KitWright-Broker";
         private const string AcceptSseHeader = "X-KitWright-Broker-Accept-SSE";
         private const string ContentTypeHeader = "X-KitWright-Broker-Content-Type";
+        private const string ClientPortHeader = "X-KitWright-Broker-Client-Port";
         private const string AttachPath = "/_kitwright/broker/attach";
         private const string DetachPath = "/_kitwright/broker/detach";
 
@@ -50,6 +55,7 @@ namespace KitWright.UnityMcp.Broker
         private static long Sequence;
         private static bool Stopping;
         private static long LastActivityMs;
+        private static long LastAttachAtMs;
 
         private sealed class PendingRequest
         {
@@ -57,9 +63,11 @@ namespace KitWright.UnityMcp.Broker
             public NetworkStream Stream;
             public string Body;
             public long EnqueuedAt;
+            public int ClientPort;
             public string ActiveSession;
             public bool Redelivered;
             public bool AcceptsSse;
+            public bool HeldForReload;
         }
 
         private sealed class Waiter
@@ -164,6 +172,7 @@ namespace KitWright.UnityMcp.Broker
         private static void HandleConnection(TcpClient client)
         {
             client.NoDelay = true;
+            client.ReceiveTimeout = RequestReadTimeoutMs;
             var stream = client.GetStream();
 
             string method;
@@ -172,6 +181,18 @@ namespace KitWright.UnityMcp.Broker
             Dictionary<string, string> headers;
             if (!ReadHttpRequest(stream, out method, out path, out headers, out body))
             {
+                SafeClose(client);
+                return;
+            }
+
+            // Any web page the browser visits can POST to this loopback port, so a non-loopback
+            // Origin is a DNS-rebinding attempt, not a client -- refuse before dispatching anything.
+            string origin;
+            headers.TryGetValue("origin", out origin);
+            if (!IsValidOrigin(origin))
+            {
+                Log("refused request from origin " + origin);
+                WriteResponse(stream, 403, "Forbidden", "text/plain", BrokerHeaderLine(), "Origin not allowed");
                 SafeClose(client);
                 return;
             }
@@ -329,6 +350,7 @@ namespace KitWright.UnityMcp.Broker
             lock (Gate)
             {
                 AttachedSessions.Add(session);
+                LastAttachAtMs = NowMs();
 
                 if (WaitingPull != null)
                 {
@@ -378,7 +400,10 @@ namespace KitWright.UnityMcp.Broker
                 return;
 
             lock (Gate)
+            {
                 AttachedSessions.Add(session);
+                LastAttachAtMs = NowMs();
+            }
         }
 
         private static void HandleDetach(string session)
@@ -442,11 +467,22 @@ namespace KitWright.UnityMcp.Broker
         {
             lock (Gate)
             {
+                var heldForReload = false;
                 if (WaitingPull == null && !HasActiveRequestLocked() && AttachedSessions.Count == 0)
                 {
-                    WriteBackendUnavailableResponse(stream, body);
-                    SafeClose(client);
-                    return;
+                    // A session that attached and then vanished is a domain reload, not a dead
+                    // backend: hold protocol calls (initialize, tools/list) until Unity reattaches,
+                    // because a -32001 there makes the client mark the whole server dead. A
+                    // tools/call still answers immediately -- it already gets benign retry text.
+                    heldForReload = ExtractTopLevelLiteral(body, "method") != "\"tools/call\"" &&
+                                    LastAttachAtMs != 0 &&
+                                    NowMs() - LastAttachAtMs <= ReloadGraceMs;
+                    if (!heldForReload)
+                    {
+                        WriteBackendUnavailableResponse(stream, body);
+                        SafeClose(client);
+                        return;
+                    }
                 }
 
                 var reqId = ++Sequence;
@@ -456,10 +492,26 @@ namespace KitWright.UnityMcp.Broker
                     Stream = stream,
                     Body = body ?? string.Empty,
                     EnqueuedAt = NowMs(),
-                    AcceptsSse = acceptsSse
+                    // Unity resolves the owning process from this port for its client approval
+                    // gate; this process cannot reference the package assembly to do it here.
+                    ClientPort = ClientPortOf(client),
+                    AcceptsSse = acceptsSse,
+                    HeldForReload = heldForReload
                 };
                 Queue.Add(reqId);
                 TryDispatch();
+            }
+        }
+
+        private static int ClientPortOf(TcpClient client)
+        {
+            try
+            {
+                return ((IPEndPoint)client.Client.RemoteEndPoint).Port;
+            }
+            catch
+            {
+                return 0;
             }
         }
 
@@ -518,7 +570,8 @@ namespace KitWright.UnityMcp.Broker
                 var headers = BrokerHeaderLine() +
                               ReqIdHeader + ": " + reqId + "\r\n" +
                               RedeliveryHeader + ": " + (pending.Redelivered ? "1" : "0") + "\r\n" +
-                              AcceptSseHeader + ": " + (pending.AcceptsSse ? "1" : "0") + "\r\n";
+                              AcceptSseHeader + ": " + (pending.AcceptsSse ? "1" : "0") + "\r\n" +
+                              ClientPortHeader + ": " + pending.ClientPort + "\r\n";
                 try
                 {
                     WriteResponse(waiter.Stream, 200, "OK", "application/json; charset=utf-8", headers, pending.Body);
@@ -572,6 +625,32 @@ namespace KitWright.UnityMcp.Broker
                         TryWriteNoContent(WaitingPull.Stream);
                         SafeClose(WaitingPull.Client);
                         WaitingPull = null;
+                    }
+
+                    // Requests held across a reload wait for the reattach, not for the full hold
+                    // deadline: if Unity never comes back they get the unavailable answer instead
+                    // of sitting on the socket for five minutes.
+                    var abandoned = new List<long>();
+                    foreach (var item in Pending)
+                    {
+                        if (item.Value.HeldForReload && string.IsNullOrEmpty(item.Value.ActiveSession) &&
+                            now - LastAttachAtMs > ReloadGraceMs)
+                            abandoned.Add(item.Key);
+                    }
+
+                    foreach (var reqId in abandoned)
+                    {
+                        var pending = Pending[reqId];
+                        Pending.Remove(reqId);
+                        Queue.Remove(reqId);
+                        try
+                        {
+                            WriteBackendUnavailableResponse(pending.Stream, pending.Body);
+                        }
+                        catch
+                        {
+                        }
+                        SafeClose(pending.Client);
                     }
 
                     var expired = new List<long>();
@@ -862,6 +941,14 @@ namespace KitWright.UnityMcp.Broker
         private static string BrokerHeaderLine()
         {
             return BrokerHeader + ": " + ProtocolVersion + "\r\n";
+        }
+
+        // Mirrors HttpMCPTransport.IsValidOrigin: this process cannot reference the package assembly.
+        // An absent origin is allowed for native CLI/IDE clients.
+        private static bool IsValidOrigin(string origin)
+        {
+            return string.IsNullOrEmpty(origin) ||
+                   (Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
         }
 
         // Mirrors HttpMCPTransport.ExtractPin: this process cannot reference the package assembly.

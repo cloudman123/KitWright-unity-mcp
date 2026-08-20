@@ -42,6 +42,7 @@ namespace KitWright.Editor
         [TearDown]
         public void ClearSseSessions()
         {
+            LogAssert.ignoreFailingMessages = false;
             SSESessionManager.Instance.PingIntervalMs = 15_000;
             SSESessionManager.Instance.ResetForTests();
         }
@@ -710,6 +711,67 @@ namespace KitWright.Editor
         }
 
         [UnityTest]
+        public IEnumerator PostRequest_WithUnknownSessionId_Returns404()
+        {
+            // Sessions die with the domain, so a client that kept its id must be told to
+            // re-initialize instead of being served on an id whose SSE stream 404s forever.
+            var port = GetFreeTcpPort();
+            var transport = new HttpMCPTransport(port, ProjectIdentityA);
+            transport.OnRequestReceived += (request, sendResponse) =>
+                sendResponse(new MCPResponse
+                {
+                    Id = request.Id,
+                    Result = new Dictionary<string, object> { ["served"] = true }
+                });
+
+            try
+            {
+                var startTask = transport.StartAsync();
+                yield return WaitForTask(startTask);
+                Assert.IsTrue(startTask.Result);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+                {
+                    var stale = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:" + port + "/")
+                    {
+                        Content = new StringContent(
+                            "{\"jsonrpc\":\"2.0\",\"id\":\"stale\",\"method\":\"tools/list\",\"params\":{}}",
+                            Encoding.UTF8,
+                            "application/json")
+                    };
+                    stale.Headers.Add("Mcp-Session-Id", "deadbeefdeadbeefdeadbeefdeadbeef");
+
+                    var staleTask = client.SendAsync(stale);
+                    yield return WaitForTask(staleTask, 3f);
+                    var staleResponse = staleTask.Result;
+
+                    Assert.AreEqual(HttpStatusCode.NotFound, staleResponse.StatusCode,
+                        "A POST bearing an unknown Mcp-Session-Id must return 404, not be served.");
+                    Assert.That(staleResponse.Content.ReadAsStringAsync().Result,
+                        Does.Contain("re-initialize"));
+
+                    using (var content = new StringContent(
+                        "{\"jsonrpc\":\"2.0\",\"id\":\"no-session\",\"method\":\"tools/list\",\"params\":{}}",
+                        Encoding.UTF8,
+                        "application/json"))
+                    {
+                        var sessionlessTask = client.PostAsync("http://127.0.0.1:" + port + "/", content);
+                        yield return WaitForTask(sessionlessTask, 3f);
+                        var sessionless = sessionlessTask.Result;
+
+                        Assert.AreEqual(HttpStatusCode.OK, sessionless.StatusCode,
+                            "A POST without Mcp-Session-Id must still be served.");
+                        Assert.That(sessionless.Content.ReadAsStringAsync().Result, Does.Contain("served"));
+                    }
+                }
+            }
+            finally
+            {
+                transport.Dispose();
+            }
+        }
+
+        [UnityTest]
         public IEnumerator LoggingSetLevel_FiltersAndPushesLogNotification()
         {
             SSESessionManager.Instance.PingIntervalMs = 30_000; // keep pings out of the read
@@ -852,6 +914,11 @@ namespace KitWright.Editor
         [UnityTest]
         public IEnumerator RepeatedLog_IsCollapsedButReportsHowManyWereSuppressed()
         {
+            // This test drives the log pipe on purpose and asserts on SSE frames, not on the console.
+            // Any error another process in the project writes while it runs (Hot Reload's server exit,
+            // an import worker dropping) would otherwise fail it for an unrelated reason.
+            LogAssert.ignoreFailingMessages = true;
+
             SSESessionManager.Instance.PingIntervalMs = 30_000;
             var session = SSESessionManager.Instance.CreateSession();
             SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "info");
