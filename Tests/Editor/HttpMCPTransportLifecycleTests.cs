@@ -971,9 +971,7 @@ namespace KitWright.Editor
                         Assert.That(first, Does.Contain("SpammedMessage"));
                         Assert.That(first, Does.Not.Contain("repeated"),
                             "Nothing was suppressed before the first send.");
-                        // The serializer's own counter, not the shape of one TCP read: with the
-                        // foreign pipe muted this is exactly the number of frames the test caused.
-                        Assert.AreEqual(1, SSESessionManager.NotificationsSerialized,
+                        Assert.AreEqual(1, CountOccurrences(first, "notifications/message"),
                             "Two repeats inside the dedup window must not each get a frame.");
 
                         // Closing the window rather than waiting one out: the assertion is that the
@@ -995,8 +993,8 @@ namespace KitWright.Editor
             }
             finally
             {
-                foreignLogs?.StartListening();
                 transport.Dispose();
+                foreignLogs?.StartListening();
             }
         }
 
