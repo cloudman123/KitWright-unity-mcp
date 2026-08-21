@@ -367,14 +367,14 @@ The current open-source package exposes four high-value capability layers:
 ## Built-in Tools
 
 <!-- tools-summary:start -->
-KitWright MCP for Unity ships **266 tool functions across 57 modules** (`core` profile exposes 38 of them).
+KitWright MCP for Unity ships **265 tool functions across 57 modules** (`core` profile exposes 41 of them).
 
 | Module | Tools | Module | Tools |
 |--------|-------|--------|-------|
 | **EditorState** | 18 | **Script** | 4 |
 | **GameObject** | 14 | **Texture** | 4 |
-| **Scene** | 14 | **Build** | 3 |
-| **Profiler** | 13 | **ComponentBatch** | 3 |
+| **Profiler** | 13 | **Build** | 3 |
+| **Scene** | 13 | **ComponentBatch** | 3 |
 | **Prefab** | 10 | **Docs** | 3 |
 | **Asset** | 8 | **Lighting** | 3 |
 | **Terrain** | 8 | **Package** | 3 |
