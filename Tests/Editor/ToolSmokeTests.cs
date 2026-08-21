@@ -25,7 +25,9 @@ namespace KitWright.Editor.Tests
 
             Assert.IsNotNull(ToolRegistry.GetMethod("get_asset_import_settings"));
             Assert.IsNotNull(ToolRegistry.GetMethod("find_references"));
+#if KITWRIGHT_PHYSICS
             Assert.IsNotNull(ToolRegistry.GetMethod("physics_raycast"));
+#endif
             Assert.IsNotNull(ToolRegistry.GetMethod("get_project_settings"));
             Assert.IsNotNull(ToolRegistry.GetMethod("get_editor_pref"));
             Assert.IsNull(ToolRegistry.GetMethod("dismiss_dialog"));

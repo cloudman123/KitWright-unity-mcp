@@ -1,6 +1,7 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.Text.RegularExpressions;
 using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEditor;
@@ -26,7 +27,15 @@ namespace KitWright.Editor.Tests
         [Test]
         public void ListShaders_CountCapReportsThePreCapTotalAndTheShownCount()
         {
-            // The project ships more than one .shader (URP), so the cap is exercised without writing any.
+            // Was written against a project that ships several .shader files (URP). A bare project
+            // has one or none, and a cap that truncates nothing prints no "showing" line at all -
+            // so read the real total first instead of assuming the host project has one.
+            var all = ShaderFunctions.ListShaders().ToString();
+            var match = Regex.Match(all, @"Found (\d+) shader file");
+            Assert.IsTrue(match.Success, all);
+            if (int.Parse(match.Groups[1].Value) < 2)
+                Assert.Ignore("Needs at least two shaders in the project for a cap to truncate anything.");
+
             var capped = ShaderFunctions.ListShaders(count: 1).ToString();
 
             StringAssert.Contains("showing 1", capped);
