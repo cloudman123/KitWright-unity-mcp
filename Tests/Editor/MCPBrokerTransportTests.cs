@@ -607,6 +607,17 @@ namespace KitWright.Editor
                 "a second declaration here is what made a one-sided bump possible");
         }
 
+        [Test]
+        public void BrokerLog_DoesNotWriteToTheStderrItInheritsFromUnity()
+        {
+            var source = AssetDatabase.LoadAssetAtPath<TextAsset>(ResolveBrokerSourceAssetPath());
+            Assert.NotNull(source, "Broker source TextAsset not found");
+            Assert.That(source.text, Does.Not.Contain("Console.Error"),
+                "the broker is spawned without redirection, so stderr is Unity's own Editor.log");
+            StringAssert.Contains("AppDomain.CurrentDomain.BaseDirectory", source.text,
+                "broker diagnostics belong in a file beside the broker exe");
+        }
+
         private static MCPResponse CreateToolTextResponse(object id, string text)
         {
             return new MCPResponse

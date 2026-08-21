@@ -423,14 +423,23 @@ namespace KitWright.Editor.MCP.Server
                         return null;
                     }
 
-                    var stdout = process.StandardOutput.ReadToEnd();
-                    var stderr = process.StandardError.ReadToEnd();
+                    // Drained concurrently: a compiler that filled the stderr buffer blocked, so
+                    // stdout never hit EOF and the sequential read hung past the timeout below.
+                    var stdoutRead = process.StandardOutput.ReadToEndAsync();
+                    var stderrRead = process.StandardError.ReadToEndAsync();
+
                     if (!process.WaitForExit(20000))
                     {
                         try { process.Kill(); } catch { }
                         LastError = "Broker compile timed out.";
                         return null;
                     }
+
+                    // Bounded: EOF needs every writer to close, and a diagnostic is not worth
+                    // blocking the editor for if one does not.
+                    try { Task.WaitAll(new Task[] { stdoutRead, stderrRead }, 2000); } catch { }
+                    var stdout = stdoutRead.Status == TaskStatus.RanToCompletion ? stdoutRead.Result : string.Empty;
+                    var stderr = stderrRead.Status == TaskStatus.RanToCompletion ? stderrRead.Result : string.Empty;
 
                     if (process.ExitCode != 0 || !File.Exists(cacheExe))
                     {

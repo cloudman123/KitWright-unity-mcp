@@ -1048,9 +1048,32 @@ namespace KitWright.UnityMcp.Broker
             });
         }
 
+        // Own file, not stderr: this process inherits Unity's handles, so stderr was Editor.log.
+        // Redirecting the pipes instead would block the broker once the editor that read them exits.
+        private static readonly object LogLock = new object();
+        private static string LogPath;
+
         private static void Log(string message)
         {
-            Console.Error.WriteLine("[kitwright-broker " + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message);
+            var line = "[kitwright-broker " + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message;
+            lock (LogLock)
+            {
+                try
+                {
+                    if (LogPath == null)
+                    {
+                        var name = ProjectPin.Length > 0 ? "broker-" + ProjectPin + ".log" : "broker.log";
+                        LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, name);
+                        if (File.Exists(LogPath) && new FileInfo(LogPath).Length > 1024 * 1024)
+                            File.Delete(LogPath);
+                    }
+
+                    File.AppendAllText(LogPath, line + Environment.NewLine);
+                }
+                catch
+                {
+                }
+            }
         }
     }
 }
