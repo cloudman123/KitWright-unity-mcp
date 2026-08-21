@@ -24,11 +24,16 @@ namespace KitWright.Editor.Services
         public bool IsCompiling => IsActuallyCompiling;
         public EditorRefreshResult LastRefreshResult { get; private set; }
 
+        /// <summary>Test seam: when set, stands in for the resolved flag so the gates that only run
+        /// while compiling are reachable without a real compile. Always null in production.</summary>
+        internal static bool? IsCompilingOverride;
+
         /// <summary>Adapted from CoplayDev/unity-mcp MCPForUnity/Editor/Services/EditorStateCache.cs (MIT).
         /// EditorApplication.isCompiling stays true with nothing compiling whenever an assembly reload is
         /// deferred (LockReloadAssemblies, Recompile-After-Finished-Playing), so gates that wait for it to
         /// clear would never release. The event-tracked pipeline flag is authoritative there.</summary>
-        internal static bool IsActuallyCompiling => ResolveIsCompiling(EditorApplication.isCompiling, _pipelineCompilationRunning);
+        internal static bool IsActuallyCompiling =>
+            IsCompilingOverride ?? ResolveIsCompiling(EditorApplication.isCompiling, _pipelineCompilationRunning);
 
         internal static bool ResolveIsCompiling(bool rawIsCompiling, bool pipelineRunning) => rawIsCompiling && pipelineRunning;
 

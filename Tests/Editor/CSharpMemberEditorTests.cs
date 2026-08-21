@@ -350,5 +350,23 @@ public class Trap
             Assert.IsNotNull(problem);
             StringAssert.Contains("Unterminated raw string", problem);
         }
+
+        [Test]
+        public void UnterminatedVerbatimString_IsNamedInsteadOfSurfacingAsABraceCount()
+        {
+            var problem = CSharpSyntaxCheck.FindProblem("class A\n{\n    const string S = @\"still open\n");
+
+            Assert.IsNotNull(problem);
+            StringAssert.Contains("Unterminated verbatim string", problem);
+        }
+
+        [Test]
+        public void UnterminatedCharLiteral_IsNamedInsteadOfSurfacingAsABraceCount()
+        {
+            var problem = CSharpSyntaxCheck.FindProblem("class A { char c = 'x; }");
+
+            Assert.IsNotNull(problem);
+            StringAssert.Contains("Unterminated char literal", problem);
+        }
     }
 }

@@ -31,6 +31,11 @@ namespace KitWright.Editor.MCP.Server.Security
         internal static Func<int, int, TcpClientProcessResolver.ClientProcessInfo> ResolverOverride;
 
         private static readonly object s_lock = new object();
+
+        // Refused clients, until this domain goes away. See the comment at the Deny branch below.
+        private static readonly HashSet<string> s_deniedThisSession =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         private static readonly Dictionary<string, Task<bool>> s_pendingPrompts =
             new Dictionary<string, Task<bool>>(StringComparer.OrdinalIgnoreCase);
 
@@ -82,10 +87,36 @@ namespace KitWright.Editor.MCP.Server.Security
                 info = null;
             }
 
-            if (IsPreApproved(info, out var identity))
-                return Task.FromResult(true);
+            var decided = Decide(info, out var identity);
+            if (decided.HasValue)
+                return Task.FromResult(decided.Value);
 
             return PromptAsync(identity, info);
+        }
+
+        /// <summary>
+        /// true = allow, false = already denied by the user, null = ask. Denials short-circuit
+        /// here so a retrying client cannot re-open the modal dialog and wedge the editor loop.
+        /// </summary>
+        internal static bool? Decide(TcpClientProcessResolver.ClientProcessInfo info, out string identity)
+        {
+            if (IsPreApproved(info, out identity))
+                return true;
+
+            lock (s_lock)
+                return s_deniedThisSession.Contains(identity) ? (bool?)false : null;
+        }
+
+        internal static void DenyThisSession(string identity)
+        {
+            lock (s_lock)
+                s_deniedThisSession.Add(identity);
+        }
+
+        internal static void ClearSessionDenials()
+        {
+            lock (s_lock)
+                s_deniedThisSession.Clear();
         }
 
         internal static bool IsPreApproved(TcpClientProcessResolver.ClientProcessInfo info, out string identity)
@@ -120,7 +151,7 @@ namespace KitWright.Editor.MCP.Server.Security
                 // non-modal approval window with a timeout if unattended connects become common.
                 s_mainContext.Post(_ =>
                 {
-                    bool approved;
+                    bool? approved;
                     try
                     {
                         var name = info?.ProcessName ?? "Unknown process";
@@ -133,12 +164,20 @@ namespace KitWright.Editor.MCP.Server.Security
                     }
                     catch
                     {
-                        approved = false;
+                        // No answer from the user: refuse this attempt without remembering it.
+                        approved = null;
                     }
 
-                    if (approved)
+                    if (approved == true)
                         ClientApprovalStore.Approve(identity);
-                    Finish(identity, tcs, approved);
+                    else if (approved == false)
+                        // Session-scoped on purpose: DisplayDialog returns false for Deny, Escape AND
+                        // the window's X, and on non-Windows every client collapses to one identity,
+                        // so persisting this would let a stray Escape lock the user out with no UI to
+                        // clear it. Stopping the modal storm inside the session is what this is for.
+                        lock (s_lock)
+                            s_deniedThisSession.Add(identity);
+                    Finish(identity, tcs, approved == true);
                 }, null);
 
                 return tcs.Task;
@@ -171,8 +210,9 @@ namespace KitWright.Editor.MCP.Server.Security
     }
 
     /// <summary>
-    /// Per-user list of client executables approved to call this MCP server.
-    /// Stored beside the instance registry so one approval covers every project.
+    /// Per-user list of client executables approved to call this MCP server. Stored beside the
+    /// instance registry so one answer covers every project. Refusals are deliberately NOT stored
+    /// here - see the Deny branch in ClientApprovalGate.
     /// </summary>
     internal static class ClientApprovalStore
     {
@@ -184,45 +224,49 @@ namespace KitWright.Editor.MCP.Server.Security
         // Windows paths are case-insensitive; identities are exe paths.
         private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
 
-        public static bool IsApproved(string identity)
+        public static bool IsApproved(string identity) => Contains(FilePath("approved-clients.json"), identity);
+
+        public static void Approve(string identity) => Add(FilePath("approved-clients.json"), identity);
+
+        private static bool Contains(string filePath, string identity)
         {
             if (string.IsNullOrEmpty(identity))
                 return false;
 
             lock (s_lock)
-                return Load().Contains(identity, PathComparer);
+                return Load(filePath).Contains(identity, PathComparer);
         }
 
-        public static void Approve(string identity)
+        private static void Add(string filePath, string identity)
         {
             if (string.IsNullOrEmpty(identity))
                 return;
 
             lock (s_lock)
             {
-                var entries = Load();
+                var entries = Load(filePath);
                 if (entries.Contains(identity, PathComparer))
                     return;
 
                 entries.Add(identity);
-                Save(entries);
+                Save(filePath, entries);
             }
         }
 
-        private static string FilePath =>
+        private static string FilePath(string fileName) =>
             Path.Combine(
                 RootOverride ?? Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KitWright"),
-                "approved-clients.json");
+                fileName);
 
-        private static List<string> Load()
+        private static List<string> Load(string filePath)
         {
             try
             {
-                if (!File.Exists(FilePath))
+                if (!File.Exists(filePath))
                     return new List<string>();
 
-                return JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(FilePath)) ?? new List<string>();
+                return JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(filePath)) ?? new List<string>();
             }
             catch
             {
@@ -230,16 +274,16 @@ namespace KitWright.Editor.MCP.Server.Security
             }
         }
 
-        private static void Save(List<string> entries)
+        private static void Save(string filePath, List<string> entries)
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
-                File.WriteAllText(FilePath, JsonConvert.SerializeObject(entries, Formatting.Indented));
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                File.WriteAllText(filePath, JsonConvert.SerializeObject(entries, Formatting.Indented));
             }
             catch (Exception ex)
             {
-                PluginDebugLogger.Log($"[KitWright] Could not save approved clients: {ex.Message}");
+                PluginDebugLogger.Log($"[KitWright] Could not save client approvals: {ex.Message}");
             }
         }
     }

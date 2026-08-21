@@ -96,7 +96,8 @@ namespace KitWright.Editor.Tools.Builtins
 
             try
             {
-                var result = CompileAndExecute(fullCode, actualClassName, effectiveSafetyChecks);
+                var result = RunInSingleUndoGroup(UndoGroupName(code),
+                    () => CompileAndExecute(fullCode, actualClassName, effectiveSafetyChecks));
                 AppendHistory(code, IsSuccess(result), SummarizeResult(result));
                 return result;
             }
@@ -287,6 +288,40 @@ namespace KitWright.Editor.Tools.Builtins
         {
             if (string.IsNullOrEmpty(s) || s.Length <= max) return s ?? string.Empty;
             return s.Substring(0, max) + "…";
+        }
+
+        // One snippet has to be one Ctrl+Z: a snippet that touches ten objects otherwise registers ten
+        // undo entries, so the first undo leaves the project reverted by a tenth. Incrementing first keeps
+        // unrelated earlier edits out of the group, and no undo record means no entry, so a read-only
+        // snippet still leaves nothing behind.
+        internal static object RunInSingleUndoGroup(string groupName, Func<object> execute)
+        {
+            Undo.IncrementCurrentGroup();
+            var group = Undo.GetCurrentGroup();
+            try
+            {
+                return execute();
+            }
+            finally
+            {
+                // RecordObject entries are finalized at end of frame, so without the flush every
+                // component mutation the snippet made lands in a group created after the collapse.
+                Undo.FlushUndoRecordObjects();
+                Undo.SetCurrentGroupName(groupName);
+                Undo.CollapseUndoOperations(group);
+            }
+        }
+
+        internal static string UndoGroupName(string code)
+        {
+            var match = Regex.Match(code ?? string.Empty, @"class\s+(\w+)");
+            if (match.Success)
+                return "execute_code: " + match.Groups[1].Value;
+
+            var firstLine = (code ?? string.Empty).Split('\n')
+                .Select(line => line.Trim())
+                .FirstOrDefault(line => line.Length > 0);
+            return "execute_code: " + Preview(firstLine, 60);
         }
 
         private static object CompileAndExecute(string code, string className, bool safetyChecks)

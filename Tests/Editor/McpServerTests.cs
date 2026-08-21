@@ -128,6 +128,36 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void Gate_DeniedClient_IsRefusedWithoutPrompting()
+        {
+            Func<string, TcpClientProcessResolver.ClientProcessInfo> client = path =>
+                new TcpClientProcessResolver.ClientProcessInfo { Pid = 99999, ExecutablePath = path, ProcessName = "client" };
+
+            try
+            {
+                ClientApprovalGate.DenyThisSession(@"C:\clients\denied.exe");
+                ClientApprovalStore.Approve(@"C:\clients\allowed.exe");
+
+                Assert.AreEqual(false, ClientApprovalGate.Decide(client(@"C:\clients\denied.exe"), out var deniedIdentity),
+                    "a denied client must be refused outright for the rest of the session, never re-prompted");
+                Assert.AreEqual(@"C:\clients\denied.exe", deniedIdentity);
+                Assert.AreEqual(true, ClientApprovalGate.Decide(client(@"C:\clients\allowed.exe"), out _));
+                Assert.IsNull(ClientApprovalGate.Decide(client(@"C:\clients\unknown.exe"), out _),
+                    "an unknown client still goes to the prompt path");
+
+                Assert.AreEqual(false, ClientApprovalGate.Decide(client(@"c:\CLIENTS\DENIED.EXE"), out _),
+                    "paths compare case-insensitively");
+                Assert.IsFalse(ClientApprovalStore.IsApproved(@"C:\clients\denied.exe"),
+                    "a refusal must not leak into the persisted approval list");
+            }
+            finally
+            {
+                // A refusal must not survive into another fixture; it does not survive a reload either.
+                ClientApprovalGate.ClearSessionDenials();
+            }
+        }
+
+        [Test]
         public async Task BrokerDispatch_ConsultsApprovalGateAndRefusesUnapprovedClient()
         {
             var gatedPorts = new List<int>();

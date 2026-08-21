@@ -312,22 +312,24 @@ namespace KitWright.Editor.Tools.Helpers
         public static object NotFound(string paramName, string value, string findMethod = null)
         {
             var candidates = SuggestTargets(value);
+            var idOccupant = DescribeIdOccupant(value);
             return Response.Error(NotFoundCode,
-                NotFoundData(paramName, value, findMethod, candidates),
-                NotFoundHint(value, candidates.Count));
+                NotFoundData(paramName, value, findMethod, candidates, idOccupant),
+                NotFoundHint(value, candidates.Count, idOccupant));
         }
 
         /// <summary>Same as <see cref="NotFound"/> for call sites that must return a JSON string.</summary>
         public static string NotFoundText(string paramName, string value, string findMethod = null)
         {
             var candidates = SuggestTargets(value);
+            var idOccupant = DescribeIdOccupant(value);
             return ToolResultFormatter.Error(NotFoundCode,
-                NotFoundData(paramName, value, findMethod, candidates),
-                NotFoundHint(value, candidates.Count));
+                NotFoundData(paramName, value, findMethod, candidates, idOccupant),
+                NotFoundHint(value, candidates.Count, idOccupant));
         }
 
         private static Dictionary<string, object> NotFoundData(string paramName, string value,
-            string findMethod, List<string> candidates)
+            string findMethod, List<string> candidates, string idOccupant)
         {
             var data = new Dictionary<string, object>
             {
@@ -335,13 +337,38 @@ namespace KitWright.Editor.Tools.Helpers
             };
             if (!string.IsNullOrEmpty(findMethod))
                 data["find_method"] = findMethod;
+            if (!string.IsNullOrEmpty(idOccupant))
+                data["id_refers_to"] = idOccupant;
             if (candidates.Count > 0)
                 data["candidates"] = candidates;
             return data;
         }
 
-        private static string NotFoundHint(string value, int candidateCount)
+        /// <summary>
+        /// What the id actually resolves to right now, or null when the value is not a live id.
+        /// Ids are reassigned across domain reloads and scene loads, so a cached id can land on an
+        /// unrelated object; naming the current occupant is what makes that visible to the caller.
+        /// </summary>
+        private static string DescribeIdOccupant(string value)
         {
+            var obj = ObjectIdCodec.ToObject(value);
+            if (obj == null)
+                return null;
+
+            var go = obj as GameObject ?? (obj as Component)?.gameObject;
+            var path = go != null ? GetGameObjectPath(go) : null;
+            return string.IsNullOrEmpty(path) || path == obj.name
+                ? $"{obj.GetType().Name} '{obj.name}'"
+                : $"{obj.GetType().Name} '{obj.name}' at {path}";
+        }
+
+        private static string NotFoundHint(string value, int candidateCount, string idOccupant)
+        {
+            if (!string.IsNullOrEmpty(idOccupant))
+                return $"That id resolves to {idOccupant}, which is not the GameObject this call asked for. " +
+                       "Instance ids are reassigned on every domain reload (script compile, entering play mode), " +
+                       "so re-read get_hierarchy or find_game_objects for current ids.";
+
             // Instance ids are reassigned by every domain reload, so a stale id is the one failure
             // an agent cannot diagnose from the name alone.
             if (!string.IsNullOrEmpty(value) && long.TryParse(value, out _))

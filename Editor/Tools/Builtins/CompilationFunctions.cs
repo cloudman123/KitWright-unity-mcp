@@ -252,7 +252,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (!CompilationFunctions.HasPendingExternalSync())
                 return;
 
-            if (!CompilationService.IsActuallyCompiling)
+            if (!ShouldWaitForCompilation())
             {
                 CompleteRecovery();
                 return;
@@ -261,9 +261,16 @@ namespace KitWright.Editor.Tools.Builtins
             EditorApplication.update += WaitUntilCompilationEnds;
         }
 
+        /// <summary>Recovery gate, extracted so it is testable: while a compile is in flight the
+        /// outcome is not known yet, so recovery info must wait instead of being written early.</summary>
+        internal static bool ShouldWaitForCompilation()
+        {
+            return CompilationService.IsActuallyCompiling;
+        }
+
         private static void WaitUntilCompilationEnds()
         {
-            if (CompilationService.IsActuallyCompiling)
+            if (ShouldWaitForCompilation())
                 return;
 
             EditorApplication.update -= WaitUntilCompilationEnds;

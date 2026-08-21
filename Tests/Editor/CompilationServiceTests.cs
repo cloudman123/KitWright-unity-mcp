@@ -3,8 +3,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using KitWright.Editor.MCP.Server;
 using KitWright.Editor.Services;
+using KitWright.Editor.State;
 using KitWright.Editor.Tools.Builtins;
+using KitWright.Editor.Tools.Helpers;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor.Compilation;
@@ -13,6 +16,12 @@ namespace KitWright.Editor.Tests
 {
     public sealed class CompilationServiceTests
     {
+        [TearDown]
+        public void ClearCompilingOverride()
+        {
+            CompilationService.IsCompilingOverride = null;
+        }
+
         [Test]
         public void ResolveIsCompiling_IgnoresRawFlagWhileNoPipelineCompileIsRunning()
         {
@@ -74,6 +83,52 @@ namespace KitWright.Editor.Tests
                 messages.Clear();
                 messages.AddRange(backup);
             }
+        }
+
+        // The four gates below only change behaviour while compiling, which no test can reach for
+        // real, so each one is driven through CompilationService.IsCompilingOverride.
+        [Test]
+        public void PostReloadRestart_WaitsWhileCompiling()
+        {
+            CompilationService.IsCompilingOverride = true;
+            Assert.IsTrue(MCPServerDomainReloadHandler.ShouldWaitForCompilationBeforeRestart(),
+                "Restarting mid-compile binds the port right before the next domain reload orphans it.");
+
+            CompilationService.IsCompilingOverride = false;
+            Assert.IsFalse(MCPServerDomainReloadHandler.ShouldWaitForCompilationBeforeRestart());
+        }
+
+        [Test]
+        public void PendingCompletion_IsDeferredWhileCompiling()
+        {
+            CompilationService.IsCompilingOverride = true;
+            Assert.IsTrue(DomainReloadHandler.ShouldDeferPendingCompletion(),
+                "Returning to the previous state mid-compile loses the pending function on the reload.");
+
+            CompilationService.IsCompilingOverride = false;
+            Assert.IsFalse(DomainReloadHandler.ShouldDeferPendingCompletion());
+        }
+
+        [Test]
+        public void NoThrottleLease_IsHeldWhileCompiling()
+        {
+            CompilationService.IsCompilingOverride = true;
+            Assert.IsTrue(NoThrottleLease.ShouldHoldLease(),
+                "Expiring mid-compile hands throttling back while the compile is still running.");
+
+            CompilationService.IsCompilingOverride = false;
+            Assert.IsFalse(NoThrottleLease.ShouldHoldLease());
+        }
+
+        [Test]
+        public void ExternalSyncRecovery_WaitsWhileCompiling()
+        {
+            CompilationService.IsCompilingOverride = true;
+            Assert.IsTrue(ExternalSyncRecoveryTracker.ShouldWaitForCompilation(),
+                "The compile outcome is not known yet, so recovery info must not be written early.");
+
+            CompilationService.IsCompilingOverride = false;
+            Assert.IsFalse(ExternalSyncRecoveryTracker.ShouldWaitForCompilation());
         }
     }
 }

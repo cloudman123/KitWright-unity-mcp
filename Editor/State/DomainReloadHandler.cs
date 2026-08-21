@@ -214,7 +214,7 @@ namespace KitWright.Editor.State
             };
         }
 
-        private static bool ShouldDeferPendingCompletion()
+        internal static bool ShouldDeferPendingCompletion()
         {
             return EditorApplication.isPlayingOrWillChangePlaymode ||
                    CompilationService.IsActuallyCompiling ||

@@ -231,6 +231,54 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void ResolveById_ReportsTheResolvedIdentityAndRefusesOutOfRangeIds()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject target = null;
+
+            try
+            {
+                target = new GameObject("IdOccupant_" + suffix);
+                var collider = target.AddComponent<BoxCollider>();
+                var goId = ObjectIdCodec.GetSerializableId(target);
+                var componentId = ObjectIdCodec.GetSerializableId(collider);
+
+                // A resolve that succeeds names what it resolved, so acting on the wrong object is
+                // visible in the response rather than silent.
+                Assert.AreSame(target, ObjectsHelper.FindObject(goId, ObjectsHelper.MethodById));
+                Assert.That(HierarchyFunctions.GetHierarchy(root_name: goId, depth: 1, include_components: false),
+                    Does.Contain(target.name));
+
+                // The id is live but is not the GameObject asked for: report the current occupant
+                // instead of a bare not-found, which is what makes a reassigned id diagnosable.
+                var byComponentId = HierarchyFunctions.GetHierarchy(root_name: componentId);
+                StringAssert.Contains("GAME_OBJECT_NOT_FOUND", byComponentId);
+                StringAssert.Contains("BoxCollider", byComponentId);
+                StringAssert.Contains(target.name, byComponentId);
+
+#if !UNITY_6000_3_OR_NEWER
+                // Only the int-based id path can truncate: a 64-bit id (YAML fileID, or one cached
+                // from another Unity version) must not narrow onto a live object. EntityId is 64-bit,
+                // so on 6000.3+ this value is a legitimately unrelated id and asserting it resolves
+                // to nothing would only be asserting that Unity has not handed it out yet.
+                var truncating = ((long)target.GetInstanceID() + 4294967296L)
+                    .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Assert.IsNull(ObjectIdCodec.ToObject(truncating),
+                    "An out-of-range id must not resolve to whatever its low 32 bits point at.");
+                Assert.IsNull(ObjectsHelper.FindObject(truncating, ObjectsHelper.MethodById));
+#endif
+            }
+            finally
+            {
+                if (target != null) UnityEngine.Object.DestroyImmediate(target);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
         public void GetHierarchy_ExcludeInactive_DoesNotShowInactiveObjects()
         {
             var suffix = Guid.NewGuid().ToString("N");
