@@ -920,6 +920,9 @@ namespace KitWright.Editor
             LogAssert.ignoreFailingMessages = true;
 
             SSESessionManager.Instance.PingIntervalMs = 30_000;
+            // Wide enough that the three sends below are inside the window whatever the frame loop
+            // costs. At the shipped 100ms this test was asserting on machine speed.
+            SSESessionManager.Instance.LogDedupWindowMs = 60_000;
             var session = SSESessionManager.Instance.CreateSession();
             SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "info");
 
@@ -962,8 +965,9 @@ namespace KitWright.Editor
                         Assert.AreEqual(1, CountOccurrences(first, "notifications/message"),
                             "Two repeats inside the dedup window must not each get a frame.");
 
-                        // Past the dedup window, so the next identical log is sent again.
-                        yield return new WaitForSecondsRealtime(0.3f);
+                        // Closing the window rather than waiting one out: the assertion is that the
+                        // suppressed count survives to the next send, not how long a sleep takes.
+                        SSESessionManager.Instance.LogDedupWindowMs = 0;
 
                         var repeatTask = SSESessionManager.Instance.BroadcastLogNotificationAsync(
                             LogType.Error, "SpammedMessage", null);

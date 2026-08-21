@@ -65,7 +65,10 @@ namespace KitWright.Editor.MCP.Server.SSE
         private string _lastLogKey;
         private DateTime _lastLogTime = DateTime.MinValue;
         private int _suppressedLogCount;
-        private const int LogDedupWindowMs = 100;
+        // Settable so a test can pin the window instead of racing it: asserting that N sends
+        // collapse into one meant getting N coroutine round trips inside 100 real milliseconds,
+        // which a slow frame loses.
+        public int LogDedupWindowMs { get; set; } = 100;
 
         public int PingIntervalMs { get; set; } = 15_000;
         public TimeSpan SessionTtl { get; set; } = TimeSpan.FromMinutes(30);
@@ -295,6 +298,7 @@ namespace KitWright.Editor.MCP.Server.SSE
                 _lastLogKey = null;
                 _lastLogTime = DateTime.MinValue;
                 _suppressedLogCount = 0;
+                LogDedupWindowMs = 100;
             }
         }
     }
