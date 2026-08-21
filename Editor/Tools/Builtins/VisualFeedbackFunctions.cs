@@ -66,11 +66,14 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Message to log")] string message,
             [ToolParam("Log type: info, warning, error", Required = false)] string log_type = "info")
         {
+            // Not the "[KitWright]" prefix the plugin uses for its own chatter: both read paths of
+            // get_console_logs drop that prefix on purpose, so a message logged through this tool
+            // could never be read back through the tool that exists to read it.
             switch (log_type.ToLowerInvariant())
             {
-                case "warning": Debug.LogWarning($"[KitWright] {message}"); break;
-                case "error": Debug.LogError($"[KitWright] {message}"); break;
-                default: Debug.Log($"[KitWright] {message}"); break;
+                case "warning": Debug.LogWarning($"[MCP] {message}"); break;
+                case "error": Debug.LogError($"[MCP] {message}"); break;
+                default: Debug.Log($"[MCP] {message}"); break;
             }
             return $"Logged {log_type}: {message}";
         }
@@ -88,7 +91,7 @@ namespace KitWright.Editor.Tools.Builtins
                 window = EditorWindow.focusedWindow;
             if (window != null)
                 window.ShowNotification(new GUIContent($"{title}\n{message}"));
-            Debug.Log($"[KitWright] {title}: {message}");
+            Debug.Log($"[MCP] {title}: {message}");
             return $"Showed notification: {title}";
         }
 
