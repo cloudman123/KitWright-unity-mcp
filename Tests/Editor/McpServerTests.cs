@@ -90,9 +90,15 @@ namespace KitWright.Editor.Tests
                     var clientPort = ((IPEndPoint)accepted.Client.RemoteEndPoint).Port;
                     var info = TcpClientProcessResolver.Resolve(clientPort, serverPort);
 
+#if UNITY_EDITOR_WIN
                     Assert.IsNotNull(info, "the resolver found no owner for a connection it can see");
                     Assert.AreEqual(Process.GetCurrentProcess().Id, info.Pid);
                     Assert.IsFalse(string.IsNullOrEmpty(info.ProcessName));
+#else
+                    // Only the Windows branch reads the TCP table, so every client elsewhere is
+                    // unidentified - which is why session allowances have to stay.
+                    Assert.IsNull(info);
+#endif
                 }
             }
 
