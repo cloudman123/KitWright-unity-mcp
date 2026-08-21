@@ -38,6 +38,7 @@ namespace KitWright.Editor.Tests
             ClientApprovalStore.RootOverride = null;
             ClientApprovalGate.RequireApprovalOverride = null;
             ClientApprovalGate.ResolverOverride = null;
+            ClientApprovalGate.ClearSessionAllowances();
             MCPBrokerClientTransport.AuthorizeClient = _defaultBrokerAuthorize;
             if (Directory.Exists(_tempRoot))
                 Directory.Delete(_tempRoot, recursive: true);
@@ -128,24 +129,53 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void Gate_UnidentifiedClient_AllowedForTheSessionOnly()
+        {
+            Assert.IsFalse(ClientApprovalGate.IsPreApproved(null, out var identity));
+
+            // What the "Allow this session" branch of the prompt does.
+            ClientApprovalGate.AllowThisSession(identity);
+
+            Assert.IsTrue(ClientApprovalGate.IsPreApproved(null, out _),
+                "the session allowance stops the same unidentified client re-prompting");
+            Assert.IsFalse(ClientApprovalStore.IsApproved(identity),
+                "a session allowance must not persist as a permanent wildcard");
+
+            ClientApprovalGate.ClearSessionAllowances();
+            Assert.IsFalse(ClientApprovalGate.IsPreApproved(null, out _),
+                "and it is gone once the session ends");
+        }
+
+        [Test]
+        public void Gate_ElevatedClientWithNameButNoPath_IsIdentifiedByName()
+        {
+            var elevated = new TcpClientProcessResolver.ClientProcessInfo { Pid = 99999, ProcessName = "elevated" };
+
+            Assert.IsTrue(ClientApprovalGate.IsIdentified(elevated),
+                "MainModule throws for elevated processes, but the name still names the client");
+            Assert.IsFalse(ClientApprovalGate.IsPreApproved(elevated, out var identity));
+            Assert.AreEqual("elevated", identity);
+        }
+
+        private static TcpClientProcessResolver.ClientProcessInfo Client(string path)
+            => new TcpClientProcessResolver.ClientProcessInfo { Pid = 99999, ExecutablePath = path, ProcessName = "client" };
+
+        [Test]
         public void Gate_DeniedClient_IsRefusedWithoutPrompting()
         {
-            Func<string, TcpClientProcessResolver.ClientProcessInfo> client = path =>
-                new TcpClientProcessResolver.ClientProcessInfo { Pid = 99999, ExecutablePath = path, ProcessName = "client" };
-
             try
             {
                 ClientApprovalGate.DenyThisSession(@"C:\clients\denied.exe");
                 ClientApprovalStore.Approve(@"C:\clients\allowed.exe");
 
-                Assert.AreEqual(false, ClientApprovalGate.Decide(client(@"C:\clients\denied.exe"), out var deniedIdentity),
+                Assert.AreEqual(false, ClientApprovalGate.Decide(Client(@"C:\clients\denied.exe"), out var deniedIdentity),
                     "a denied client must be refused outright for the rest of the session, never re-prompted");
                 Assert.AreEqual(@"C:\clients\denied.exe", deniedIdentity);
-                Assert.AreEqual(true, ClientApprovalGate.Decide(client(@"C:\clients\allowed.exe"), out _));
-                Assert.IsNull(ClientApprovalGate.Decide(client(@"C:\clients\unknown.exe"), out _),
+                Assert.AreEqual(true, ClientApprovalGate.Decide(Client(@"C:\clients\allowed.exe"), out _));
+                Assert.IsNull(ClientApprovalGate.Decide(Client(@"C:\clients\unknown.exe"), out _),
                     "an unknown client still goes to the prompt path");
 
-                Assert.AreEqual(false, ClientApprovalGate.Decide(client(@"c:\CLIENTS\DENIED.EXE"), out _),
+                Assert.AreEqual(false, ClientApprovalGate.Decide(Client(@"c:\CLIENTS\DENIED.EXE"), out _),
                     "paths compare case-insensitively");
                 Assert.IsFalse(ClientApprovalStore.IsApproved(@"C:\clients\denied.exe"),
                     "a refusal must not leak into the persisted approval list");

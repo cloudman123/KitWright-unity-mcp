@@ -36,18 +36,28 @@ namespace KitWright.Editor.MCP.Server.Security
         private static readonly HashSet<string> s_deniedThisSession =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // Clients allowed for this session only: what an unidentified client can be granted, since
+        // its identity is a wildcard covering every process the resolver cannot name.
+        private static readonly HashSet<string> s_allowedThisSession =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private const string UnidentifiedIdentity = "unidentified process";
+
         private static readonly Dictionary<string, Task<bool>> s_pendingPrompts =
             new Dictionary<string, Task<bool>>(StringComparer.OrdinalIgnoreCase);
 
-        private static readonly SynchronizationContext s_mainContext;
+        private static SynchronizationContext s_mainContext;
         private static readonly bool s_isBatchMode;
         private static readonly int s_editorPid;
 
         static ClientApprovalGate()
         {
-            s_mainContext = SynchronizationContext.Current;
             s_isBatchMode = Application.isBatchMode;
             s_editorPid = Process.GetCurrentProcess().Id;
+
+            // Captured here rather than inline: [InitializeOnLoad] runs before Unity installs the
+            // main-thread context, so Current is still null at this point.
+            EditorApplication.delayCall += () => s_mainContext = SynchronizationContext.Current;
         }
 
         public static Task<bool> AuthorizeAsync(TcpClient client, int serverPort)
@@ -113,22 +123,46 @@ namespace KitWright.Editor.MCP.Server.Security
                 s_deniedThisSession.Add(identity);
         }
 
+        internal static void AllowThisSession(string identity)
+        {
+            lock (s_lock)
+                s_allowedThisSession.Add(identity);
+        }
+
         internal static void ClearSessionDenials()
         {
             lock (s_lock)
                 s_deniedThisSession.Clear();
         }
 
+        internal static void ClearSessionAllowances()
+        {
+            lock (s_lock)
+                s_allowedThisSession.Clear();
+        }
+
+        internal static bool IsIdentified(TcpClientProcessResolver.ClientProcessInfo info)
+        {
+            return info != null &&
+                   !(string.IsNullOrEmpty(info.ExecutablePath) && string.IsNullOrEmpty(info.ProcessName));
+        }
+
         internal static bool IsPreApproved(TcpClientProcessResolver.ClientProcessInfo info, out string identity)
         {
-            identity = info?.ExecutablePath ?? info?.ProcessName ?? "unidentified process";
+            identity = IsIdentified(info)
+                ? (string.IsNullOrEmpty(info.ExecutablePath) ? info.ProcessName : info.ExecutablePath)
+                : UnidentifiedIdentity;
 
             // The editor calling its own server (in-editor tests, broker pull/push) needs no prompt.
             if (info != null && info.Pid == s_editorPid)
                 return true;
 
             // The stdio broker is spawned by this package with the mono path from settings.
-            return IsConfiguredBrokerPath(identity) || ClientApprovalStore.IsApproved(identity);
+            if (IsConfiguredBrokerPath(identity) || ClientApprovalStore.IsApproved(identity))
+                return true;
+
+            lock (s_lock)
+                return s_allowedThisSession.Contains(identity);
         }
 
         private static Task<bool> PromptAsync(string identity, TcpClientProcessResolver.ClientProcessInfo info)
@@ -143,6 +177,8 @@ namespace KitWright.Editor.MCP.Server.Security
 
                 if (s_mainContext == null)
                 {
+                    UnityEngine.Debug.LogWarning($"[KitWright MCP Server] Refused \"{identity}\" without asking: " +
+                                                 "no main-thread context yet, so no approval dialog could be shown.");
                     Finish(identity, tcs, false);
                     return tcs.Task;
                 }
@@ -152,14 +188,22 @@ namespace KitWright.Editor.MCP.Server.Security
                 s_mainContext.Post(_ =>
                 {
                     bool? approved;
+                    var identified = IsIdentified(info);
                     try
                     {
-                        var name = info?.ProcessName ?? "Unknown process";
-                        var detail = info?.ExecutablePath ?? "(could not identify the executable; approving allows every unidentified local process)";
+                        // An unidentified client gets no permanent choice: that identity is every
+                        // process the resolver cannot name, so remembering it would hand the whole
+                        // blanket away for good.
                         approved = EditorUtility.DisplayDialog(
-                            "KitWright MCP: new client",
-                            $"\"{name}\" is connecting to this project's MCP server.\n\n{detail}\n\nAllow it to call Unity editor tools? This is remembered for all projects.",
-                            "Allow",
+                            identified ? "KitWright MCP: new client" : "KitWright MCP: unidentified client",
+                            identified
+                                ? $"\"{info.ProcessName ?? identity}\" is connecting to this project's MCP server." +
+                                  $"\n\n{identity}\n\nAllow it to call Unity editor tools? This is remembered for all projects."
+                                : "A local process is connecting to this project's MCP server, but its executable " +
+                                  "could not be identified.\n\nAllowing covers every unidentified process until this " +
+                                  "editor session ends, and is never remembered. If you did not start a tool that " +
+                                  "drives Unity, deny this.",
+                            identified ? "Allow" : "Allow this session",
                             "Deny");
                     }
                     catch
@@ -169,7 +213,12 @@ namespace KitWright.Editor.MCP.Server.Security
                     }
 
                     if (approved == true)
-                        ClientApprovalStore.Approve(identity);
+                    {
+                        if (identified)
+                            ClientApprovalStore.Approve(identity);
+                        else
+                            AllowThisSession(identity);
+                    }
                     else if (approved == false)
                         // Session-scoped on purpose: DisplayDialog returns false for Deny, Escape AND
                         // the window's X, and on non-Windows every client collapses to one identity,
