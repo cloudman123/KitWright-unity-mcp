@@ -76,13 +76,13 @@ namespace KitWright.Editor.Services.UnityLogs
                 stamps?.Add(entry.Timestamp.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " ");
             }
 
+            // null, not a sentence: a non-empty string reads as an answer, and source "auto" returns
+            // the first non-empty result. Wording it here meant that as soon as one log was cached,
+            // a filter matching nothing in the cache ended the call instead of falling through to
+            // the console - which still held the matches. Both callers phrase the empty case
+            // themselves.
             if (lines.Count == 0)
-            {
-                if (sinceSeconds > 0)
-                    return $"No {filter} entries found in cached logs from the last {sinceSeconds} second(s)";
-
-                return $"No {filter} entries found in cached logs";
-            }
+                return null;
 
             var sb = new StringBuilder();
             var uniqueCount = AppendLines(sb, lines, groupDuplicates, stamps);

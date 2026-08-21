@@ -8,6 +8,27 @@ namespace KitWright.Editor.Tests
 {
     public sealed class UnityLogsRepositoryTests
     {
+        // A non-empty "nothing matched" sentence made source "auto" stop at the cache, so the
+        // console fallback was dead as soon as one log was cached.
+        [Test]
+        public void GetRecentLogs_ReturnsNullWhenTheCacheHoldsNoMatch()
+        {
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log("KitWrightNoMatchProbe_" + System.Guid.NewGuid().ToString("N"));
+
+                Assert.IsNull(repository.GetRecentLogs(
+                    logType: null,
+                    count: 10,
+                    sinceSeconds: 0,
+                    filterText: "NoSuchTextAnywhere_" + System.Guid.NewGuid().ToString("N"),
+                    groupDuplicates: false));
+            }
+        }
+
         // The repository drops the plugin's own chatter by prefix. log_message used to borrow that
         // prefix, so a line an agent asked the editor to log could never be read back.
         [Test]
