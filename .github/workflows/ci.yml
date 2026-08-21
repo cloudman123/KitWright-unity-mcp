@@ -116,9 +116,32 @@ jobs:
                   rsync -a --exclude UnityProject --exclude .git --exclude .github ./ "UnityProject/Packages/${PKG_NAME}/"
                   echo "Package '${PKG_NAME}' copied into UnityProject/Packages/"
 
-                  # Manifest – package deps resolve automatically; testables makes the
-                  # test runner pick up the package's tests.
-                  echo "{ \"dependencies\": {}, \"testables\": [\"${PKG_NAME}\"] }" > UnityProject/Packages/manifest.json
+                  # The optional engine modules are declared on purpose. An empty dependency
+                  # list still gives the editor its built-in modules, so BoxCollider compiles -
+                  # but the KITWRIGHT_* versionDefines key off a manifest entry, not off whether
+                  # the module is really there. Omitting them compiled the physics, particle and
+                  # 2D tools out and quietly tested a smaller tool surface than any real project
+                  # has. Stripping them is the separate optional-modules job's job.
+                  # testables makes the test runner pick up the package's tests.
+                  cat > UnityProject/Packages/manifest.json <<JSON
+                  {
+                      "dependencies": {
+                          "com.unity.modules.ai": "1.0.0",
+                          "com.unity.modules.animation": "1.0.0",
+                          "com.unity.modules.audio": "1.0.0",
+                          "com.unity.modules.imageconversion": "1.0.0",
+                          "com.unity.modules.jsonserialize": "1.0.0",
+                          "com.unity.modules.particlesystem": "1.0.0",
+                          "com.unity.modules.physics": "1.0.0",
+                          "com.unity.modules.physics2d": "1.0.0",
+                          "com.unity.modules.terrain": "1.0.0",
+                          "com.unity.modules.ui": "1.0.0",
+                          "com.unity.modules.uielements": "1.0.0",
+                          "com.unity.modules.unitywebrequest": "1.0.0"
+                      },
+                      "testables": ["${PKG_NAME}"]
+                  }
+                  JSON
 
             - name: Run EditMode tests
               uses: game-ci/unity-test-runner@v4
