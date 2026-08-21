@@ -79,35 +79,47 @@ namespace KitWright.Editor.Tests
             var scene = SceneManager.GetActiveScene();
             var wasDirty = scene.isDirty;
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            var collider2DObject = new GameObject("CapabilityCollider2D_" + Guid.NewGuid().ToString("N"));
-            var particleObject = new GameObject("CapabilityParticle_" + Guid.NewGuid().ToString("N"));
             var noDirector = new GameObject("CapabilityNoDirector_" + Guid.NewGuid().ToString("N"));
+#if KITWRIGHT_PHYSICS2D
+            var collider2DObject = new GameObject("CapabilityCollider2D_" + Guid.NewGuid().ToString("N"));
+#endif
+#if KITWRIGHT_PARTICLES
+            var particleObject = new GameObject("CapabilityParticle_" + Guid.NewGuid().ToString("N"));
+#endif
 
             try
             {
                 cube.name = "CapabilityCube_" + Guid.NewGuid().ToString("N");
                 AssertSuccess(MeshFunctions.GetMeshInfo(cube.name));
+#if KITWRIGHT_PHYSICS
                 AssertSuccess(PhysicsQueryFunctions.PhysicsRaycast("0,0,-5", "0,0,1", 20f));
                 AssertSuccess(PhysicsQueryFunctions.PhysicsOverlap("0,0,0", "box", size: "2,2,2"));
                 AssertError(PhysicsQueryFunctions.PhysicsRaycast("NaN,0,0", "0,0,1"), "INVALID_PARAM");
-
+#endif
+#if KITWRIGHT_PHYSICS2D
                 collider2DObject.transform.position = new Vector3(3f, 4f, 0f);
                 collider2DObject.AddComponent<BoxCollider2D>();
                 AssertSuccess(PhysicsQueryFunctions.Physics2DOverlapPoint("3,4"));
-
+#endif
+#if KITWRIGHT_PARTICLES
                 var particle = particleObject.AddComponent<ParticleSystem>();
                 AssertSuccess(ParticleFunctions.ParticleControl(particleObject.name, "simulate", 0.1f));
                 Assert.That(particle.time, Is.EqualTo(0.1f).Within(0.02f));
                 AssertError(ParticleFunctions.ParticleControl(particleObject.name, "simulate", float.NaN), "INVALID_PARAM");
+#endif
 
                 AssertError(TimelineFunctions.DirectorEvaluate(noDirector.name), "PLAYABLE_DIRECTOR_NOT_FOUND");
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(cube);
-                UnityEngine.Object.DestroyImmediate(collider2DObject);
-                UnityEngine.Object.DestroyImmediate(particleObject);
                 UnityEngine.Object.DestroyImmediate(noDirector);
+#if KITWRIGHT_PHYSICS2D
+                UnityEngine.Object.DestroyImmediate(collider2DObject);
+#endif
+#if KITWRIGHT_PARTICLES
+                UnityEngine.Object.DestroyImmediate(particleObject);
+#endif
                 RestoreSceneDirtiness(scene, wasDirty);
             }
         }
