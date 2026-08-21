@@ -34,7 +34,8 @@ These are the properties a report can hold us to:
   `..` traversal that gets past `PathSafety`
 - Executing code without a tool call that asked for it — for example a crafted MCP message that reaches
   `execute_code`'s compile step, or a resource read that evaluates its payload
-- Bypassing the first-connect client approval prompt
+- Bypassing the `Origin` check or the project pin — a web page reaching the server through a browser, or a request landing in a project it was not written for
+- Bypassing the first-connect client approval prompt when that setting is enabled (it ships off, and its identity unit is the client executable, so approving a shared runtime covers every script using it — that breadth is by design, not a vulnerability)
 - Credential or token leakage in logs, exported configs, or error responses
 
 ## What Doesn't Count
