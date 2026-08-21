@@ -8,6 +8,36 @@ namespace KitWright.Editor.Tests
 {
     public sealed class UnityLogsRepositoryTests
     {
+        // The repository drops the plugin's own chatter by prefix. log_message used to borrow that
+        // prefix, so a line an agent asked the editor to log could never be read back.
+        [Test]
+        public void GetRecentLogs_KeepsAgentLoggedLinesAndStillDropsPluginChatter()
+        {
+            var token = "KitWrightPrefix_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log("[MCP] " + token + " kept");
+                Debug.Log("[KitWright] " + token + " chatter");
+                Debug.Log("[KitWright MCP Server] " + token + " chatter");
+
+                var logs = repository.GetRecentLogs(
+                    logType: null,
+                    count: 20,
+                    sinceSeconds: 0,
+                    filterText: token,
+                    groupDuplicates: false);
+
+                Assert.That(logs, Does.Contain("[MCP] " + token + " kept"),
+                    "what log_message writes has to be readable through get_console_logs");
+                Assert.That(logs, Does.Not.Contain("[KitWright] " + token));
+                Assert.That(logs, Does.Not.Contain("[KitWright MCP Server] " + token));
+            }
+        }
+
         [Test]
         public void GetRecentLogs_FiltersGroupsAndTruncatesCachedEntries()
         {
