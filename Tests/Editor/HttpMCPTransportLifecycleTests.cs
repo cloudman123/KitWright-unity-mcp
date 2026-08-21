@@ -923,6 +923,15 @@ namespace KitWright.Editor
             // Wide enough that the three sends below are inside the window whatever the frame loop
             // costs. At the shipped 100ms this test was asserting on machine speed.
             SSESessionManager.Instance.LogDedupWindowMs = 60_000;
+
+            // UnityLogsRepository hooks Application.logMessageReceivedThreaded and fans every
+            // editor log out to the same SSE stream, so any unrelated log lands in the frames this
+            // test counts. Widening the dedup window above turned that from a 100ms exposure into a
+            // minute-long one, so the pipe is muted for the duration and restored in the finally.
+            var foreignLogs = DI.RootScopeServices.Services?.GetService(
+                typeof(Services.UnityLogs.UnityLogsRepository)) as Services.UnityLogs.UnityLogsRepository;
+            foreignLogs?.StopListening();
+
             var session = SSESessionManager.Instance.CreateSession();
             SSESessionManager.Instance.SetLoggingLevel(session.SessionId, "info");
 
@@ -962,7 +971,9 @@ namespace KitWright.Editor
                         Assert.That(first, Does.Contain("SpammedMessage"));
                         Assert.That(first, Does.Not.Contain("repeated"),
                             "Nothing was suppressed before the first send.");
-                        Assert.AreEqual(1, CountOccurrences(first, "notifications/message"),
+                        // The serializer's own counter, not the shape of one TCP read: with the
+                        // foreign pipe muted this is exactly the number of frames the test caused.
+                        Assert.AreEqual(1, SSESessionManager.NotificationsSerialized,
                             "Two repeats inside the dedup window must not each get a frame.");
 
                         // Closing the window rather than waiting one out: the assertion is that the
@@ -984,6 +995,7 @@ namespace KitWright.Editor
             }
             finally
             {
+                foreignLogs?.StartListening();
                 transport.Dispose();
             }
         }
