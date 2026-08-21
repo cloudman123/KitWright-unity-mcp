@@ -30,6 +30,10 @@ namespace KitWright.Editor.MCP.Server.Security
         internal static Func<bool> RequireApprovalOverride;
         internal static Func<int, int, TcpClientProcessResolver.ClientProcessInfo> ResolverOverride;
 
+        // Batch mode short-circuits before any of the logic below, so without a seam every test of
+        // it is green locally and vacuous on CI.
+        internal static bool? BatchModeOverride;
+
         private static readonly object s_lock = new object();
 
         // Refused clients, until this domain goes away. See the comment at the Deny branch below.
@@ -88,7 +92,7 @@ namespace KitWright.Editor.MCP.Server.Security
         /// </summary>
         public static Task<bool> AuthorizeAsync(int clientPort, int serverPort)
         {
-            if (s_isBatchMode)
+            if (BatchModeOverride ?? s_isBatchMode)
                 return Task.FromResult(true);
 
             if (!RequireApproval())
@@ -187,6 +191,15 @@ namespace KitWright.Editor.MCP.Server.Security
         {
             lock (s_lock)
                 s_allowedThisSession.Clear();
+        }
+
+        internal static void ClearNotedClients()
+        {
+            lock (s_lock)
+            {
+                s_notedPorts.Clear();
+                s_notedIdentities.Clear();
+            }
         }
 
         internal static bool IsIdentified(TcpClientProcessResolver.ClientProcessInfo info)

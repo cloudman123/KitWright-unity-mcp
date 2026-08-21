@@ -73,6 +73,55 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(80, TcpClientProcessResolver.DecodePort(0x5000));
         }
 
+        // The gate ships off, so this log is the only thing that names a client. Nothing else
+        // asserts it, and batch mode returns before reaching it, hence BatchModeOverride.
+        [Test]
+        public void Gate_ApprovalDisabled_NamesEachClientOnceNotEachRequest()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var first = @"C:\probe\" + suffix + @"-one.exe";
+            var second = @"C:\probe\" + suffix + @"-two.exe";
+
+            var seen = new List<string>();
+            UnityEngine.Application.LogCallback capture = (condition, stack, type) =>
+            {
+                if (condition != null && condition.Contains(suffix))
+                    seen.Add(condition);
+            };
+
+            ClientApprovalGate.ClearNotedClients();
+            ClientApprovalGate.BatchModeOverride = false;
+            ClientApprovalGate.RequireApprovalOverride = () => false;
+            ClientApprovalGate.ResolverOverride = (clientPort, serverPort) =>
+                new TcpClientProcessResolver.ClientProcessInfo
+                {
+                    Pid = 4242,
+                    ProcessName = "probe",
+                    ExecutablePath = clientPort < 50000 ? first : second
+                };
+            UnityEngine.Application.logMessageReceived += capture;
+            try
+            {
+                Assert.IsTrue(ClientApprovalGate.AuthorizeAsync(40001, 8765).GetAwaiter().GetResult());
+                Assert.IsTrue(ClientApprovalGate.AuthorizeAsync(40002, 8765).GetAwaiter().GetResult());
+                Assert.AreEqual(1, seen.Count,
+                    "a second connection from the same executable must not log again");
+                StringAssert.Contains(first, seen[0]);
+
+                Assert.IsTrue(ClientApprovalGate.AuthorizeAsync(50001, 8765).GetAwaiter().GetResult());
+                Assert.AreEqual(2, seen.Count, "a different executable is a different client");
+                StringAssert.Contains(second, seen[1]);
+            }
+            finally
+            {
+                UnityEngine.Application.logMessageReceived -= capture;
+                ClientApprovalGate.BatchModeOverride = null;
+                ClientApprovalGate.RequireApprovalOverride = null;
+                ClientApprovalGate.ResolverOverride = null;
+                ClientApprovalGate.ClearNotedClients();
+            }
+        }
+
         // Every other gate test injects a resolver, so the real one had no coverage - and the
         // connected-client log is the first thing that depends on it in the shipped configuration.
         [Test]
