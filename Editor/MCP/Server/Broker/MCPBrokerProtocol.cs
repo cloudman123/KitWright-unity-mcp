@@ -14,7 +14,11 @@ namespace KitWright.Editor.MCP.Server
         // v4: pull responses carry ClientPortHeader -- the connecting client's TCP port, which the
         //     editor turns into the owning pid for its first-connect approval gate. A v3 broker
         //     would forward requests with no way to identify the client, so the bump replaces it.
-        public const int Version = 4;
+        // v5: the client's Mcp-Session-Id crosses the broker in both directions (McpSessionHeader).
+        //     A v4 broker dropped it, so every broker client shared one sessionless slot in the
+        //     editor: whatever revision the last client negotiated applied to all of them, and a
+        //     dead session id was served as if it were live. The bump replaces such a broker.
+        public const int Version = 5;
         public const string Name = "kitwright-unity-mcp-broker";
         public const string HealthPath = "/_kitwright/broker/health";
         public const string AttachPath = "/_kitwright/broker/attach";
@@ -30,5 +34,6 @@ namespace KitWright.Editor.MCP.Server
         public const string AcceptSseHeader = "X-KitWright-Broker-Accept-SSE";
         public const string ContentTypeHeader = "X-KitWright-Broker-Content-Type";
         public const string ClientPortHeader = "X-KitWright-Broker-Client-Port";
+        public const string McpSessionHeader = "X-KitWright-Broker-Mcp-Session";
     }
 }

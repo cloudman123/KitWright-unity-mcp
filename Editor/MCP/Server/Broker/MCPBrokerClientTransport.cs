@@ -133,11 +133,15 @@ namespace KitWright.Editor.MCP.Server
         {
             var responseJson = string.Empty;
             var canPiggybackNotification = false;
+            string issuedSessionId = null;
             try
             {
                 var request = ParseJsonRequest(pull.Body);
                 if (request != null)
+                {
                     request.IsBrokerRedelivery = pull.IsRedelivery;
+                    request.SessionId = pull.McpSessionId;
+                }
 
                 var refusal = request == null
                     ? null
@@ -151,6 +155,14 @@ namespace KitWright.Editor.MCP.Server
                 else if (request == null || handler == null)
                 {
                     responseJson = SerializeResponse(CreateError(null, -32000, "MCP server is stopping or not ready."));
+                }
+                else if (!TryTakeSession(request, out issuedSessionId))
+                {
+                    // The direct transport answers 404 here; the broker owns the HTTP status of its
+                    // own response, so the same refusal travels as a JSON-RPC error instead. Either
+                    // way the client learns to re-initialize rather than being served on a dead id.
+                    responseJson = SerializeResponse(CreateError(
+                        request.Id, -32001, "Session not found or expired. Please re-initialize."));
                 }
                 else
                 {
@@ -202,7 +214,7 @@ namespace KitWright.Editor.MCP.Server
 
             try
             {
-                await Task.Run(() => PushOnce(pull.RequestId, responseJson, contentType), ct);
+                await Task.Run(() => PushOnce(pull.RequestId, responseJson, contentType, issuedSessionId), ct);
             }
             catch (OperationCanceledException)
             {
@@ -264,13 +276,35 @@ namespace KitWright.Editor.MCP.Server
                         IsRedelivery = string.Equals(redeliveryText, "1", StringComparison.Ordinal),
                         AcceptsSse = string.Equals(acceptsSseText, "1", StringComparison.Ordinal),
                         ClientPort = clientPort,
+                        McpSessionId = response.Headers[MCPBrokerProtocol.McpSessionHeader] ?? string.Empty,
                         Body = reader.ReadToEnd()
                     };
                 }
             }
         }
 
-        private void PushOnce(long requestId, string body, string clientContentType = null)
+        /// <summary>
+        /// Applies the client's Mcp-Session-Id to the request. An `initialize` mints a new session
+        /// and reports its id through <paramref name="issuedSessionId"/> so the broker can return it;
+        /// any other method carrying an id the server does not know is refused (false).
+        /// </summary>
+        internal static bool TryTakeSession(MCPRequest request, out string issuedSessionId)
+        {
+            issuedSessionId = null;
+
+            if (string.Equals(request.Method, "initialize", StringComparison.Ordinal))
+            {
+                issuedSessionId = SSE.SSESessionManager.Instance.CreateSession().SessionId;
+                request.SessionId = issuedSessionId;
+                return true;
+            }
+
+            return string.IsNullOrEmpty(request.SessionId) ||
+                   SSE.SSESessionManager.Instance.TryGetSession(request.SessionId, out _);
+        }
+
+        private void PushOnce(long requestId, string body, string clientContentType = null,
+            string issuedSessionId = null)
         {
             var request = (HttpWebRequest)WebRequest.Create(_baseUrl + MCPBrokerProtocol.PushPath);
             request.Method = "POST";
@@ -283,6 +317,8 @@ namespace KitWright.Editor.MCP.Server
             request.Headers[MCPBrokerProtocol.ReqIdHeader] = requestId.ToString();
             if (!string.IsNullOrEmpty(clientContentType))
                 request.Headers[MCPBrokerProtocol.ContentTypeHeader] = clientContentType;
+            if (!string.IsNullOrEmpty(issuedSessionId))
+                request.Headers[MCPBrokerProtocol.McpSessionHeader] = issuedSessionId;
 
             var bytes = Encoding.UTF8.GetBytes(body ?? string.Empty);
             request.ContentLength = bytes.Length;
@@ -422,6 +458,7 @@ namespace KitWright.Editor.MCP.Server
             public bool IsRedelivery;
             public bool AcceptsSse;
             public int ClientPort;
+            public string McpSessionId;
             public string Body;
         }
     }

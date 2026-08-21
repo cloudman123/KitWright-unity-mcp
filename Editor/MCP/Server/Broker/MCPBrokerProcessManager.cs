@@ -173,8 +173,8 @@ namespace KitWright.Editor.MCP.Server
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = mono,
-                        Arguments = Quote(brokerExe) + " --port " + port + " --token " + spawnToken +
-                                    " --pin " + ProjectIdentity.PinFromProjectPath(ApplicationPaths.ProjectRoot),
+                        Arguments = BuildSpawnArguments(brokerExe, port, spawnToken,
+                            ProjectIdentity.PinFromProjectPath(ApplicationPaths.ProjectRoot)),
                         WorkingDirectory = Path.GetDirectoryName(brokerExe),
                         UseShellExecute = false,
                         CreateNoWindow = true
@@ -646,6 +646,15 @@ namespace KitWright.Editor.MCP.Server
             catch
             {
             }
+        }
+
+        // The broker reads its protocol version from here rather than declaring its own, so a bump
+        // touches one file. Dropping the argument would make it answer 0 and fail every health
+        // probe, which is the same silent fallback-to-HTTP a mismatched constant used to cause.
+        internal static string BuildSpawnArguments(string brokerExe, int port, string token, string pin)
+        {
+            return Quote(brokerExe) + " --port " + port + " --token " + token +
+                   " --pin " + pin + " --protocol " + MCPBrokerProtocol.Version;
         }
 
         private static string Quote(string value)

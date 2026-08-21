@@ -518,6 +518,29 @@ namespace KitWright.Editor
         }
 
         [Test]
+        public void BrokerSession_InitializeMintsAnIdAndUnknownIdsAreRefused()
+        {
+            Assert.IsTrue(MCPBrokerClientTransport.TryTakeSession(
+                new MCPRequest { Method = "initialize" }, out var issued));
+            Assert.IsFalse(string.IsNullOrEmpty(issued),
+                "initialize must mint a session id, or the broker has none to return to the client");
+
+            var live = new MCPRequest { Method = "tools/list", SessionId = issued };
+            Assert.IsTrue(MCPBrokerClientTransport.TryTakeSession(live, out var reissued));
+            Assert.IsNull(reissued, "only initialize issues an id");
+            Assert.AreEqual(issued, live.SessionId,
+                "the client's session has to reach the handler, or every broker client shares one slot");
+
+            Assert.IsFalse(MCPBrokerClientTransport.TryTakeSession(
+                new MCPRequest { Method = "tools/list", SessionId = "kw-not-a-session" }, out _),
+                "a session the server does not know must be refused, not served");
+
+            Assert.IsTrue(MCPBrokerClientTransport.TryTakeSession(
+                new MCPRequest { Method = "tools/list" }, out _),
+                "a client that sends no id at all is still served, as it was before sessions crossed the broker");
+        }
+
+        [Test]
         public void BrokerRedeliveryResponse_UsesRecoveryInfoAndDoesNotRerunTool()
         {
             DomainReloadHandler.StoreRecoveryInfo("execute_code", MCPToolCallStatus.Success.ToString(), "Compilation finished after reload.");
@@ -566,6 +589,22 @@ namespace KitWright.Editor
 
             Assert.NotNull(source, "Broker source TextAsset not found at " + assetPath);
             Assert.That(source.text, Does.Contain("kitwright-unity-mcp-broker"));
+        }
+
+        [Test]
+        public void BrokerSpawn_PassesTheEditorsProtocolVersionToABrokerThatReadsIt()
+        {
+            var args = MCPBrokerProcessManager.BuildSpawnArguments(@"C:\b\broker.exe", 8765, "tok", "abc123");
+            StringAssert.Contains("--protocol " + MCPBrokerProtocol.Version, args,
+                "without this the broker answers 0, fails every health probe, and the transport " +
+                "silently falls back to in-process HTTP");
+
+            var source = AssetDatabase.LoadAssetAtPath<TextAsset>(ResolveBrokerSourceAssetPath());
+            Assert.NotNull(source, "Broker source TextAsset not found");
+            StringAssert.Contains("\"--protocol\"", source.text,
+                "the broker must still read the argument the editor sends");
+            Assert.That(source.text, Does.Not.Match(@"const\s+int\s+ProtocolVersion"),
+                "a second declaration here is what made a one-sided bump possible");
         }
 
         private static MCPResponse CreateToolTextResponse(object id, string text)
