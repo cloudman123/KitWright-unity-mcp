@@ -220,7 +220,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
-                return Response.Error("COMPONENT_TYPE_NOT_FOUND", new { component_type });
+                return TypeResolver.UnresolvedError(component_type, "COMPONENT_TYPE_NOT_FOUND", "component_type");
 
             var comp = Undo.AddComponent(go, type);
             if (comp == null)
@@ -245,7 +245,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
-                return Response.Error("COMPONENT_TYPE_NOT_FOUND", new { component_type });
+                return TypeResolver.UnresolvedError(component_type, "COMPONENT_TYPE_NOT_FOUND", "component_type");
 
             if (type == typeof(Transform))
                 return Response.Error("CANNOT_REMOVE_TRANSFORM", new { target = go.name });
@@ -277,7 +277,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
-                return Response.Error("COMPONENT_TYPE_NOT_FOUND", new { component_type });
+                return TypeResolver.UnresolvedError(component_type, "COMPONENT_TYPE_NOT_FOUND", "component_type");
 
             var matches = go.GetComponents(type);
             if (matches == null || matches.Length == 0)

@@ -1,6 +1,7 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using KitWright.Editor.Tools.Helpers;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -46,6 +47,28 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(
                 typeof(TypeResolverRight.TypeResolverProbeDuplicate),
                 TypeResolver.Resolve("KitWright.Editor.Tests.TypeResolverRight.TypeResolverProbeDuplicate"));
+        }
+
+        [Test]
+        public void UnresolvedError_SaysAmbiguousRatherThanNotFound()
+        {
+            var json = JsonConvert.SerializeObject(
+                TypeResolver.UnresolvedError("TypeResolverProbeDuplicate", "COMPONENT_TYPE_NOT_FOUND", "component_type"));
+
+            StringAssert.Contains("AMBIGUOUS_TYPE", json,
+                "an ambiguous name was reported as if the type did not exist");
+            StringAssert.Contains("TypeResolverLeft.TypeResolverProbeDuplicate", json, "candidates must name the choices");
+            StringAssert.Contains("TypeResolverRight.TypeResolverProbeDuplicate", json);
+        }
+
+        [Test]
+        public void UnresolvedError_KeepsNotFoundForANameNothingDeclares()
+        {
+            var json = JsonConvert.SerializeObject(
+                TypeResolver.UnresolvedError("NoSuchTypeAnywhere", "COMPONENT_TYPE_NOT_FOUND", "component_type"));
+
+            StringAssert.Contains("COMPONENT_TYPE_NOT_FOUND", json);
+            Assert.IsFalse(json.Contains("AMBIGUOUS_TYPE"));
         }
     }
 }

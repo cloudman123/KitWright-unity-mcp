@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using KitWright.Editor.Tools.Builtins;
 using UnityEditor;
 using UnityEngine;
@@ -103,6 +104,33 @@ namespace KitWright.Editor.Tools.Helpers
         {
             var type = Resolve(typeName);
             return type != null && typeof(Component).IsAssignableFrom(type) ? type : null;
+        }
+
+        /// <summary>
+        /// The error for a name <see cref="Resolve"/> returned null for. A short name shared by
+        /// several loaded types is refused as ambiguous with the full names listed, so the caller
+        /// is not told a type it can see in its own project does not exist.
+        /// </summary>
+        internal static object UnresolvedError(string typeName, string notFoundCode, string paramName)
+        {
+            EnsureBuilt();
+
+            if (!string.IsNullOrEmpty(typeName) &&
+                s_byName.TryGetValue(typeName, out var sameName) &&
+                sameName.Count > 1)
+            {
+                return Response.Error(
+                    "AMBIGUOUS_TYPE",
+                    new
+                    {
+                        param = paramName,
+                        value = typeName,
+                        candidates = sameName.Select(t => t.FullName).OrderBy(n => n).ToArray()
+                    },
+                    "Pass one of the candidates as the fully qualified name.");
+            }
+
+            return Response.Error(notFoundCode, new { param = paramName, value = typeName });
         }
     }
 }
