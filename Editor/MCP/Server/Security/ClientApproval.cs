@@ -46,6 +46,13 @@ namespace KitWright.Editor.MCP.Server.Security
         private static readonly Dictionary<string, Task<bool>> s_pendingPrompts =
             new Dictionary<string, Task<bool>>(StringComparer.OrdinalIgnoreCase);
 
+        // Source ports already resolved, and executables already named, so the gate can stay quiet
+        // without going silent. Both bounded: a long session would otherwise grow them forever.
+        private static readonly HashSet<int> s_notedPorts = new HashSet<int>();
+        private static readonly HashSet<string> s_notedIdentities =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private const int NotedPortCap = 512;
+
         private static SynchronizationContext s_mainContext;
         private static readonly bool s_isBatchMode;
         private static readonly int s_editorPid;
@@ -62,9 +69,6 @@ namespace KitWright.Editor.MCP.Server.Security
 
         public static Task<bool> AuthorizeAsync(TcpClient client, int serverPort)
         {
-            if (!RequireApproval() || s_isBatchMode)
-                return Task.FromResult(true);
-
             int clientPort;
             try
             {
@@ -84,8 +88,14 @@ namespace KitWright.Editor.MCP.Server.Security
         /// </summary>
         public static Task<bool> AuthorizeAsync(int clientPort, int serverPort)
         {
-            if (!RequireApproval() || s_isBatchMode)
+            if (s_isBatchMode)
                 return Task.FromResult(true);
+
+            if (!RequireApproval())
+            {
+                NoteClient(clientPort, serverPort);
+                return Task.FromResult(true);
+            }
 
             TcpClientProcessResolver.ClientProcessInfo info;
             try
@@ -115,6 +125,44 @@ namespace KitWright.Editor.MCP.Server.Security
 
             lock (s_lock)
                 return s_deniedThisSession.Contains(identity) ? (bool?)false : null;
+        }
+
+        // The gate ships off, so with approval disabled nothing named the process talking to this
+        // editor: the interaction log records tool calls without an identity. Resolving costs a scan
+        // of the machine's whole TCP table, so it runs once per source port and logs once per
+        // executable rather than once per request.
+        private static void NoteClient(int clientPort, int serverPort)
+        {
+            lock (s_lock)
+            {
+                if (!s_notedPorts.Add(clientPort))
+                    return;
+                if (s_notedPorts.Count > NotedPortCap)
+                    s_notedPorts.Clear();
+            }
+
+            TcpClientProcessResolver.ClientProcessInfo info;
+            try
+            {
+                info = (ResolverOverride ?? TcpClientProcessResolver.Resolve)(clientPort, serverPort);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (!IsIdentified(info) || info.Pid == s_editorPid)
+                return;
+
+            var identity = string.IsNullOrEmpty(info.ExecutablePath) ? info.ProcessName : info.ExecutablePath;
+            lock (s_lock)
+            {
+                if (!s_notedIdentities.Add(identity))
+                    return;
+            }
+
+            UnityEngine.Debug.Log($"[KitWright MCP Server] Client connected: {identity} (pid {info.Pid}). " +
+                                  "Client approval is off; turn it on in the Safety tab to be asked first.");
         }
 
         internal static void DenyThisSession(string identity)

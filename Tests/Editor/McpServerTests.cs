@@ -73,6 +73,32 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(80, TcpClientProcessResolver.DecodePort(0x5000));
         }
 
+        // Every other gate test injects a resolver, so the real one had no coverage - and the
+        // connected-client log is the first thing that depends on it in the shipped configuration.
+        [Test]
+        public void Resolver_NamesTheProcessOwningARealConnection()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var serverPort = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+            using (var client = new TcpClient())
+            {
+                client.Connect(IPAddress.Loopback, serverPort);
+                using (var accepted = listener.AcceptTcpClient())
+                {
+                    var clientPort = ((IPEndPoint)accepted.Client.RemoteEndPoint).Port;
+                    var info = TcpClientProcessResolver.Resolve(clientPort, serverPort);
+
+                    Assert.IsNotNull(info, "the resolver found no owner for a connection it can see");
+                    Assert.AreEqual(Process.GetCurrentProcess().Id, info.Pid);
+                    Assert.IsFalse(string.IsNullOrEmpty(info.ProcessName));
+                }
+            }
+
+            listener.Stop();
+        }
+
         [Test]
         public async Task Gate_ApprovalDisabled_Allows()
         {
