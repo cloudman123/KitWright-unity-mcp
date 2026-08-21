@@ -319,14 +319,6 @@ namespace KitWright.Editor.Tools.Builtins
             return $"Time.timeScale changed from {previousScale:F2} to {scale:F2}";
         }
 
-        [Description("Get the current time scale and time information")]
-        [ReadOnlyTool]
-        public static string GetTimeScale()
-        {
-            return $"Time.timeScale={UnityEngine.Time.timeScale:F2}, Time.time={UnityEngine.Time.time:F2}, " +
-                   $"Time.deltaTime={UnityEngine.Time.deltaTime:F4}, Time.fixedDeltaTime={UnityEngine.Time.fixedDeltaTime:F4}";
-        }
-
         private static void AppendHierarchy(System.Text.StringBuilder sb, Transform t, int depth, int maxDepth)
         {
             if (depth > maxDepth) return;

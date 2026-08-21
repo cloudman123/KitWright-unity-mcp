@@ -122,7 +122,6 @@ namespace KitWright.Editor.Tests
             "get_tags",
             "get_terrain_info",
             "get_test_job",
-            "get_time_scale",
             "get_top_memory_objects",
             "get_undo_state",
             "get_volume_info",
@@ -248,6 +247,31 @@ namespace KitWright.Editor.Tests
                     continue;
 #endif
                 Assert.IsNotNull(ToolRegistry.GetMethod(name), $"Curated profile tool '{name}' is not registered.");
+            }
+        }
+
+        // The default profile has to be able to build and persist, not only inspect: with only
+        // find_game_objects out of the fourteen GameObject tools and no save_scene, an agent on the
+        // default could read a scene and set properties on what already existed, but had to route
+        // every creation and the save itself through execute_code.
+        [Test]
+        public void CoreProfileCanCreateParentAndPersist()
+        {
+            foreach (var name in new[]
+                     {
+                         "create_game_object",
+                         "create_primitive",
+                         "delete_game_object",
+                         "add_component",
+                         "set_transform",
+                         "set_parent",
+                         "get_game_object_info",
+                         "save_scene"
+                     })
+            {
+                Assert.IsTrue(MCPToolExportPolicy.IsToolAllowed(
+                    name, MCPToolExportProfile.Core, profileConfigured: false, profileTools: null),
+                    $"'{name}' left the core profile, so the default can no longer build a scene without execute_code.");
             }
         }
 

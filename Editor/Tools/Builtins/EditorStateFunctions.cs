@@ -20,7 +20,7 @@ namespace KitWright.Editor.Tools.Builtins
     [ToolProvider("EditorState")]
     internal static class EditorStateFunctions
     {
-        [Description("Get high-level editor runtime state: which project this editor has open, play mode, paused, compiling, updating, time-since-startup. " +
+        [Description("Get high-level editor runtime state: which project this editor has open, play mode, paused, compiling, updating, time-since-startup, time scale. " +
                      "Call this first when several editors may be running to confirm which project the server is attached to.")]
         [ReadOnlyTool]
         public static object GetEditorState()
@@ -40,6 +40,7 @@ namespace KitWright.Editor.Tools.Builtins
                 isPlayingOrWillChange = EditorApplication.isPlayingOrWillChangePlaymode,
                 applicationPath = EditorApplication.applicationPath,
                 timeSinceStartup = EditorApplication.timeSinceStartup,
+                timeScale = Time.timeScale,
                 unityVersion = Application.unityVersion
             });
         }
