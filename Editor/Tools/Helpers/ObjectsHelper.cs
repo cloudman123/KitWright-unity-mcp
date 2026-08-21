@@ -27,6 +27,21 @@ namespace KitWright.Editor.Tools.Helpers
         }
     }
 
+    // Raised because the locator returns a list of GameObjects: there is no empty list that means
+    // "ambiguous" rather than "found nothing", and the caller acts on the latter.
+    internal sealed class AmbiguousTypeException : Exception
+    {
+        public string TypeName { get; }
+        public string[] Candidates { get; }
+
+        public AmbiguousTypeException(string typeName, string[] candidates)
+            : base($"'{typeName}' matches {candidates.Length} loaded types; refusing to search for an arbitrary one.")
+        {
+            TypeName = typeName;
+            Candidates = candidates;
+        }
+    }
+
     /// <summary>
     /// Unified GameObject locator. All KitWright tools should resolve scene objects through here
     /// instead of calling <c>GameObject.Find</c> directly — that way name/path/id/tag/layer/component
@@ -199,7 +214,13 @@ namespace KitWright.Editor.Tools.Helpers
                 case MethodByComponent:
                 {
                     var compType = TypeResolver.ResolveComponent(target);
-                    if (compType != null)
+                    if (compType == null)
+                    {
+                        var candidates = TypeResolver.AmbiguousCandidates(target);
+                        if (candidates != null)
+                            throw new AmbiguousTypeException(target, candidates);
+                    }
+                    else
                     {
                         foreach (var go in EnumerateSearchPool(rootObj, searchInactive))
                         {

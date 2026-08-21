@@ -41,6 +41,49 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void Invoke_RejectsUnknownParameterInsteadOfRunningOnDefaults()
+        {
+            var result = new FunctionInvoker().Invoke(new FunctionCall
+            {
+                FunctionName = "get_hierarchy",
+                Parameters = new Dictionary<string, string> { ["dpeth"] = "2" }
+            });
+
+            StringAssert.Contains("\"code\":\"UNKNOWN_PARAM\"", result);
+            StringAssert.Contains("\"param\":\"dpeth\"", result);
+            StringAssert.Contains("depth", result, "The error must list the names the tool does accept.");
+        }
+
+        [Test]
+        public void Invoke_RejectsUnknownParameterBeforeReportingAMissingOne()
+        {
+            var result = new FunctionInvoker().Invoke(new FunctionCall
+            {
+                FunctionName = "simulate_mouse_click",
+                Parameters = new Dictionary<string, string> { ["ex"] = "1", ["y"] = "2" }
+            });
+
+            StringAssert.Contains("\"code\":\"UNKNOWN_PARAM\"", result);
+        }
+
+        [Test]
+        public void FindGameObjects_AmbiguousComponentNameIsReportedNotReturnedAsNoMatches()
+        {
+            var result = new FunctionInvoker().Invoke(new FunctionCall
+            {
+                FunctionName = "find_game_objects",
+                Parameters = new Dictionary<string, string>
+                {
+                    ["query"] = "TypeResolverProbeDuplicate",
+                    ["find_method"] = "by_component"
+                }
+            });
+
+            StringAssert.Contains("\"code\":\"AMBIGUOUS_TYPE\"", result);
+            StringAssert.Contains("TypeResolverLeft.TypeResolverProbeDuplicate", result);
+        }
+
+        [Test]
         public void Invoke_WrapsLegacyStringSuccess()
         {
             var result = new FunctionInvoker().Invoke(new FunctionCall

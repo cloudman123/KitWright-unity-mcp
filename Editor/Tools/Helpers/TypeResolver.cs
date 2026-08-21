@@ -113,24 +113,34 @@ namespace KitWright.Editor.Tools.Helpers
         /// </summary>
         internal static object UnresolvedError(string typeName, string notFoundCode, string paramName)
         {
+            var candidates = AmbiguousCandidates(typeName);
+            if (candidates != null)
+            {
+                return Response.Error(
+                    "AMBIGUOUS_TYPE",
+                    new { param = paramName, value = typeName, candidates },
+                    "Pass one of the candidates as the fully qualified name.");
+            }
+
+            return Response.Error(notFoundCode, new { param = paramName, value = typeName });
+        }
+
+        /// <summary>
+        /// The full names a short name is shared by, or null when it is unambiguous or unknown.
+        /// For callers that cannot return a <see cref="Response"/> and have to raise instead.
+        /// </summary>
+        internal static string[] AmbiguousCandidates(string typeName)
+        {
             EnsureBuilt();
 
             if (!string.IsNullOrEmpty(typeName) &&
                 s_byName.TryGetValue(typeName, out var sameName) &&
                 sameName.Count > 1)
             {
-                return Response.Error(
-                    "AMBIGUOUS_TYPE",
-                    new
-                    {
-                        param = paramName,
-                        value = typeName,
-                        candidates = sameName.Select(t => t.FullName).OrderBy(n => n).ToArray()
-                    },
-                    "Pass one of the candidates as the fully qualified name.");
+                return sameName.Select(t => t.FullName).OrderBy(n => n).ToArray();
             }
 
-            return Response.Error(notFoundCode, new { param = paramName, value = typeName });
+            return null;
         }
     }
 }
