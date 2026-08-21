@@ -44,6 +44,7 @@ namespace KitWright.UnityMcp.Broker
         private const string BrokerHeader = "X-KitWright-Broker";
         private const string AcceptSseHeader = "X-KitWright-Broker-Accept-SSE";
         private const string ContentTypeHeader = "X-KitWright-Broker-Content-Type";
+        private const string StatusHeader = "X-KitWright-Broker-Status";
         private const string ClientPortHeader = "X-KitWright-Broker-Client-Port";
         private const string McpSessionHeader = "X-KitWright-Broker-Mcp-Session";
         private const string AttachPath = "/_kitwright/broker/attach";
@@ -284,7 +285,9 @@ namespace KitWright.UnityMcp.Broker
                 headers.TryGetValue(ContentTypeHeader.ToLowerInvariant(), out pushContentType);
                 string issuedMcpSession;
                 headers.TryGetValue(McpSessionHeader.ToLowerInvariant(), out issuedMcpSession);
-                var accepted = HandlePush(reqId, session, body, pushContentType, issuedMcpSession);
+                string pushStatus;
+                headers.TryGetValue(StatusHeader.ToLowerInvariant(), out pushStatus);
+                var accepted = HandlePush(reqId, session, body, pushContentType, issuedMcpSession, pushStatus);
                 WriteResponse(stream, accepted ? 200 : 409, accepted ? "OK" : "Conflict", "application/json",
                     BrokerHeaderLine(), accepted ? "{\"ok\":true}" : "{\"ok\":false}");
                 SafeClose(client);
@@ -387,7 +390,7 @@ namespace KitWright.UnityMcp.Broker
         }
 
         private static bool HandlePush(long reqId, string session, string body, string contentType,
-            string issuedMcpSession)
+            string issuedMcpSession, string clientStatus)
         {
             lock (Gate)
             {
@@ -410,7 +413,20 @@ namespace KitWright.UnityMcp.Broker
                     var extraHeaders = string.IsNullOrEmpty(issuedMcpSession)
                         ? null
                         : "Mcp-Session-Id: " + issuedMcpSession + "\r\n";
-                    WriteResponse(pending.Stream, 200, "OK", responseContentType, extraHeaders, body ?? string.Empty);
+                    // The editor decides the client-facing status for refusals it owns -- a dead
+                    // Mcp-Session-Id has to arrive as 404 or the client never re-initializes. Only
+                    // error codes are honoured, so a malformed header cannot rewrite a good response.
+                    var statusCode = 200;
+                    var statusReason = "OK";
+                    int requestedStatus;
+                    if (!string.IsNullOrEmpty(clientStatus)
+                        && int.TryParse(clientStatus, out requestedStatus)
+                        && requestedStatus >= 400 && requestedStatus <= 599)
+                    {
+                        statusCode = requestedStatus;
+                        statusReason = requestedStatus == 404 ? "Not Found" : "Error";
+                    }
+                    WriteResponse(pending.Stream, statusCode, statusReason, responseContentType, extraHeaders, body ?? string.Empty);
                 }
                 catch (Exception ex)
                 {

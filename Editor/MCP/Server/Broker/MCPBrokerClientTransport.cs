@@ -134,6 +134,8 @@ namespace KitWright.Editor.MCP.Server
             var responseJson = string.Empty;
             var canPiggybackNotification = false;
             string issuedSessionId = null;
+            var clientStatus = 0;
+            string clientContentTypeOverride = null;
             try
             {
                 var request = ParseJsonRequest(pull.Body);
@@ -158,11 +160,14 @@ namespace KitWright.Editor.MCP.Server
                 }
                 else if (!TryTakeSession(request, out issuedSessionId))
                 {
-                    // The direct transport answers 404 here; the broker owns the HTTP status of its
-                    // own response, so the same refusal travels as a JSON-RPC error instead. Either
-                    // way the client learns to re-initialize rather than being served on a dead id.
-                    responseJson = SerializeResponse(CreateError(
-                        request.Id, -32001, "Session not found or expired. Please re-initialize."));
+                    // 404 is the status the MCP spec makes a client re-initialize on, so the refusal
+                    // has to reach it as a status rather than as a JSON-RPC error the client has no
+                    // rule for. The broker writes the status it is told; this is the same body the
+                    // direct transport sends, so both transports look identical from the client.
+                    clientStatus = (int)HttpStatusCode.NotFound;
+                    clientContentTypeOverride = "text/html; charset=utf-8";
+                    responseJson = BuildHtmlStatusBody(
+                        clientStatus, "Not Found", "Session not found or expired. Please re-initialize.");
                 }
                 else
                 {
@@ -204,7 +209,7 @@ namespace KitWright.Editor.MCP.Server
                 responseJson = SerializeResponse(CreateError(null, -32603, "Internal error: " + ex.Message));
             }
 
-            string contentType = null;
+            var contentType = clientContentTypeOverride;
             if (canPiggybackNotification && pull.AcceptsSse && MCPToolListChangeNotifier.TryConsumePending())
             {
                 responseJson = MCPToolListChangeNotifier.BuildSseBody(responseJson);
@@ -214,7 +219,7 @@ namespace KitWright.Editor.MCP.Server
 
             try
             {
-                await Task.Run(() => PushOnce(pull.RequestId, responseJson, contentType, issuedSessionId), ct);
+                await Task.Run(() => PushOnce(pull.RequestId, responseJson, contentType, issuedSessionId, clientStatus), ct);
             }
             catch (OperationCanceledException)
             {
@@ -304,7 +309,7 @@ namespace KitWright.Editor.MCP.Server
         }
 
         private void PushOnce(long requestId, string body, string clientContentType = null,
-            string issuedSessionId = null)
+            string issuedSessionId = null, int clientStatus = 0)
         {
             var request = (HttpWebRequest)WebRequest.Create(_baseUrl + MCPBrokerProtocol.PushPath);
             request.Method = "POST";
@@ -319,6 +324,8 @@ namespace KitWright.Editor.MCP.Server
                 request.Headers[MCPBrokerProtocol.ContentTypeHeader] = clientContentType;
             if (!string.IsNullOrEmpty(issuedSessionId))
                 request.Headers[MCPBrokerProtocol.McpSessionHeader] = issuedSessionId;
+            if (clientStatus != 0)
+                request.Headers[MCPBrokerProtocol.StatusHeader] = clientStatus.ToString();
 
             var bytes = Encoding.UTF8.GetBytes(body ?? string.Empty);
             request.ContentLength = bytes.Length;
@@ -389,6 +396,12 @@ namespace KitWright.Editor.MCP.Server
             {
                 return null;
             }
+        }
+
+        private static string BuildHtmlStatusBody(int code, string reason, string message)
+        {
+            return "<html><body><h1>" + code + " " + reason + "</h1><p>"
+                   + WebUtility.HtmlEncode(message) + "</p></body></html>";
         }
 
         private static string SerializeResponse(MCPResponse response)

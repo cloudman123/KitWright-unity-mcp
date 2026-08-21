@@ -517,6 +517,53 @@ namespace KitWright.Editor
             }
         }
 
+        // The refusal has to be an HTTP 404, not a JSON-RPC error inside a 200: 404 is what makes a
+        // client re-initialize, and a client served 200 keeps the dead id and fails every later call
+        // while the connection still looks healthy. Broker mode could not answer 404 until the editor
+        // was given a way to name the status, so pin the status here rather than the decision --
+        // BrokerSession_InitializeMintsAnIdAndUnknownIdsAreRefused already covers the decision.
+        [UnityTest]
+        public IEnumerator BrokerTransport_RefusesADeadSessionWithNotFound()
+        {
+            var root = CreateTempRoot();
+            var paths = CreateBrokerPaths(root);
+            var port = GetFreeTcpPort();
+            MCPBrokerClientTransport transport = null;
+
+            try
+            {
+                Assume.That(!string.IsNullOrEmpty(MCPBrokerProcessManager.ResolveMono(string.Empty)),
+                    "Unity-bundled Mono is required for broker process tests.");
+
+                Assert.IsTrue(MCPBrokerProcessManager.EnsureRunning(port, string.Empty, paths), MCPBrokerProcessManager.LastError);
+                Assert.IsTrue(MCPBrokerProcessManager.TryGetConnectionInfo(paths, port, out var connection));
+
+                transport = new MCPBrokerClientTransport(port, connection.Token);
+                transport.OnRequestReceived += (request, sendResponse) =>
+                    sendResponse(CreateToolTextResponse(request.Id, "served"));
+
+                var start = transport.StartAsync();
+                yield return WaitForTask(start);
+                Assert.IsTrue(start.Result);
+
+                var dead = SendToolCallAsync(port, "get_editor_state", mcpSessionId: "kw-not-a-session");
+                yield return WaitForTask(dead, 8f);
+                Assert.AreEqual(HttpStatusCode.NotFound, dead.Result.StatusCode,
+                    "a dead session id must come back as 404, or the client never re-initializes");
+
+                var sessionless = SendToolCallAsync(port, "get_editor_state");
+                yield return WaitForTask(sessionless, 8f);
+                Assert.AreEqual(HttpStatusCode.OK, sessionless.Result.StatusCode,
+                    "a client that sends no id at all is still served, so the refusal cannot be blanket");
+            }
+            finally
+            {
+                transport?.Dispose();
+                MCPBrokerProcessManager.Stop(paths);
+                DeleteTempRoot(root);
+            }
+        }
+
         [Test]
         public void BrokerSession_InitializeMintsAnIdAndUnknownIdsAreRefused()
         {
@@ -670,13 +717,16 @@ namespace KitWright.Editor
             }
         }
 
-        private static async Task<HttpResponseMessage> SendToolCallAsync(int port, string toolName, string origin = null)
+        private static async Task<HttpResponseMessage> SendToolCallAsync(int port, string toolName,
+            string origin = null, string mcpSessionId = null)
         {
             using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) })
             using (var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:" + port + "/"))
             {
                 if (origin != null)
                     request.Headers.Add("Origin", origin);
+                if (mcpSessionId != null)
+                    request.Headers.Add("Mcp-Session-Id", mcpSessionId);
                 request.Content = new StringContent(
                     "{\"jsonrpc\":\"2.0\",\"id\":\"test\",\"method\":\"tools/call\",\"params\":{\"name\":\"" + toolName + "\",\"arguments\":{}}}",
                     Encoding.UTF8,
