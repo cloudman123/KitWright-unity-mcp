@@ -147,6 +147,18 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void Gate_SettingsNotResolvableYet_DoesNotAskAndMatchesShippedDefault()
+        {
+            Assert.IsFalse(ClientApprovalGate.RequireApprovalFrom(null),
+                "autostart delivers requests mid-reload, before the settings service resolves; " +
+                "falling back to on there prompts users who shipped with the gate off");
+            Assert.IsFalse(SettingsController.DefaultRequireClientApprovalEnabled,
+                "the fallback tracks the shipped default, so flipping the default flips both");
+            Assert.IsFalse(ClientApprovalGate.RequireApprovalFrom(new SettingsController(_tempRoot)),
+                "a freshly created settings file carries the same default");
+        }
+
+        [Test]
         public void Gate_ElevatedClientWithNameButNoPath_IsIdentifiedByName()
         {
             var elevated = new TcpClientProcessResolver.ClientProcessInfo { Pid = 99999, ProcessName = "elevated" };

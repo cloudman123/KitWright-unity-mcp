@@ -253,8 +253,19 @@ namespace KitWright.Editor.MCP.Server.Security
             if (RequireApprovalOverride != null)
                 return RequireApprovalOverride();
 
-            var settings = RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController;
-            return settings?.RequireClientApprovalEnabled ?? true;
+            return RequireApprovalFrom(
+                RootScopeServices.Services?.GetService(typeof(SettingsController)) as SettingsController);
+        }
+
+        /// <summary>
+        /// Falls back to the shipped default rather than to "on": autostart plus broker mode means
+        /// requests arrive while the domain is still reloading and this service is not resolvable
+        /// yet, and defaulting to on there prompted users who had the gate switched off.
+        /// </summary>
+        internal static bool RequireApprovalFrom(SettingsController settings)
+        {
+            return settings?.RequireClientApprovalEnabled
+                   ?? SettingsController.DefaultRequireClientApprovalEnabled;
         }
     }
 
