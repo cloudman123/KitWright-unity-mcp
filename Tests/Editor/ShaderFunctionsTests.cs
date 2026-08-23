@@ -1,12 +1,58 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System;
+using System.Text.RegularExpressions;
 using KitWright.Editor.Tools.Builtins;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
 
 namespace KitWright.Editor.Tests
 {
     public sealed class ShaderFunctionsTests
     {
+        // Deliberately no shader is created here: importing a .shader compiles its variants, which
+        // left the editor still updating for the next fixture (7 EDITOR_BUSY failures) and pushed the
+        // suite from 45s to 888s. The trash swap itself is pinned on a plain asset in
+        // AssetFunctionsTests.DeleteAsset_*; what is left to check here is the guard and the count.
+        [Test]
+        public void DeleteShader_MissingFileIsAHardErrorNotASilentSuccess()
+        {
+            var missing = "Doomed_" + Guid.NewGuid().ToString("N");
+
+            StringAssert.Contains("SHADER_NOT_FOUND",
+                ShaderFunctions.DeleteShader(missing, "__KitWrightNoSuchFolder").ToString());
+        }
+
+        [Test]
+        public void ListShaders_CountCapReportsThePreCapTotalAndTheShownCount()
+        {
+            // Was written against a project that ships several .shader files (URP). A bare project
+            // has one or none, and a cap that truncates nothing prints no "showing" line at all -
+            // so read the real total first instead of assuming the host project has one.
+            var all = ShaderFunctions.ListShaders().ToString();
+            var match = Regex.Match(all, @"Found (\d+) shader file");
+            Assert.IsTrue(match.Success, all);
+            if (int.Parse(match.Groups[1].Value) < 2)
+                Assert.Ignore("Needs at least two shaders in the project for a cap to truncate anything.");
+
+            var capped = ShaderFunctions.ListShaders(count: 1);
+            var cappedText = capped.ToString();
+
+            StringAssert.Contains("Showing 1-1 of", cappedText);
+            StringAssert.Contains("pass cursor=1", cappedText);
+            Assert.IsFalse(cappedText.Contains("Found 1 shader file(s)"),
+                "The reported total must be the pre-cap count, not the shown count.");
+
+            var second = ShaderFunctions.ListShaders(count: 1, cursor: 1);
+            StringAssert.Contains("Showing 2-2 of", second.ToString());
+            Assert.AreNotEqual(
+                JObject.FromObject(capped)["data"]["shaders"][0].ToString(),
+                JObject.FromObject(second)["data"]["shaders"][0].ToString(),
+                "Page two returned the shader from page one, so the cursor was ignored.");
+        }
+
         [Test]
         public void ResolvePaths_DefaultFolderIsShaders()
         {

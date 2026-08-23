@@ -84,8 +84,9 @@ namespace KitWright.Editor.MCP.Server
         // otherwise reach whichever sibling editor now owns it — and that editor would answer,
         // applying the edits to the wrong project. Refusing a mismatched pin turns that silent
         // wrong-project write into a visible 404.
-        // A path with no pin is accepted: configs written before pinning exist in the wild, and
-        // re-running Configure is what upgrades them.
+        // A path with no pin is accepted: configs written before pinning exist in the wild, and the
+        // sweep at server start rewrites them, so refusing would only break clients that reconnect
+        // before that lands.
         internal bool PathTargetsAnotherProject(string path)
         {
             if (_projectPin.Length == 0)
@@ -374,13 +375,6 @@ namespace KitWright.Editor.MCP.Server
                         return;
                     }
 
-                    if (!await Security.ClientApprovalGate.AuthorizeAsync(client, _port))
-                    {
-                        await SendHtmlStatusAsync(stream, HttpStatusCode.Forbidden, "Forbidden",
-                            "This client was not approved in the Unity editor. Approve it in the KitWright dialog, or disable client approval in the MCP Settings tab.", ct);
-                        return;
-                    }
-
                     request = ParseJsonRequest(httpRequest.Body);
                     if (request == null)
                     {
@@ -396,9 +390,15 @@ namespace KitWright.Editor.MCP.Server
                         var newSession = SSESessionManager.Instance.CreateSession();
                         extraHeaders = $"Mcp-Session-Id: {newSession.SessionId}\r\n";
                     }
-                    else if (!string.IsNullOrEmpty(httpRequest.SessionId))
+                    else if (!string.IsNullOrEmpty(httpRequest.SessionId)
+                             && !SSESessionManager.Instance.TryGetSession(httpRequest.SessionId, out _))
                     {
-                        SSESessionManager.Instance.TryGetSession(httpRequest.SessionId, out _);
+                        // Same answer the event-stream GET gives, so a client whose session died with
+                        // a domain reload re-runs initialize instead of being served forever on a
+                        // dead id while its notification stream 404s.
+                        await SendHtmlStatusAsync(stream, HttpStatusCode.NotFound, "Not Found",
+                            "Session not found or expired. Please re-initialize.", ct);
+                        return;
                     }
 
                     var requestReceived = OnRequestReceived;
@@ -411,7 +411,8 @@ namespace KitWright.Editor.MCP.Server
                     var responseTcs = new TaskCompletionSource<MCPResponse>();
                     requestReceived.Invoke(request, r => responseTcs.TrySetResult(r));
 
-                    using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(180)))
+                    var budgetSeconds = Tools.ToolRegistry.TimeoutSecondsForRequest(request.Method, request.Params);
+                    using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(budgetSeconds)))
                     using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token))
                     {
                         try

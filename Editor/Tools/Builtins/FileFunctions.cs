@@ -19,7 +19,7 @@ namespace KitWright.Editor.Tools.Builtins
                      "patch_script or edit_script_members instead.")]
         [ReadOnlyTool]
         public static object ReadFile(
-            [ToolParam("Path to the file (relative to project root or absolute)")] string path)
+            [ToolParam("Path to the file, inside the project (relative to project root, or absolute); a path outside it is refused")] string path)
         {
             var fullPath = PathSafety.ResolveProjectPath(path);
             if (!File.Exists(fullPath))
@@ -55,7 +55,7 @@ namespace KitWright.Editor.Tools.Builtins
                      "Overwriting an existing file requires expected_sha256 (from read_file) so a concurrent edit " +
                      "is not silently discarded; creating a new file does not, since there is nothing to lose.")]
         public static string WriteFile(
-            [ToolParam("Path to the file")] string path,
+            [ToolParam("Path to the file, inside the project; a path outside it is refused")] string path,
             [ToolParam("Content to write")] string content,
             [ToolParam("SHA256 from read_file. Required when the file already exists; the write is rejected with STALE_FILE if it changed since.", Required = false)]
             string expected_sha256 = null)
@@ -78,16 +78,19 @@ namespace KitWright.Editor.Tools.Builtins
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllText(fullPath, content);
+            AtomicFile.WriteAllText(fullPath, content);
             AssetDatabase.Refresh();
             return $"Written {content.Length} chars to {path} (sha256: {CodeFunctions.ComputeSha256(content)})";
         }
 
-        [Description("Search for files by name pattern in the project")]
+        [Description("Search for files by name pattern in the project. A page cut short by max reports a " +
+                     "next_cursor to pass back as cursor for the rest.")]
         [ReadOnlyTool]
         public static string SearchFiles(
             [ToolParam("Search pattern (e.g. '*.cs', 'Player*', '*.prefab')")] string pattern,
-            [ToolParam("Directory to search in", Required = false)] string directory = "Assets")
+            [ToolParam("Directory to search in, inside the project; a directory outside it is refused", Required = false)] string directory = "Assets",
+            [ToolParam("Maximum paths to return (1-1000). Default 100.", Required = false)] int max = 100,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             var fullPath = PathSafety.ResolveProjectPath(directory);
             if (!Directory.Exists(fullPath))
@@ -97,51 +100,51 @@ namespace KitWright.Editor.Tools.Builtins
             if (files.Length == 0)
                 return $"No files matching '{pattern}' in {directory}";
 
+            System.Array.Sort(files, System.StringComparer.Ordinal);
+            var page = Paging.Page(files, cursor, UnityEngine.Mathf.Clamp(max, 1, 1000));
+
             var results = new List<string>();
-            int count = 0;
-            foreach (var file in files)
+            foreach (var file in page)
             {
                 var relative = file.Replace(Path.GetDirectoryName(UnityEngine.Application.dataPath) + "/", "")
                     .Replace('\\', '/');
                 results.Add($"  - {relative}");
-                count++;
-                if (count >= 100) break;
             }
 
-            return $"Found {files.Length} files:\n{string.Join("\n", results)}" +
-                   (files.Length > 100 ? $"\n... and {files.Length - 100} more" : "");
+            return $"Found {files.Length} files.{Paging.Suffix(cursor, page.Count, files.Length)}\n" +
+                   string.Join("\n", results);
         }
 
-        [Description("List files and directories in a directory")]
+        [Description("List files and directories directly inside a directory (top level only; use search_files to recurse into subdirectories). " +
+                     "The file list pages: a page cut short by max reports a next_cursor to pass back as cursor.")]
         [ReadOnlyTool]
         public static string ListDirectory(
-            [ToolParam("Path to directory")] string path,
-            [ToolParam("Include subdirectories", Required = false)] string recursive = "false")
+            [ToolParam("Path to directory, inside the project; a path outside it is refused")] string path,
+            [ToolParam("Maximum files to return (1-1000). Default 200. Subdirectories are always listed in full.", Required = false)] int max = 200,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             var fullPath = PathSafety.ResolveProjectPath(path);
             if (!Directory.Exists(fullPath))
                 return ToolResultFormatter.Error("DIRECTORY_NOT_FOUND", new { path });
 
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Contents of {path}:");
-
             var dirs = Directory.GetDirectories(fullPath);
-            foreach (var dir in dirs)
-            {
-                sb.AppendLine($"  [DIR] {Path.GetFileName(dir)}/");
-            }
-
-            var files = Directory.GetFiles(fullPath);
-            int count = 0;
-            foreach (var file in files)
+            var names = new List<string>();
+            foreach (var file in Directory.GetFiles(fullPath))
             {
                 var name = Path.GetFileName(file);
                 if (name.StartsWith(".")) continue;
                 if (name.EndsWith(".meta")) continue;
-                sb.AppendLine($"  {name}");
-                count++;
-                if (count >= 200) { sb.AppendLine("  ... (truncated)"); break; }
+                names.Add(name);
             }
+            names.Sort(System.StringComparer.Ordinal);
+            var page = Paging.Page(names, cursor, UnityEngine.Mathf.Clamp(max, 1, 1000));
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Contents of {path}:{Paging.Suffix(cursor, page.Count, names.Count)}");
+            foreach (var dir in dirs)
+                sb.AppendLine($"  [DIR] {Path.GetFileName(dir)}/");
+            foreach (var name in page)
+                sb.AppendLine($"  {name}");
 
             return sb.ToString();
         }
@@ -149,9 +152,12 @@ namespace KitWright.Editor.Tools.Builtins
         [Description("Check if a file or directory exists")]
         [ReadOnlyTool]
         public static string Exists(
-            [ToolParam("Path to check")] string path)
+            [ToolParam("Path to check, inside the project; a path outside it is reported as not existing")] string path)
         {
-            var fullPath = PathSafety.ResolveProjectPath(path);
+            string fullPath;
+            try { fullPath = PathSafety.ResolveProjectPath(path); }
+            catch (System.ArgumentException) { return "Does not exist (outside the project)"; }
+
             bool fileExists = File.Exists(fullPath);
             bool dirExists = Directory.Exists(fullPath);
             return fileExists ? "File exists" :

@@ -1,9 +1,12 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
 using KitWright.Editor.Tools.Helpers;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -142,6 +145,125 @@ namespace KitWright.Editor.Tests
 
         //  Edge cases: GetHierarchy boundary conditions
 
+        // max_nodes without a resume handle means an agent that hits the cap can only re-ask for
+        // a bigger page, paying again for everything it already read. These pin that the cap hands
+        // back a place to continue from, and that continuing loses nothing. The fixture is nested
+        // on purpose: over a flat scene every paging bug still reassembles correctly.
+        [Test]
+        public void GetHierarchy_PagesJoinIntoTheSameTreeAsOneWholeRead()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject root = null;
+
+            try
+            {
+                root = BuildNestedFixture(suffix);
+                var rootName = root.name;
+
+                var whole = ObjectLines(HierarchyFunctions.GetHierarchy(rootName, depth: 10, max_nodes: 5000));
+                Assert.AreEqual(7, whole.Count, "fixture shape changed; the paging arithmetic below assumes seven nodes");
+
+                var paged = new List<string>();
+                var cursor = 0;
+                for (var guard = 0; guard < 50; guard++)
+                {
+                    var page = HierarchyFunctions.GetHierarchy(rootName, depth: 10, max_nodes: 1, cursor: cursor);
+                    paged.AddRange(ObjectLines(page));
+
+                    var marker = page.IndexOf("next_cursor=", StringComparison.Ordinal);
+                    if (marker < 0)
+                        break;
+
+                    cursor = int.Parse(page.Substring(marker + "next_cursor=".Length).Trim());
+                }
+
+                CollectionAssert.AreEqual(whole, paged,
+                    "one object per page must reassemble into the same walk, in the same order");
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void GetHierarchy_TruncatedPageReportsAResumeCursorAndAPageStartingMidTreeNamesItsParent()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject root = null;
+
+            try
+            {
+                root = BuildNestedFixture(suffix);
+
+                var first = HierarchyFunctions.GetHierarchy(root.name, depth: 10, max_nodes: 1);
+                StringAssert.Contains("truncated at max_nodes=1", first);
+                StringAssert.Contains("next_cursor=1", first);
+
+                // Node 1 is the first child, so this page opens one level in.
+                var second = HierarchyFunctions.GetHierarchy(root.name, depth: 10, max_nodes: 1, cursor: 1);
+                StringAssert.Contains("resuming under", second);
+                StringAssert.Contains(root.name, second);
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void GetHierarchy_CursorPastTheEndSaysSoInsteadOfReturningAnEmptyTree()
+        {
+            StringAssert.Contains("is past the end", HierarchyFunctions.GetHierarchy(cursor: 100000));
+        }
+
+        // Two levels below the root, so a walk that fails to descend while fast-forwarding lands
+        // on different nodes than the walk that printed them.
+        private static GameObject BuildNestedFixture(string suffix)
+        {
+            var root = new GameObject("PageRoot_" + suffix);
+            var a = new GameObject("A");
+            var b = new GameObject("B");
+            var c = new GameObject("C");
+            a.transform.SetParent(root.transform);
+            b.transform.SetParent(root.transform);
+            c.transform.SetParent(root.transform);
+
+            var a1 = new GameObject("A1");
+            var a2 = new GameObject("A2");
+            a1.transform.SetParent(a.transform);
+            a2.transform.SetParent(a.transform);
+
+            var b1 = new GameObject("B1");
+            b1.transform.SetParent(b.transform);
+            return root;
+        }
+
+        // The scene header and the resume note are scaffolding, not objects; comparing pages
+        // against a whole read only means anything if both sides drop them.
+        private static List<string> ObjectLines(string hierarchy)
+        {
+            var kept = new List<string>();
+            foreach (var raw in hierarchy.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("Scene:", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("(resuming under", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("...", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("cursor=", StringComparison.Ordinal)) continue;
+                kept.Add(line);
+            }
+            return kept;
+        }
+
         [Test]
         public void GetHierarchy_DepthZero_ClampedToOneStillReturnsHierarchy()
         {
@@ -219,6 +341,54 @@ namespace KitWright.Editor.Tests
                 Assert.AreEqual(1, ObjectsHelper.EditDistance("abc", "abd"));
                 Assert.AreEqual(2, ObjectsHelper.EditDistance("abc", "acb"));
                 Assert.AreEqual(3, ObjectsHelper.EditDistance("", "abc"));
+            }
+            finally
+            {
+                if (target != null) UnityEngine.Object.DestroyImmediate(target);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void ResolveById_ReportsTheResolvedIdentityAndRefusesOutOfRangeIds()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject target = null;
+
+            try
+            {
+                target = new GameObject("IdOccupant_" + suffix);
+                var collider = target.AddComponent<BoxCollider>();
+                var goId = ObjectIdCodec.GetSerializableId(target);
+                var componentId = ObjectIdCodec.GetSerializableId(collider);
+
+                // A resolve that succeeds names what it resolved, so acting on the wrong object is
+                // visible in the response rather than silent.
+                Assert.AreSame(target, ObjectsHelper.FindObject(goId, ObjectsHelper.MethodById));
+                Assert.That(HierarchyFunctions.GetHierarchy(root_name: goId, depth: 1, include_components: false),
+                    Does.Contain(target.name));
+
+                // The id is live but is not the GameObject asked for: report the current occupant
+                // instead of a bare not-found, which is what makes a reassigned id diagnosable.
+                var byComponentId = HierarchyFunctions.GetHierarchy(root_name: componentId);
+                StringAssert.Contains("GAME_OBJECT_NOT_FOUND", byComponentId);
+                StringAssert.Contains("BoxCollider", byComponentId);
+                StringAssert.Contains(target.name, byComponentId);
+
+#if !UNITY_6000_3_OR_NEWER
+                // Only the int-based id path can truncate: a 64-bit id (YAML fileID, or one cached
+                // from another Unity version) must not narrow onto a live object. EntityId is 64-bit,
+                // so on 6000.3+ this value is a legitimately unrelated id and asserting it resolves
+                // to nothing would only be asserting that Unity has not handed it out yet.
+                var truncating = ((long)target.GetInstanceID() + 4294967296L)
+                    .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Assert.IsNull(ObjectIdCodec.ToObject(truncating),
+                    "An out-of-range id must not resolve to whatever its low 32 bits point at.");
+                Assert.IsNull(ObjectsHelper.FindObject(truncating, ObjectsHelper.MethodById));
+#endif
             }
             finally
             {
@@ -423,6 +593,83 @@ namespace KitWright.Editor.Tests
             finally
             {
                 if (parent != null) UnityEngine.Object.DestroyImmediate(parent);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void SingleTargetResolve_TwoObjectsShareAName_ErrorsInsteadOfPickingOne()
+        {
+            var name = "__KitWrightAmbiguous_" + Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject first = null;
+            GameObject second = null;
+
+            try
+            {
+                first = new GameObject(name);
+                second = new GameObject(name);
+
+                Assert.AreEqual(2, ObjectsHelper.FindObjects(name, findAll: true).Count,
+                    "Both objects must be in the search pool for the ambiguity to be real.");
+
+                var ambiguous = Assert.Throws<AmbiguousTargetException>(
+                    () => ObjectsHelper.FindObject(name));
+                Assert.AreEqual(2, ambiguous.Candidates.Count,
+                    "The error must name every candidate so the caller can re-target by id.");
+
+                var deleted = new FunctionInvoker().Invoke(new FunctionCall
+                {
+                    FunctionName = "delete_game_object",
+                    Parameters = new Dictionary<string, string> { ["target"] = name }
+                });
+
+                StringAssert.Contains("\"code\":\"AMBIGUOUS_TARGET\"", deleted);
+                Assert.IsFalse(first == null, "Neither match may be destroyed on an ambiguous delete.");
+                Assert.IsFalse(second == null, "Neither match may be destroyed on an ambiguous delete.");
+            }
+            finally
+            {
+                if (first != null) UnityEngine.Object.DestroyImmediate(first);
+                if (second != null) UnityEngine.Object.DestroyImmediate(second);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void FindGameObjects_MaxCap_ReportsThePreCapTotalAndTheShownCount()
+        {
+            var name = "__KitWrightCapped_" + Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject first = null;
+            GameObject second = null;
+
+            try
+            {
+                first = new GameObject(name);
+                second = new GameObject(name);
+
+                var page1 = JObject.FromObject(GameObjectFunctions.FindGameObjects(name, max: "1"));
+                var page2 = JObject.FromObject(GameObjectFunctions.FindGameObjects(name, max: "1", cursor: 1));
+
+                StringAssert.Contains("Found 2 object(s).", page1.Value<string>("message"));
+                StringAssert.Contains("Showing 1-1 of 2; pass cursor=1", page1.Value<string>("message"));
+                StringAssert.Contains("Showing 2-2 of 2; end of the list.", page2.Value<string>("message"));
+                Assert.That(page2.Value<string>("message"), Does.Not.Contain("pass cursor="));
+
+                Assert.AreNotEqual(
+                    page1["data"][0]["instanceId"].ToString(),
+                    page2["data"][0]["instanceId"].ToString(),
+                    "Page two returned the object from page one, so the cursor was ignored.");
+            }
+            finally
+            {
+                if (first != null) UnityEngine.Object.DestroyImmediate(first);
+                if (second != null) UnityEngine.Object.DestroyImmediate(second);
                 if (!wasDirty && scene.IsValid())
                     ClearSceneDirtiness(scene);
             }

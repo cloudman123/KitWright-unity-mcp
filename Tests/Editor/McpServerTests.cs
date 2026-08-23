@@ -1,13 +1,14 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using KitWright.Editor.MCP.Server;
-using KitWright.Editor.MCP.Server.Security;
+using KitWright.Editor.Settings;
+using KitWright.Editor.State;
+using KitWright.Editor.Threading;
+using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 
@@ -20,84 +21,50 @@ namespace KitWright.Editor.Tests
         [SetUp]
         public void SetUp()
         {
-            _tempRoot = Path.Combine(Path.GetTempPath(), "kitwright-approval-" + Guid.NewGuid().ToString("N"));
-            ClientApprovalStore.RootOverride = _tempRoot;
+            _tempRoot = Path.Combine(Path.GetTempPath(), "kitwright-mcpserver-" + Guid.NewGuid().ToString("N"));
         }
 
         [TearDown]
         public void TearDown()
         {
-            ClientApprovalStore.RootOverride = null;
-            ClientApprovalGate.RequireApprovalOverride = null;
-            ClientApprovalGate.ResolverOverride = null;
             if (Directory.Exists(_tempRoot))
                 Directory.Delete(_tempRoot, recursive: true);
         }
 
         [Test]
-        public void Store_ApproveThenIsApproved_RoundTrips()
+        public void NegotiateProtocolVersion_EchoesSupportedRequestElseServerLatest()
         {
-            Assert.IsFalse(ClientApprovalStore.IsApproved(@"C:\clients\claude.exe"));
-
-            ClientApprovalStore.Approve(@"C:\clients\claude.exe");
-
-            Assert.IsTrue(ClientApprovalStore.IsApproved(@"C:\clients\claude.exe"));
-            Assert.IsTrue(ClientApprovalStore.IsApproved(@"c:\CLIENTS\CLAUDE.EXE"), "paths compare case-insensitively");
+            Assert.AreEqual("2025-06-18", MCPRequestHandler.ProtocolVersion);
+            Assert.AreEqual("2024-11-05", MCPRequestHandler.NegotiateProtocolVersion("2024-11-05"));
+            Assert.AreEqual("2025-03-26", MCPRequestHandler.NegotiateProtocolVersion("2025-03-26"));
+            Assert.AreEqual("2025-06-18", MCPRequestHandler.NegotiateProtocolVersion(null));
+            Assert.AreEqual("2025-06-18", MCPRequestHandler.NegotiateProtocolVersion("1999-01-01"));
         }
 
         [Test]
-        public void Store_NullOrEmptyIdentity_NeverApproved()
+        public async Task Ping_IsAnsweredWithAnEmptyResult()
         {
-            ClientApprovalStore.Approve(null);
-            ClientApprovalStore.Approve("");
+            var settings = new SettingsController(_tempRoot);
+            using (var threadHelper = new EditorThreadHelper())
+            using (var resourceProvider = new MCPResourceProvider(null, null))
+            {
+                var handler = new MCPRequestHandler(
+                    new MCPToolExporter(settings),
+                    new MCPExecutionBridge(threadHelper, settings, new StateController(), new FunctionInvoker(), null),
+                    resourceProvider,
+                    new MCPPromptProvider("Test", _tempRoot),
+                    "KitWright MCP Server",
+                    "0.0.0",
+                    "pin");
 
-            Assert.IsFalse(ClientApprovalStore.IsApproved(null));
-            Assert.IsFalse(ClientApprovalStore.IsApproved(""));
-        }
+                var response = await handler.HandleRequestAsync(
+                    new MCPRequest { JsonRpc = "2.0", Id = 7, Method = "ping" }, CancellationToken.None);
 
-        [Test]
-        public void Resolver_DecodePort_SwapsNetworkByteOrder()
-        {
-            // 8765 = 0x223D -> stored as 0x3D22 in the low word.
-            Assert.AreEqual(8765, TcpClientProcessResolver.DecodePort(0x3D22));
-            Assert.AreEqual(80, TcpClientProcessResolver.DecodePort(0x5000));
-        }
-
-        [Test]
-        public async Task Gate_ApprovalDisabled_Allows()
-        {
-            ClientApprovalGate.RequireApprovalOverride = () => false;
-
-            using (var pair = await LoopbackPair.CreateAsync())
-                Assert.IsTrue(await ClientApprovalGate.AuthorizeAsync(pair.ServerSide, pair.ServerPort));
-        }
-
-        [Test]
-        public async Task Gate_OwnEditorProcess_AllowsWithoutPrompt()
-        {
-            ClientApprovalGate.RequireApprovalOverride = () => true;
-            ClientApprovalGate.ResolverOverride = (clientPort, serverPort) =>
-                new TcpClientProcessResolver.ClientProcessInfo { Pid = Process.GetCurrentProcess().Id };
-
-            using (var pair = await LoopbackPair.CreateAsync())
-                Assert.IsTrue(await ClientApprovalGate.AuthorizeAsync(pair.ServerSide, pair.ServerPort));
-        }
-
-        [Test]
-        public async Task Gate_PreviouslyApprovedExecutable_AllowsWithoutPrompt()
-        {
-            ClientApprovalGate.RequireApprovalOverride = () => true;
-            ClientApprovalGate.ResolverOverride = (clientPort, serverPort) =>
-                new TcpClientProcessResolver.ClientProcessInfo
-                {
-                    Pid = 99999,
-                    ExecutablePath = @"C:\clients\approved.exe",
-                    ProcessName = "approved"
-                };
-            ClientApprovalStore.Approve(@"C:\clients\approved.exe");
-
-            using (var pair = await LoopbackPair.CreateAsync())
-                Assert.IsTrue(await ClientApprovalGate.AuthorizeAsync(pair.ServerSide, pair.ServerPort));
+                Assert.IsNotNull(response, "ping must be answered");
+                Assert.IsNull(response.Error, "ping must not come back as an error");
+                Assert.IsNotNull(response.Result);
+                Assert.AreEqual(7, response.Id);
+            }
         }
 
         [Test]
@@ -159,33 +126,5 @@ namespace KitWright.Editor.Tests
             Assert.IsTrue(result);
         }
 
-        private sealed class LoopbackPair : IDisposable
-        {
-            public TcpClient ServerSide;
-            public TcpClient ClientSide;
-            public int ServerPort;
-            private TcpListener _listener;
-
-            public static async Task<LoopbackPair> CreateAsync()
-            {
-                var pair = new LoopbackPair();
-                pair._listener = new TcpListener(IPAddress.Loopback, 0);
-                pair._listener.Start();
-                pair.ServerPort = ((IPEndPoint)pair._listener.LocalEndpoint).Port;
-
-                var acceptTask = pair._listener.AcceptTcpClientAsync();
-                pair.ClientSide = new TcpClient();
-                await pair.ClientSide.ConnectAsync(IPAddress.Loopback, pair.ServerPort);
-                pair.ServerSide = await acceptTask;
-                return pair;
-            }
-
-            public void Dispose()
-            {
-                ServerSide?.Dispose();
-                ClientSide?.Dispose();
-                _listener?.Stop();
-            }
-        }
     }
 }

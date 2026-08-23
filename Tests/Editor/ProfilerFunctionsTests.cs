@@ -102,5 +102,43 @@ namespace KitWright.Editor.Tests
                 }
             }
         }
+
+        [Test]
+        public void GetTopMemoryObjects_CursorContinuesTheRankingInsteadOfRestartingIt()
+        {
+            var textures = new[] { new Texture2D(4, 4), new Texture2D(8, 8), new Texture2D(16, 16) };
+            try
+            {
+                // Compared against one whole read: two editor textures can share a name and size.
+                var whole = RankedLines(ProfilerFunctions.GetTopMemoryObjects(type_name: "Texture2D", top_n: 3));
+                Assert.AreEqual(3, whole.Count, "Three textures were just allocated, so three can be ranked.");
+
+                for (var cursor = 0; cursor < 3; cursor++)
+                {
+                    var page = ProfilerFunctions.GetTopMemoryObjects(
+                        type_name: "Texture2D", top_n: 1, cursor: cursor);
+                    var lines = RankedLines(page);
+
+                    Assert.AreEqual(1, lines.Count, page);
+                    Assert.AreEqual(whole[cursor], lines[0],
+                        $"cursor={cursor} did not land on rank {cursor} of the whole read.");
+                    StringAssert.Contains($"Showing {cursor + 1}-{cursor + 1} of", page);
+                }
+            }
+            finally
+            {
+                foreach (var texture in textures)
+                    UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
+        // Rank prefix stripped: it is derived from the cursor separately from the slicing, so
+        // leaving it in would let a page of the wrong objects still compare equal.
+        private static System.Collections.Generic.List<string> RankedLines(string response) =>
+            response.Split('\n')
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("[") && line.Contains("] "))
+                .Select(line => line.Substring(line.IndexOf("] ", StringComparison.Ordinal) + 2))
+                .ToList();
     }
 }

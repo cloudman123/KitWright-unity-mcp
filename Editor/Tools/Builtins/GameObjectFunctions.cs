@@ -220,7 +220,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
-                return Response.Error("COMPONENT_TYPE_NOT_FOUND", new { component_type });
+                return TypeResolver.UnresolvedError(component_type, "COMPONENT_TYPE_NOT_FOUND", "component_type");
 
             var comp = Undo.AddComponent(go, type);
             if (comp == null)
@@ -245,7 +245,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
-                return Response.Error("COMPONENT_TYPE_NOT_FOUND", new { component_type });
+                return TypeResolver.UnresolvedError(component_type, "COMPONENT_TYPE_NOT_FOUND", "component_type");
 
             if (type == typeof(Transform))
                 return Response.Error("CANNOT_REMOVE_TRANSFORM", new { target = go.name });
@@ -277,7 +277,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var type = TypeResolver.ResolveComponent(component_type);
             if (type == null)
-                return Response.Error("COMPONENT_TYPE_NOT_FOUND", new { component_type });
+                return TypeResolver.UnresolvedError(component_type, "COMPONENT_TYPE_NOT_FOUND", "component_type");
 
             var matches = go.GetComponents(type);
             if (matches == null || matches.Length == 0)
@@ -349,14 +349,16 @@ namespace KitWright.Editor.Tools.Builtins
                 new { instanceId = ObjectIdCodec.GetSerializableId(go), activeSelf = go.activeSelf });
         }
 
-        [Description("Find GameObjects by id/name/path/tag/layer/component. Returns full structured results so the agent can chain by_id calls.")]
+        [Description("Find GameObjects by id/name/path/tag/layer/component. Returns full structured results so the agent can chain by_id calls. " +
+                     "A page cut short by max reports a next_cursor; pass it back as cursor for the rest instead of raising max and re-reading page one.")]
         [ReadOnlyTool]
         public static object FindGameObjects(
             [ToolParam("Search query (id, name, path, tag name, layer name/index, or component type)")] string query,
             [ToolParam("Search method (by_id/by_name/by_path/by_tag/by_layer/by_component)", Required = false)] string find_method = null,
             [ToolParam("Include inactive objects", Required = false)] string include_inactive = null,
             [ToolParam("Limit results to children of this GameObject identifier (used with find_method=by_*)", Required = false)] string in_parent = null,
-            [ToolParam("Maximum results to return (default 50)", Required = false)] string max = "50")
+            [ToolParam("Maximum results to return (default 50)", Required = false)] string max = "50",
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             bool inactive = include_inactive == "true" || include_inactive == "1";
             GameObject root = null;
@@ -372,10 +374,14 @@ namespace KitWright.Editor.Tools.Builtins
 
             int.TryParse(max, out var cap);
             if (cap <= 0) cap = 50;
-            if (matches.Count > cap)
-                matches = matches.GetRange(0, cap);
+            var total = matches.Count;
+            var page = Paging.Page(matches, cursor, cap);
+            var nextCursor = Paging.Next(cursor, page.Count, total);
 
-            return Response.Success($"Found {matches.Count} object(s).", GameObjectSerializer.DescribeMany(matches));
+            var message = $"Found {total} object(s).{Paging.Suffix(cursor, page.Count, total)}";
+            // data stays a bare array, so the cursor rides in hint rather than reshaping it.
+            return Response.Success(message, GameObjectSerializer.DescribeMany(page),
+                nextCursor > 0 ? $"next_cursor={nextCursor}" : null);
         }
 
         [Description("Get full info on a GameObject: transform, components (with instance ids), active state, tag, layer.")]

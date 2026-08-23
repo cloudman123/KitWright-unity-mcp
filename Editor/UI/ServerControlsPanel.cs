@@ -345,17 +345,17 @@ namespace KitWright.Editor.MCP.Server
             if (!_settings.MCPBrokerModeEnabled)
             {
                 // The port field shows the configured port; a start that had to fall forward
-                // binds a different one, and the client must be pointed at the bound port.
+                // binds a different one, and the client must be pointed at the bound port. Why it
+                // moved is the Connection row's line -- naming it here too said it twice.
                 _brokerStatus.text = _server != null && _server.IsRunning && _server.Port != _settings.MCPServerPort
-                    ? "Transport: Direct HTTP on port " + _server.Port + " (configured port was in use)."
+                    ? "Transport: Direct HTTP on port " + _server.Port + "."
                     : "Transport: Direct HTTP.";
                 return;
             }
 
             if (MCPBrokerProcessManager.IsRunning(out var pid, out var port))
             {
-                _brokerStatus.text = "Transport: Broker running (pid " + pid + ", port " + port + ")." +
-                    (port != _settings.MCPServerPort ? " Configured port was in use." : string.Empty);
+                _brokerStatus.text = "Transport: Broker running (pid " + pid + ", port " + port + ").";
                 return;
             }
 

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using KitWright.Editor.Tools.Helpers;
 using UnityEngine;
 
 namespace KitWright.Editor.Services.UnityLogs
@@ -38,7 +39,7 @@ namespace KitWright.Editor.Services.UnityLogs
 
         public string GetRecentLogs(string logType = "all", int count = 30, int sinceSeconds = 0,
             string filterText = null, bool groupDuplicates = false, bool includeStackTrace = false,
-            bool includeTimestamps = false)
+            bool includeTimestamps = false, int cursor = 0)
         {
             count = Mathf.Clamp(count, 1, 200);
             var filter = (logType ?? "all").ToLowerInvariant();
@@ -53,10 +54,12 @@ namespace KitWright.Editor.Services.UnityLogs
             if (snapshot.Count == 0)
                 return null;
 
+            // Every match, not just the first page: the cache is capped at MaxLogs, so collecting
+            // the lot is what makes a total (and therefore a cursor) reportable at all.
             var lines = new List<string>();
             var stamps = includeTimestamps ? new List<string>() : null;
 
-            for (int i = snapshot.Count - 1; i >= 0 && lines.Count < count; i--)
+            for (int i = snapshot.Count - 1; i >= 0; i--)
             {
                 var entry = snapshot[i];
                 if (cutoff.HasValue && entry.Timestamp < cutoff.Value)
@@ -65,32 +68,44 @@ namespace KitWright.Editor.Services.UnityLogs
                 if (!MatchesFilter(entry.Type, filter))
                     continue;
 
-                var firstLine = StripRichText(FirstLine(entry.Message));
-                if (!MatchesTextFilter(firstLine, filterText))
+                // The whole body, not just its first line: the trace is a separate field here, so
+                // dropping lines would lose message text no flag can bring back.
+                var body = StripRichText(entry.Message);
+                if (!MatchesTextFilter(body, filterText))
                     continue;
 
                 var stackSuffix = includeStackTrace ? FormatStackTrace(entry.StackTrace) : string.Empty;
-                lines.Add($"[{ToLabel(entry.Type)}] {TruncateLine(firstLine)}{stackSuffix}");
+                lines.Add($"[{ToLabel(entry.Type)}] {TruncateLine(body)}{stackSuffix}");
                 stamps?.Add(entry.Timestamp.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " ");
             }
 
+            // null, not a sentence: a non-empty string reads as an answer, and source "auto" returns
+            // the first non-empty result. Wording it here meant that as soon as one log was cached,
+            // a filter matching nothing in the cache ended the call instead of falling through to
+            // the console - which still held the matches. Both callers phrase the empty case
+            // themselves.
             if (lines.Count == 0)
-            {
-                if (sinceSeconds > 0)
-                    return $"No {filter} entries found in cached logs from the last {sinceSeconds} second(s)";
+                return null;
 
-                return $"No {filter} entries found in cached logs";
-            }
+            var total = lines.Count;
+            var pagedLines = Paging.Page(lines, cursor, count);
+            var pagedStamps = stamps == null ? null : Paging.Page(stamps, cursor, count);
+            // An answer, not null: the cache did hold entries, so falling through to the console
+            // reader here would silently hand back its page one under a cursor that asked for more.
+            if (pagedLines.Count == 0)
+                return $"Console logs (filter: {filter}, source: cache):{Paging.Suffix(cursor, 0, total)}";
 
             var sb = new StringBuilder();
-            var uniqueCount = AppendLines(sb, lines, groupDuplicates, stamps);
+            var uniqueCount = AppendLines(sb, pagedLines, groupDuplicates, pagedStamps);
 
             var timeSuffix = sinceSeconds > 0 ? $", last {sinceSeconds}s" : string.Empty;
             var textSuffix = string.IsNullOrEmpty(filterText) ? string.Empty : $", text: '{filterText}'";
-            var groupSuffix = groupDuplicates && uniqueCount < lines.Count
+            var groupSuffix = groupDuplicates && uniqueCount < pagedLines.Count
                 ? $", {uniqueCount} unique"
                 : string.Empty;
-            return $"Console logs ({lines.Count} entries{groupSuffix}, filter: {filter}, source: cache{timeSuffix}{textSuffix}):\n{sb}";
+            var pageSuffix = Paging.Suffix(cursor, pagedLines.Count, total);
+            return $"Console logs ({pagedLines.Count} entries{groupSuffix}, filter: {filter}, source: cache{timeSuffix}{textSuffix}):" +
+                   $"{pageSuffix}\n{sb}";
         }
 
         // Whitelisted tag names only, so a log containing List<int> or XML survives.
@@ -103,6 +118,35 @@ namespace KitWright.Editor.Services.UnityLogs
             if (string.IsNullOrEmpty(line) || line.IndexOf('<') < 0)
                 return line;
             return RichTextTag.Replace(line, string.Empty);
+        }
+
+        // Some sources (UnityEditor.LogEntries) hand back "message\nstackTrace" as one blob, and the
+        // message body itself can span several lines. Split at the first line that looks like a stack
+        // frame; with none found the whole blob stays the body.
+        // Heuristic adapted from CoplayDev/unity-mcp, MCPForUnity/Editor/Tools/ReadConsole.cs (MIT).
+        internal static void SplitMessageAndStackTrace(string blob, out string body, out string stackTrace)
+        {
+            body = blob;
+            stackTrace = null;
+            if (string.IsNullOrEmpty(blob))
+                return;
+
+            var lines = blob.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            for (int i = 1; i < lines.Length; i++)
+            {
+                var trimmed = lines[i].TrimStart();
+                if (!trimmed.StartsWith("at ", StringComparison.Ordinal) &&
+                    !trimmed.StartsWith("UnityEngine.", StringComparison.Ordinal) &&
+                    !trimmed.StartsWith("UnityEditor.", StringComparison.Ordinal) &&
+                    trimmed.IndexOf("(at ", StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                body = string.Join("\n", lines, 0, i);
+                stackTrace = string.Join("\n", lines, i, lines.Length - i);
+                return;
+            }
         }
 
         internal static bool MatchesTextFilter(string line, string filterText)
@@ -226,7 +270,10 @@ namespace KitWright.Editor.Services.UnityLogs
                     _logs.RemoveAt(0);
             }
 
-            _ = MCP.Server.SSE.SSESessionManager.Instance.BroadcastLogNotificationAsync(type, message, stackTrace);
+            // Every Unity log lands here, so don't even allocate the async state machine when
+            // no SSE session could receive the notification.
+            if (MCP.Server.SSE.SSESessionManager.Instance.HasLogSubscribers)
+                _ = MCP.Server.SSE.SSESessionManager.Instance.BroadcastLogNotificationAsync(type, message, stackTrace);
         }
 
         private static bool MatchesFilter(LogType type, string filter)
@@ -257,11 +304,6 @@ namespace KitWright.Editor.Services.UnityLogs
                 default:
                     return "LOG";
             }
-        }
-
-        private static string FirstLine(string message)
-        {
-            return string.IsNullOrEmpty(message) ? string.Empty : message.Split('\n')[0];
         }
 
         public void Dispose()

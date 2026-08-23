@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System.Linq;
 using KitWright.Editor.Services.UnityLogs;
 using NUnit.Framework;
 using UnityEngine;
@@ -8,6 +9,57 @@ namespace KitWright.Editor.Tests
 {
     public sealed class UnityLogsRepositoryTests
     {
+        // A non-empty "nothing matched" sentence made source "auto" stop at the cache, so the
+        // console fallback was dead as soon as one log was cached.
+        [Test]
+        public void GetRecentLogs_ReturnsNullWhenTheCacheHoldsNoMatch()
+        {
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log("KitWrightNoMatchProbe_" + System.Guid.NewGuid().ToString("N"));
+
+                Assert.IsNull(repository.GetRecentLogs(
+                    logType: null,
+                    count: 10,
+                    sinceSeconds: 0,
+                    filterText: "NoSuchTextAnywhere_" + System.Guid.NewGuid().ToString("N"),
+                    groupDuplicates: false));
+            }
+        }
+
+        // The repository drops the plugin's own chatter by prefix. log_message used to borrow that
+        // prefix, so a line an agent asked the editor to log could never be read back.
+        [Test]
+        public void GetRecentLogs_KeepsAgentLoggedLinesAndStillDropsPluginChatter()
+        {
+            var token = "KitWrightPrefix_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log("[MCP] " + token + " kept");
+                Debug.Log("[KitWright] " + token + " chatter");
+                Debug.Log("[KitWright MCP Server] " + token + " chatter");
+
+                var logs = repository.GetRecentLogs(
+                    logType: null,
+                    count: 20,
+                    sinceSeconds: 0,
+                    filterText: token,
+                    groupDuplicates: false);
+
+                Assert.That(logs, Does.Contain("[MCP] " + token + " kept"),
+                    "what log_message writes has to be readable through get_console_logs");
+                Assert.That(logs, Does.Not.Contain("[KitWright] " + token));
+                Assert.That(logs, Does.Not.Contain("[KitWright MCP Server] " + token));
+            }
+        }
+
         [Test]
         public void GetRecentLogs_FiltersGroupsAndTruncatesCachedEntries()
         {
@@ -76,6 +128,69 @@ namespace KitWright.Editor.Tests
 
                 var logs = repository.GetRecentLogs(logType: "log", count: 10, filterText: token);
                 Assert.That(logs, Does.Contain(token));
+            }
+        }
+
+        [Test]
+        public void GetRecentLogs_KeepsMultiLineBodyAndMatchesFilterBelowTheFirstLine()
+        {
+            var token = "KitWrightMultiLine_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " header\nsecond line " + token + "-below");
+
+                var result = repository.GetRecentLogs(
+                    logType: "log",
+                    count: 10,
+                    sinceSeconds: 0,
+                    filterText: token + "-below");
+
+                Assert.That(result, Does.Contain(token + " header"));
+                Assert.That(result, Does.Contain("second line " + token + "-below"));
+            }
+        }
+
+        [Test]
+        public void SplitMessageAndStackTrace_SplitsAtTheFirstStackFrameAndKeepsMultiLineBodies()
+        {
+            UnityLogsRepository.SplitMessageAndStackTrace(
+                "Gradle build failed:\n> Task :app:compile FAILED\nUnityEngine.Debug:LogError (object)",
+                out var body, out var stack);
+
+            Assert.AreEqual("Gradle build failed:\n> Task :app:compile FAILED", body);
+            Assert.AreEqual("UnityEngine.Debug:LogError (object)", stack);
+
+            UnityLogsRepository.SplitMessageAndStackTrace("first\nsecond", out body, out stack);
+            Assert.AreEqual("first\nsecond", body);
+            Assert.IsNull(stack);
+
+            UnityLogsRepository.SplitMessageAndStackTrace(
+                "boom\n  at Foo.Bar () (at Assets/Foo.cs:12)", out body, out stack);
+            Assert.AreEqual("boom", body);
+            Assert.That(stack, Does.Contain("Assets/Foo.cs:12"));
+        }
+
+        [Test]
+        public void LogNotificationGuard_FollowsWhetherASubscriberIsAttached()
+        {
+            var sessions = MCP.Server.SSE.SSESessionManager.Instance;
+            sessions.ResetForTests();
+
+            try
+            {
+                Assert.IsFalse(sessions.HasLogSubscribers,
+                    "A log with no SSE session attached must not build a notification.");
+
+                sessions.SetLoggingLevel(null, "info");
+                Assert.IsTrue(sessions.HasLogSubscribers, "The guard must not mute a real subscriber.");
+            }
+            finally
+            {
+                sessions.ResetForTests();
             }
         }
 
@@ -161,6 +276,95 @@ namespace KitWright.Editor.Tests
             var truncated = UnityLogsRepository.FormatStackTrace(longTrace);
             Assert.That(truncated, Does.StartWith("\n    " + new string('s', 2000)));
             Assert.That(truncated, Does.EndWith("... (+105 chars)"));
+        }
+
+        [Test]
+        public void MissingConsoleLevelBits_ReportsTheLevelsTheConsoleWindowIsHiding()
+        {
+            // 7682 = a reported consoleFlags value: LogLevelError (1<<9) on, Log (1<<7) and Warning (1<<8) off.
+            Assert.AreEqual(new[] { 1 << 7, 1 << 8 }, Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682));
+            Assert.IsEmpty(Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682 | (1 << 7) | (1 << 8)));
+        }
+
+        // The cache is read newest-first, so the cursor walks backwards in time.
+        [Test]
+        public void GetRecentLogs_CursorWalksOlderEntriesWithoutRepeatingThePageBefore()
+        {
+            var token = "KitWrightConsolePaging_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " oldest");
+                Debug.Log(token + " middle");
+                Debug.Log(token + " newest");
+
+                var first = repository.GetRecentLogs(logType: "log", count: 1, filterText: token);
+                Assert.That(first, Does.Contain("newest"));
+                Assert.That(first, Does.Contain("Showing 1-1 of 3; pass cursor=1"));
+
+                var second = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 1);
+                Assert.That(second, Does.Contain("middle"));
+                Assert.That(second, Does.Not.Contain("newest"));
+                Assert.That(second, Does.Contain("pass cursor=2"));
+
+                var last = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 2);
+                Assert.That(last, Does.Contain("oldest"));
+                Assert.That(last, Does.Contain("end of the list"));
+
+                // Not null: null falls through to the Editor console and its own page one.
+                var past = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 9);
+                Assert.That(past, Does.Contain("cursor=9 is past the end"));
+            }
+        }
+
+        // Timestamps ride in a list parallel to the lines.
+        [Test]
+        public void GetRecentLogs_CursorKeepsTimestampsLinedUpWithTheirEntries()
+        {
+            var token = "KitWrightConsoleStampPaging_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " older");
+                Debug.Log(token + " newer");
+
+                var page = repository.GetRecentLogs(
+                    logType: "log", count: 1, filterText: token, includeTimestamps: true, cursor: 1);
+
+                var line = page.Split('\n').Single(l => l.Contains("[LOG] " + token));
+                StringAssert.IsMatch(@"^\d\d:\d\d:\d\d \[LOG\] " + token + " older", line.Trim());
+            }
+        }
+
+        // A separate hop from the repository the two tests above drive directly.
+        [Test]
+        public void GetConsoleLogs_PassesTheCursorThroughToTheCache()
+        {
+            var token = "KitWrightConsoleToolPaging_" + System.Guid.NewGuid().ToString("N");
+            var repository = KitWright.Editor.DI.RootScopeServices.Services?.GetService(
+                typeof(UnityLogsRepository)) as UnityLogsRepository;
+            if (repository == null)
+                Assert.Ignore("The tool reads the repository off the root scope, which is not up here.");
+
+            repository.StartListening();
+            Debug.Log(token + " older");
+            Debug.Log(token + " newer");
+
+            var first = Tools.Builtins.VisualFeedbackFunctions.GetConsoleLogs(
+                log_type: "log", count: 1, source: "cache", filter_text: token);
+            Assert.That(first, Does.Contain("newer"));
+
+            var second = Tools.Builtins.VisualFeedbackFunctions.GetConsoleLogs(
+                log_type: "log", count: 1, source: "cache", filter_text: token, cursor: 1);
+            Assert.That(second, Does.Contain("older"));
+            Assert.That(second, Does.Not.Contain("newer"),
+                "The tool ignored cursor and handed back the newest entry again.");
         }
     }
 }

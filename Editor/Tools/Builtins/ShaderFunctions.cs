@@ -90,9 +90,9 @@ namespace KitWright.Editor.Tools.Builtins
             }
         }
 
-        [Description("Delete a .shader file from the project.")]
+        [Description("Delete a .shader file by moving it to the OS trash (Recycle Bin). Not an Editor undo step, but the file can be restored by hand from the trash.")]
         public static object DeleteShader(
-            [ToolParam("Shader file name without extension")] string name,
+            [ToolParam("Shader file name without extension. The file is moved to the OS trash, so it can be recovered by hand.")] string name,
             [ToolParam("Folder under Assets/ the file lives in (default 'Shaders')", Required = false)] string path = "Shaders")
         {
             var (fullPath, relativePath) = ResolvePaths(name, path);
@@ -101,11 +101,19 @@ namespace KitWright.Editor.Tools.Builtins
 
             try
             {
-                if (!AssetDatabase.DeleteAsset(relativePath))
+                if (!AssetDatabase.MoveAssetToTrash(relativePath))
                 {
-                    if (File.Exists(fullPath)) File.Delete(fullPath);
+                    // A .shader written outside the Editor has no AssetDatabase entry to move until it is imported.
+                    AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                    if (!AssetDatabase.MoveAssetToTrash(relativePath))
+                        return Response.Error("DELETE_FAILED", new
+                        {
+                            path = relativePath,
+                            message = "the file exists on disk but is not in the AssetDatabase, so it cannot be moved to the trash",
+                            hint = "import it first (AssetDatabase.ImportAsset / Assets > Refresh), then retry delete_shader"
+                        });
                 }
-                return Response.Success($"Shader '{name}.shader' deleted.", new { path = relativePath });
+                return Response.Success($"Shader '{name}.shader' moved to OS trash.", new { path = relativePath });
             }
             catch (Exception e)
             {
@@ -113,23 +121,27 @@ namespace KitWright.Editor.Tools.Builtins
             }
         }
 
-        [Description("List shader files (.shader) in the project. Optionally filter by a name substring.")]
+        [Description("List shader files (.shader) in the project. Optionally filter by a name substring. " +
+                     "A page cut short by count reports a next_cursor to pass back as cursor for the rest.")]
         [ReadOnlyTool]
         public static object ListShaders(
             [ToolParam("Case-insensitive substring to filter shader paths by", Required = false)] string filter = null,
-            [ToolParam("Maximum number of results", Required = false)] int count = 100)
+            [ToolParam("Maximum number of results", Required = false)] int count = 100,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             count = Mathf.Clamp(count, 1, 500);
             var guids = AssetDatabase.FindAssets("t:Shader");
-            var paths = guids
+            var matches = guids
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Where(p => p.EndsWith(".shader", StringComparison.OrdinalIgnoreCase))
                 .Where(p => string.IsNullOrEmpty(filter) || p.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
                 .OrderBy(p => p)
-                .Take(count)
                 .ToList();
+            var paths = Paging.Page(matches, cursor, count);
+            var nextCursor = Paging.Next(cursor, paths.Count, matches.Count);
 
-            return Response.Success($"Found {paths.Count} shader file(s).", new { count = paths.Count, shaders = paths });
+            var message = $"Found {matches.Count} shader file(s).{Paging.Suffix(cursor, paths.Count, matches.Count)}";
+            return Response.Success(message, new { count = paths.Count, total = matches.Count, next_cursor = nextCursor, shaders = paths });
         }
 
         [Description("Get metadata for a shader loaded in the project (by shader name as declared in the Shader \"...\" line): supported flag, render queue, LOD, and its exposed properties with types.")]

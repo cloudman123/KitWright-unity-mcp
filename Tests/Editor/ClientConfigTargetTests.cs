@@ -99,5 +99,46 @@ namespace KitWright.Editor.Tests
                 try { Directory.Delete(dir, true); } catch { }
             }
         }
+
+        [Test]
+        public void ConfigProblem_NamesAUrlThatCannotReachThisServer()
+        {
+            const string live = "http://127.0.0.1:8766/p/e39cb4bc/";
+
+            Assert.IsNull(ClientConfigPanel.DescribeConfigProblem(
+                "{\"mcpServers\":{\"kitwright\":{\"url\":\"" + live + "\"}}}", live));
+
+            Assert.IsNotNull(ClientConfigPanel.DescribeConfigProblem(
+                "{\"mcpServers\":{\"kitwright\":{\"url\":\"http://127.0.0.1:8765/p/e39cb4bc/\"}}}", live),
+                "a stale port still reads as configured, but another editor answers there");
+
+            Assert.IsNotNull(ClientConfigPanel.DescribeConfigProblem(
+                "{\"mcpServers\":{\"kitwright\":{\"url\":\"http://127.0.0.1:8766/\"}}}", live),
+                "a pinless URL is served by whichever project owns the port");
+        }
+
+        [Test]
+        public void ConfigStatus_CountsTheEntryNotTheFile()
+        {
+            Assert.IsFalse(ClientConfigPanel.ConfigHasOurEntry(
+                "{\"mcpServers\":{\"ai-game-developer\":{\"url\":\"http://localhost:23275/p/e39cb4bc\"}}}"),
+                "a file full of other MCP servers is not this plugin being configured");
+
+            Assert.IsFalse(ClientConfigPanel.ConfigHasOurEntry(
+                "{\"mcpServers\":{\"other\":{\"args\":[\"Library/PackageCache/com.kitwright.unity.mcp/x.js\"]}}}"),
+                "the name appearing inside some other value is not an entry");
+
+            Assert.IsFalse(ClientConfigPanel.ConfigHasOurEntry(
+                "{\"mcpServers\":{\"kitwright-e39cb4bc\":{\"url\":\"http://127.0.0.1:8765/\"}}}"),
+                "the 0.6.x pinned name is stale, and Configure is what replaces it");
+
+            Assert.IsTrue(ClientConfigPanel.ConfigHasOurEntry(
+                "{\"mcpServers\":{\"kitwright\":{\"url\":\"http://127.0.0.1:8766/p/e39cb4bc/\"}}}"));
+            Assert.IsTrue(ClientConfigPanel.ConfigHasOurEntry(
+                "[mcp_servers.kitwright]\nurl = \"http://127.0.0.1:8766/p/e39cb4bc/\""));
+
+            Assert.IsFalse(ClientConfigPanel.ConfigHasOurEntry(null));
+            Assert.IsFalse(ClientConfigPanel.ConfigHasOurEntry(string.Empty));
+        }
     }
 }

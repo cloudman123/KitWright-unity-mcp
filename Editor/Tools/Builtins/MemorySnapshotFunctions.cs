@@ -43,7 +43,6 @@ namespace KitWright.Editor.Tools.Builtins
                      "shows up in the window's snapshot list. WARNING: in-editor captures include editor-owned memory " +
                      "and can be hundreds of MB to several GB on large projects; the capture stalls the editor for a " +
                      "few seconds while it runs.")]
-        [ReadOnlyTool]
         public static async Task<string> MemoryTakeFullSnapshot(
             [ToolParam("Base file name (timestamp and .snap extension are appended). Default 'mcp'.", Required = false)] string name = null,
             [ToolParam("Comma-separated capture flags: ManagedObjects, NativeObjects, NativeAllocations, " +
@@ -260,7 +259,8 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Absolute .snap path, or a file name inside the snapshot folder (with or without the .snap extension).")] string snapshot,
             [ToolParam("Native object name (exact match preferred, falls back to a case-insensitive substring match) or the native_object_index from memory_query_top_objects.")] string target,
             [ToolParam("'referenced_by' (default, what keeps this object alive) or 'references_to' (what this object points to).", Required = false)] string direction = "referenced_by",
-            [ToolParam("Maximum number of references to return (1-200). Default 30.", Required = false)] int max_results = 30)
+            [ToolParam("Maximum number of references to return (1-200). Default 30.", Required = false)] int max_results = 30,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             string path;
             try
@@ -297,17 +297,19 @@ namespace KitWright.Editor.Tools.Builtins
                         });
                     }
 
-                    var references = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by")
-                        .Take(max_results)
-                        .ToArray();
+                    var all = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by").ToArray();
+                    var references = Paging.Page(all, cursor, max_results);
+                    var nextCursor = Paging.Next(cursor, references.Count, all.Length);
 
                     return JsonConvert.SerializeObject(Response.Success(
-                        $"{references.Length} {directionNormalized} reference(s) for '{resolved.Name}'.",
+                        $"{all.Length} {directionNormalized} reference(s) for '{resolved.Name}'." +
+                        Paging.Suffix(cursor, references.Count, all.Length),
                         new
                         {
                             path,
                             target = new { native_object_index = resolved.Index, name = resolved.Name, type = resolved.TypeName, size_bytes = resolved.Size, size = ValueConverter.FormatBytes((long)resolved.Size) },
                             direction = directionNormalized,
+                            next_cursor = nextCursor,
                             references
                         }));
                 }

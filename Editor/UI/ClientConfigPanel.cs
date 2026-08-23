@@ -22,6 +22,7 @@ namespace KitWright.Editor.MCP.Server
         private MCPConfigTarget[] _targets;
         private int _selectedTargetIndex;
         private Label _configStatusLabel;
+        private Label _configProblemLabel;
         private Label _configPathLabel;
         private const string ScopeGlobalKey = "KitWright.MCP.ConfigScopeGlobal";
 
@@ -51,13 +52,22 @@ namespace KitWright.Editor.MCP.Server
                 toggleLabel.style.flexGrow = 1;
             }
 
+            _configProblemLabel = new Label();
+            _configProblemLabel.style.fontSize = 12;
+            _configProblemLabel.style.unityTextAlign = TextAnchor.MiddleRight;
+            _configProblemLabel.style.color = new Color(0.95f, 0.75f, 0.3f);
+            _configProblemLabel.style.marginRight = 8;
+            _configProblemLabel.Ellipsize();
+
             _configStatusLabel = new Label();
             _configStatusLabel.style.fontSize = 13;
             _configStatusLabel.style.unityTextAlign = TextAnchor.MiddleRight;
             _configStatusLabel.style.marginRight = 0;
+            _configStatusLabel.style.flexShrink = 0;
             if (toggle != null)
             {
                 toggle.style.marginRight = 0;
+                toggle.Add(_configProblemLabel);
                 toggle.Add(_configStatusLabel);
             }
 
@@ -345,13 +355,53 @@ namespace KitWright.Editor.MCP.Server
             var idx = Mathf.Clamp(_selectedTargetIndex, 0, _targets.Length - 1);
             var target = _targets[idx];
 
-            bool exists = File.Exists(target.ConfigPath);
-            _configStatusLabel.text = exists ? "Configured ✓" : "Not configured ✕";
-            _configStatusLabel.style.color = exists
+            string configText = null;
+            try
+            {
+                if (File.Exists(target.ConfigPath))
+                    configText = File.ReadAllText(target.ConfigPath);
+            }
+            catch
+            {
+            }
+
+            var configured = ConfigHasOurEntry(configText);
+            _configStatusLabel.text = configured ? "Configured ✓" : "Not configured ✕";
+            _configStatusLabel.style.color = configured
                 ? new Color(0.4f, 1f, 0.4f)
                 : new Color(1f, 0.6f, 0.4f);
             _configPathLabel.text = target.ConfigPath;
             _configPathLabel.tooltip = target.ConfigPath;
+
+            var liveUrl = _server != null && _server.Port > 0 ? BuildServerUrl(_server.Port) : null;
+            var problem = DescribeConfigProblem(configText, liveUrl);
+
+            _configProblemLabel.text = problem ?? string.Empty;
+            _configProblemLabel.tooltip = problem == null
+                ? string.Empty
+                : $"This client posts to a URL that is not {liveUrl}. A URL on a stale port, or one " +
+                  "written before project pinning, reaches whichever editor now owns that port -- so " +
+                  "tool calls can land in a sibling project.";
+        }
+
+        // The file existing said nothing: one holding other MCP servers and no entry of ours read as
+        // configured. Searching for the quoted key rather than parsing covers the JSON and TOML targets
+        // alike, and the quotes keep a mention inside some other value from counting.
+        internal static bool ConfigHasOurEntry(string configText)
+        {
+            return !string.IsNullOrEmpty(configText) &&
+                   (configText.Contains($"\"{ServerEntryName}\"") ||
+                    configText.Contains($".{ServerEntryName}]"));
+        }
+
+        internal static string DescribeConfigProblem(string configText, string liveUrl)
+        {
+            if (!ConfigHasOurEntry(configText) || string.IsNullOrEmpty(liveUrl))
+                return null;
+
+            return configText.Contains(liveUrl)
+                ? null
+                : "⚠ Points at another URL - re-run Configure";
         }
 
         public static string[] GetAllTargetNames()
