@@ -110,10 +110,10 @@ namespace KitWright.Editor.Tools.Builtins
             if (paths.Count == 0)
                 return $"No assets found for filter: {filter}";
 
-            var page = Paging.Page(paths, cursor, Mathf.Clamp(max, 1, 500), out var nextCursor);
+            var page = Paging.Page(paths, cursor, Mathf.Clamp(max, 1, 500));
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Found {paths.Count} assets.{Paging.Suffix(cursor, page.Count, paths.Count, nextCursor)}");
+            sb.AppendLine($"Found {paths.Count} assets.{Paging.Suffix(cursor, page.Count, paths.Count)}");
             foreach (var path in page)
                 sb.AppendLine($"  - {path}");
             return sb.ToString();

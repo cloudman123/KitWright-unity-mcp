@@ -108,12 +108,12 @@ namespace KitWright.Editor.Services
                                   (includeWarnings && message.type == CompilerMessageType.Warning))
                 .ToList();
 
-            var filtered = Paging.Page(matching, cursor, maxEntries, out var nextCursor);
+            var filtered = Paging.Page(matching, cursor, maxEntries);
 
             if (filtered.Count == 0)
             {
                 if (matching.Count > 0)
-                    return $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, 0, matching.Count, 0)}";
+                    return $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, 0, matching.Count)}";
 
                 return includeWarnings
                     ? "No compilation errors or warnings detected."
@@ -129,7 +129,7 @@ namespace KitWright.Editor.Services
             });
 
             var header = filtered.Count < matching.Count
-                ? $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, filtered.Count, matching.Count, nextCursor)}"
+                ? $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, filtered.Count, matching.Count)}"
                 : $"Compilation issues ({matching.Count} total):";
 
             return header + "\n" + string.Join("\n", lines);

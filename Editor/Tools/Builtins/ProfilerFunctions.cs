@@ -359,13 +359,13 @@ namespace KitWright.Editor.Tools.Builtins
 
                 entries.Sort((a, b) => b.Size.CompareTo(a.Size));
 
-                var page = Paging.Page(entries, cursor, top_n, out var nextCursor);
+                var page = Paging.Page(entries, cursor, top_n);
                 var start = Mathf.Clamp(cursor, 0, entries.Count);
 
                 var sb = new StringBuilder();
                 sb.AppendLine($"Top memory objects: {type.Name}");
                 sb.AppendLine($"Total: {entries.Count} object(s), {ValueConverter.FormatBytes(totalSize)}." +
-                              Paging.Suffix(cursor, page.Count, entries.Count, nextCursor));
+                              Paging.Suffix(cursor, page.Count, entries.Count));
                 for (int i = 0; i < page.Count; i++)
                 {
                     var (obj, size) = page[i];
@@ -742,10 +742,9 @@ namespace KitWright.Editor.Tools.Builtins
                 max_events = Mathf.Clamp(max_events, 1, 500);
                 var start = Mathf.Clamp(cursor, 0, events.Length);
                 var count = Mathf.Min(max_events, events.Length - start);
-                var nextCursor = start + count < events.Length ? start + count : 0;
                 var sb = new StringBuilder();
                 sb.AppendLine($"Total events: {events.Length}." +
-                              Paging.Suffix(cursor, count, events.Length, nextCursor));
+                              Paging.Suffix(cursor, count, events.Length));
                 for (int i = start; i < start + count; i++)
                 {
                     var infoName = (string)_fdGetFrameEventInfoName.Invoke(null, new object[] { i });

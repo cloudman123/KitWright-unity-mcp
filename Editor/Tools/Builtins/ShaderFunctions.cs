@@ -137,9 +137,10 @@ namespace KitWright.Editor.Tools.Builtins
                 .Where(p => string.IsNullOrEmpty(filter) || p.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
                 .OrderBy(p => p)
                 .ToList();
-            var paths = Paging.Page(matches, cursor, count, out var nextCursor);
+            var paths = Paging.Page(matches, cursor, count);
+            var nextCursor = Paging.Next(cursor, paths.Count, matches.Count);
 
-            var message = $"Found {matches.Count} shader file(s).{Paging.Suffix(cursor, paths.Count, matches.Count, nextCursor)}";
+            var message = $"Found {matches.Count} shader file(s).{Paging.Suffix(cursor, paths.Count, matches.Count)}";
             return Response.Success(message, new { count = paths.Count, total = matches.Count, next_cursor = nextCursor, shaders = paths });
         }
 

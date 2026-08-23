@@ -101,7 +101,7 @@ namespace KitWright.Editor.Tools.Builtins
                 return $"No files matching '{pattern}' in {directory}";
 
             System.Array.Sort(files, System.StringComparer.Ordinal);
-            var page = Paging.Page(files, cursor, UnityEngine.Mathf.Clamp(max, 1, 1000), out var nextCursor);
+            var page = Paging.Page(files, cursor, UnityEngine.Mathf.Clamp(max, 1, 1000));
 
             var results = new List<string>();
             foreach (var file in page)
@@ -111,7 +111,7 @@ namespace KitWright.Editor.Tools.Builtins
                 results.Add($"  - {relative}");
             }
 
-            return $"Found {files.Length} files.{Paging.Suffix(cursor, page.Count, files.Length, nextCursor)}\n" +
+            return $"Found {files.Length} files.{Paging.Suffix(cursor, page.Count, files.Length)}\n" +
                    string.Join("\n", results);
         }
 
@@ -137,10 +137,10 @@ namespace KitWright.Editor.Tools.Builtins
                 names.Add(name);
             }
             names.Sort(System.StringComparer.Ordinal);
-            var page = Paging.Page(names, cursor, UnityEngine.Mathf.Clamp(max, 1, 1000), out var nextCursor);
+            var page = Paging.Page(names, cursor, UnityEngine.Mathf.Clamp(max, 1, 1000));
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Contents of {path}:{Paging.Suffix(cursor, page.Count, names.Count, nextCursor)}");
+            sb.AppendLine($"Contents of {path}:{Paging.Suffix(cursor, page.Count, names.Count)}");
             foreach (var dir in dirs)
                 sb.AppendLine($"  [DIR] {Path.GetFileName(dir)}/");
             foreach (var name in page)

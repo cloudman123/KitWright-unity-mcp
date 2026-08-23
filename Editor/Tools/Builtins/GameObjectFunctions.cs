@@ -375,9 +375,10 @@ namespace KitWright.Editor.Tools.Builtins
             int.TryParse(max, out var cap);
             if (cap <= 0) cap = 50;
             var total = matches.Count;
-            var page = Paging.Page(matches, cursor, cap, out var nextCursor);
+            var page = Paging.Page(matches, cursor, cap);
+            var nextCursor = Paging.Next(cursor, page.Count, total);
 
-            var message = $"Found {total} object(s).{Paging.Suffix(cursor, page.Count, total, nextCursor)}";
+            var message = $"Found {total} object(s).{Paging.Suffix(cursor, page.Count, total)}";
             // data stays a bare array, so the cursor rides in hint rather than reshaping it.
             return Response.Success(message, GameObjectSerializer.DescribeMany(page),
                 nextCursor > 0 ? $"next_cursor={nextCursor}" : null);

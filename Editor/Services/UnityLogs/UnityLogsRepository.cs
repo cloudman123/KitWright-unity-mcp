@@ -88,12 +88,12 @@ namespace KitWright.Editor.Services.UnityLogs
                 return null;
 
             var total = lines.Count;
-            var pagedLines = Paging.Page(lines, cursor, count, out var nextCursor);
-            var pagedStamps = stamps == null ? null : Paging.Page(stamps, cursor, count, out _);
+            var pagedLines = Paging.Page(lines, cursor, count);
+            var pagedStamps = stamps == null ? null : Paging.Page(stamps, cursor, count);
             // An answer, not null: the cache did hold entries, so falling through to the console
             // reader here would silently hand back its page one under a cursor that asked for more.
             if (pagedLines.Count == 0)
-                return $"Console logs (filter: {filter}, source: cache):{Paging.Suffix(cursor, 0, total, 0)}";
+                return $"Console logs (filter: {filter}, source: cache):{Paging.Suffix(cursor, 0, total)}";
 
             var sb = new StringBuilder();
             var uniqueCount = AppendLines(sb, pagedLines, groupDuplicates, pagedStamps);
@@ -103,7 +103,7 @@ namespace KitWright.Editor.Services.UnityLogs
             var groupSuffix = groupDuplicates && uniqueCount < pagedLines.Count
                 ? $", {uniqueCount} unique"
                 : string.Empty;
-            var pageSuffix = Paging.Suffix(cursor, pagedLines.Count, total, nextCursor);
+            var pageSuffix = Paging.Suffix(cursor, pagedLines.Count, total);
             return $"Console logs ({pagedLines.Count} entries{groupSuffix}, filter: {filter}, source: cache{timeSuffix}{textSuffix}):" +
                    $"{pageSuffix}\n{sb}";
         }

@@ -298,11 +298,12 @@ namespace KitWright.Editor.Tools.Builtins
                     }
 
                     var all = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by").ToArray();
-                    var references = Paging.Page(all, cursor, max_results, out var nextCursor);
+                    var references = Paging.Page(all, cursor, max_results);
+                    var nextCursor = Paging.Next(cursor, references.Count, all.Length);
 
                     return JsonConvert.SerializeObject(Response.Success(
                         $"{all.Length} {directionNormalized} reference(s) for '{resolved.Name}'." +
-                        Paging.Suffix(cursor, references.Count, all.Length, nextCursor),
+                        Paging.Suffix(cursor, references.Count, all.Length),
                         new
                         {
                             path,

@@ -8,21 +8,25 @@ namespace KitWright.Editor.Tools.Helpers
     // One cursor shape for every tool that caps a list.
     internal static class Paging
     {
-        // nextCursor is 0 when the page reached the end, so callers can treat it as "no more".
-        internal static List<T> Page<T>(IList<T> items, int cursor, int pageSize, out int nextCursor)
+        internal static List<T> Page<T>(IList<T> items, int cursor, int pageSize) =>
+            items.Skip(Mathf.Clamp(cursor, 0, items.Count)).Take(Mathf.Max(pageSize, 1)).ToList();
+
+        // 0 once the page reached the end, so callers can treat it as "no more". The only copy of
+        // this sum: tools whose page did not come from Page derive theirs here too, and Suffix
+        // works it out rather than taking it, so what is reported cannot disagree with it.
+        internal static int Next(int cursor, int shown, int total)
         {
-            cursor = Mathf.Clamp(cursor, 0, items.Count);
-            var page = items.Skip(cursor).Take(Mathf.Max(pageSize, 1)).ToList();
-            nextCursor = cursor + page.Count < items.Count ? cursor + page.Count : 0;
-            return page;
+            cursor = Mathf.Max(cursor, 0);
+            return cursor + shown < total ? cursor + shown : 0;
         }
 
         // Empty while everything fits, so an unpaged response reads exactly as it did before.
-        internal static string Suffix(int cursor, int shown, int total, int nextCursor)
+        internal static string Suffix(int cursor, int shown, int total)
         {
             cursor = Mathf.Max(cursor, 0);
-            if (nextCursor > 0)
-                return $" Showing {cursor + 1}-{cursor + shown} of {total}; pass cursor={nextCursor} for the next page.";
+            var next = Next(cursor, shown, total);
+            if (next > 0)
+                return $" Showing {cursor + 1}-{cursor + shown} of {total}; pass cursor={next} for the next page.";
             if (cursor <= 0)
                 return string.Empty;
             return shown > 0

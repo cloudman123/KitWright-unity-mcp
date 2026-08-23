@@ -66,8 +66,6 @@ namespace KitWright.Editor.Tools.Builtins
             var window = ComponentSerializer.ReadProperties(resolved.Component, out var total, descend: descend, maxProperties: cursor + max_properties);
             // The window already stops at cursor + max_properties, so skipping is the whole page.
             var props = window.Skip(cursor).ToList();
-            // Against the untruncated total: the window's own end is not the end of the list.
-            var nextCursor = cursor + props.Count < total ? cursor + props.Count : 0;
             var scanned = props.Count;
 
             var terms = SplitFilterTerms(name_filter);
@@ -75,7 +73,7 @@ namespace KitWright.Editor.Tools.Builtins
                 props = props.Where(p => MatchesAnyTerm(p.Name, terms)).ToList();
 
             var typeName = resolved.Component.GetType().Name;
-            var pageSuffix = Paging.Suffix(cursor, scanned, total, nextCursor);
+            var pageSuffix = Paging.Suffix(cursor, scanned, total);
             var message = terms.Length > 0
                 ? $"{props.Count} of {total} properties on {typeName} (filter: {name_filter}).{pageSuffix}"
                 : total > scanned
