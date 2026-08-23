@@ -28,7 +28,6 @@ namespace KitWright.Editor.Settings
         private const int DefaultEditorWindowScreenshotSize = 512;
         private const bool DefaultMCPCompactSchemaEnabled = false;
         private const int DefaultActivityLogCapacity = 200;
-        internal const bool DefaultRequireClientApprovalEnabled = false;
 
         private readonly string _settingsPath;
         private readonly object _lock = new object();
@@ -92,19 +91,6 @@ namespace KitWright.Editor.Settings
                 // Out of TCP range is as unusable as <= 0, so it falls back the same way.
                 var normalized = value > 0 && value <= MaxPort ? value : DefaultPort;
                 UpdateSettings(data => data.port = normalized);
-            }
-        }
-
-        public bool RequireClientApprovalEnabled
-        {
-            get
-            {
-                lock (_lock)
-                    return _settings.requireClientApprovalEnabled;
-            }
-            set
-            {
-                UpdateSettings(data => data.requireClientApprovalEnabled = value);
             }
         }
 
@@ -516,7 +502,6 @@ namespace KitWright.Editor.Settings
             public int editorWindowScreenshotSize = DefaultEditorWindowScreenshotSize;
             public bool mcpCompactSchemaEnabled = DefaultMCPCompactSchemaEnabled;
             public int activityLogCapacity = DefaultActivityLogCapacity;
-            public bool requireClientApprovalEnabled = DefaultRequireClientApprovalEnabled;
         }
 
         [Serializable]

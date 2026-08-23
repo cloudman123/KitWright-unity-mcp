@@ -34,14 +34,18 @@ These are the properties a report can hold us to:
   `..` traversal that gets past `PathSafety`
 - Executing code without a tool call that asked for it — for example a crafted MCP message that reaches
   `execute_code`'s compile step, or a resource read that evaluates its payload
-- Bypassing the `Origin` check or the project pin — a web page reaching the server through a browser, or a request landing in a project it was not written for
-- Bypassing the first-connect client approval prompt when that setting is enabled (it ships off, and its identity unit is the client executable, so approving a shared runtime covers every script using it — that breadth is by design, not a vulnerability)
+- Bypassing the `Origin` check, or reaching a project whose pin a request does not carry — a web page
+  posting through a browser, or a pinned URL answered by a sibling editor. A URL with no `/p/<pin>/` at
+  all is served on purpose, for configs written before pinning; the sweep at server start rewrites those,
+  so a pinless request being answered is a stale config, not a bypass
 - Credential or token leakage in logs, exported configs, or error responses
 
 ## What Doesn't Count
 
 - Tools that intentionally modify the Unity project — `execute_code`, `create_script`, and
-  `delete_asset` do exactly what they say, and any client the user approved can call them
-- Issues that require the attacker to already run code as the user on the same machine
+  `delete_asset` do exactly what they say, and any client that reaches the server can call them
+- Issues that require the attacker to already run code as the user on the same machine. The server
+  authenticates no client: every local process that clears the `Origin` check and the project pin can
+  call every tool, and the console log naming each new client is observability, not a gate
 - Vulnerabilities in Unity or in third-party packages — report those upstream first; we bump our pins
   once the upstream fix lands

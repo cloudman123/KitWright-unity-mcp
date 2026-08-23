@@ -84,8 +84,9 @@ namespace KitWright.Editor.MCP.Server
         // otherwise reach whichever sibling editor now owns it — and that editor would answer,
         // applying the edits to the wrong project. Refusing a mismatched pin turns that silent
         // wrong-project write into a visible 404.
-        // A path with no pin is accepted: configs written before pinning exist in the wild, and
-        // re-running Configure is what upgrades them.
+        // A path with no pin is accepted: configs written before pinning exist in the wild, and the
+        // sweep at server start rewrites them, so refusing would only break clients that reconnect
+        // before that lands.
         internal bool PathTargetsAnotherProject(string path)
         {
             if (_projectPin.Length == 0)
@@ -371,13 +372,6 @@ namespace KitWright.Editor.MCP.Server
                     if (httpRequest.Method != "POST")
                     {
                         await SendMethodNotAllowedAsync(stream, "GET, POST, OPTIONS", ct);
-                        return;
-                    }
-
-                    if (!await Security.ClientApprovalGate.AuthorizeAsync(client, _port))
-                    {
-                        await SendHtmlStatusAsync(stream, HttpStatusCode.Forbidden, "Forbidden",
-                            "This client was not approved in the Unity editor. Approve it in the KitWright dialog, or disable client approval in the MCP Settings tab.", ct);
                         return;
                     }
 
