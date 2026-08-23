@@ -101,7 +101,15 @@ namespace KitWright.Editor.Tests
         [Test]
         public void FindAssets_CursorPastTheEndSaysSoInsteadOfReturningPageOne()
         {
-            var result = AssetFunctions.FindAssets("t:Shader", max: 1, cursor: 100000);
+            // A borrowed filter made this depend on what the editor version ships: an empty result
+            // answers "no assets found" and never reaches the cursor check.
+            var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+            Assert.IsNotNull(shader, "A test shader is required.");
+            var tag = "KitWrightPastEnd" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            AssetDatabase.CreateAsset(new Material(shader), $"{_folder}/{tag}.mat");
+            AssetDatabase.SaveAssets();
+
+            var result = AssetFunctions.FindAssets("t:Material " + tag, max: 1, cursor: 100000);
 
             StringAssert.Contains("past the end", result);
             Assert.IsFalse(result.Contains("  - "), "A past-the-end cursor must list nothing.");
