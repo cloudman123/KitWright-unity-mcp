@@ -73,7 +73,7 @@ namespace KitWright.Editor.MCP.Server
             if (_isChecking || _isUpdating || !IsAutoCheckDue())
                 return;
 
-            _ = CheckForUpdatesAsync(false);
+            _ = CheckForUpdatesAsync();
         }
 
         public static async void UpdateToLatestFromWindow()
@@ -81,7 +81,7 @@ namespace KitWright.Editor.MCP.Server
             await UpdateLatestKnownAsync();
         }
 
-        private static async Task CheckForUpdatesAsync(bool interactive)
+        private static async Task CheckForUpdatesAsync()
         {
             if (Application.isBatchMode || _isChecking || _isUpdating)
                 return;
@@ -93,120 +93,39 @@ namespace KitWright.Editor.MCP.Server
             _progress = 0.25f;
             NotifyStateChanged();
 
-            if (interactive)
-                EditorUtility.DisplayProgressBar("KitWright MCP", "Checking for updates...", 0.4f);
-
             try
             {
-                var currentVersion = PackageVersion.Current;
                 var installContext = ResolveInstallContext();
                 RecordAutoCheckAttempt();
-                var latestRelease = await FetchLatestReleaseAsync(interactive);
+                var latestRelease = await FetchLatestReleaseAsync(false);
                 if (latestRelease == null)
                 {
                     _statusMessage = "Update check failed.";
                     _progress = 0f;
                     NotifyStateChanged();
-
-                    if (interactive)
-                    {
-                        EditorUtility.DisplayDialog(
-                            "KitWright MCP",
-                            "Failed to fetch the latest release information from GitHub.",
-                            "OK");
-                    }
-
                     return;
                 }
 
                 var latestVersion = NormalizeVersion(latestRelease.tag_name);
-                var currentSemVer = ParseComparableVersion(currentVersion);
-                var latestSemVer = ParseComparableVersion(latestVersion);
-
-                if (latestSemVer > currentSemVer)
+                if (ParseComparableVersion(latestVersion) > ParseComparableVersion(PackageVersion.Current))
                 {
                     StoreAvailableUpdate(latestRelease, latestVersion, installContext);
                     _statusMessage = $"Version {latestVersion} is available.";
-                    _progress = 0f;
-                    NotifyStateChanged();
-
-                    if (!interactive)
-                        return;
-
-                    var message =
-                        $"Current version: {currentVersion}\n" +
-                        $"Latest version: {latestVersion}\n" +
-                        $"Published: {latestRelease.published_at}\n\n" +
-                        $"Install source: {installContext.Description}\n" +
-                        $"{BuildUpdateActionMessage(installContext)}";
-
-                    var choice = EditorUtility.DisplayDialogComplex(
-                        "Update Available",
-                        message,
-                        "Update Now",
-                        "Close",
-                        "View Release");
-
-                    if (choice == 0)
-                    {
-                        await RunUpdateAsync(installContext, latestRelease, latestVersion);
-                    }
-                    else if (choice == 2)
-                    {
-                        Application.OpenURL(string.IsNullOrEmpty(latestRelease.html_url) ? DefaultReleasesUrl : latestRelease.html_url);
-                    }
-
-                    return;
                 }
-
-                if (latestSemVer == currentSemVer)
+                else
                 {
                     ClearCachedUpdate(false);
                     _statusMessage = string.Empty;
-                    _progress = 0f;
-                    NotifyStateChanged();
-
-                    if (!interactive)
-                        return;
-
-                    if (EditorUtility.DisplayDialog(
-                            "KitWright MCP",
-                            $"You are up to date.\n\nCurrent version: {currentVersion}\nLatest version: {latestVersion}\nInstall source: {installContext.Description}",
-                            "View Release",
-                            "Close"))
-                    {
-                        Application.OpenURL(string.IsNullOrEmpty(latestRelease.html_url) ? DefaultReleasesUrl : latestRelease.html_url);
-                    }
-
-                    return;
                 }
 
-                ClearCachedUpdate(false);
-                _statusMessage = string.Empty;
                 _progress = 0f;
                 NotifyStateChanged();
-
-                if (interactive)
-                {
-                    EditorUtility.DisplayDialog(
-                        "KitWright MCP",
-                        $"Current version: {currentVersion}\nLatest published release: {latestVersion}\n\nYour local package version appears to be newer than the latest GitHub release.",
-                        "OK");
-                }
             }
             catch (Exception ex)
             {
                 _statusMessage = $"Update check failed: {ex.Message}";
                 _progress = 0f;
                 NotifyStateChanged();
-
-                if (interactive)
-                {
-                    EditorUtility.DisplayDialog(
-                        "KitWright MCP",
-                        $"Failed to check for updates:\n{ex.Message}",
-                        "OK");
-                }
             }
             finally
             {
@@ -214,9 +133,6 @@ namespace KitWright.Editor.MCP.Server
                 if (!_isUpdating && !HasNewerCachedVersion(PackageVersion.Current))
                     _statusMessage = string.Empty;
                 NotifyStateChanged();
-
-                if (interactive)
-                    EditorUtility.ClearProgressBar();
             }
         }
 

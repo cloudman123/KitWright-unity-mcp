@@ -25,7 +25,7 @@ namespace KitWright.Editor.Bootstrap
     {
         private const string PackageId = "com.unity.nuget.newtonsoft-json";
         private const string PackageVersion = "3.2.1";
-        private const string DeclinedKey = "KitWright.MCP.Bootstrap.NewtonsoftDeclined";
+        private const string InstallFailedKey = "KitWright.MCP.Bootstrap.NewtonsoftInstallFailed";
 
         private static AddRequest _addRequest;
         private static ListRequest _listRequest;
@@ -71,33 +71,19 @@ namespace KitWright.Editor.Bootstrap
             if (installed)
                 return;
 
-            Offer();
+            Install();
         }
 
-        private static void Offer()
+        // package.json already declares this dependency, so pulling it in is resolving the
+        // manifest rather than a choice to put to the user.
+        private static void Install()
         {
-            if (SessionState.GetBool(DeclinedKey, false))
+            if (SessionState.GetBool(InstallFailedKey, false))
                 return;
 
-            var install = EditorUtility.DisplayDialog(
-                "KitWright MCP",
-                "KitWright MCP needs the Newtonsoft Json package, which is not installed " +
-                "in this project.\n\n" +
-                "Without it the KitWright scripts cannot compile. This happens when the " +
-                "Package Manager dependency prompt was skipped during import.\n\n" +
-                $"Install {PackageId}@{PackageVersion} from the Unity registry now?",
-                "Install",
-                "Not now");
-
-            if (!install)
-            {
-                SessionState.SetBool(DeclinedKey, true);
-                Debug.LogWarning(
-                    "[KitWright MCP] Newtonsoft Json is missing, so KitWright scripts will not compile. " +
-                    $"Install it from Window > Package Manager (Add package by name: {PackageId}) " +
-                    "and the errors will clear.");
-                return;
-            }
+            Debug.Log(
+                $"[KitWright MCP] {PackageId} is missing, so KitWright scripts cannot compile. " +
+                $"Installing {PackageId}@{PackageVersion} from the Unity registry.");
 
             _addRequest = Client.Add($"{PackageId}@{PackageVersion}");
             EditorApplication.update += PollAdd;
@@ -118,7 +104,7 @@ namespace KitWright.Editor.Bootstrap
                 return;
             }
 
-            SessionState.SetBool(DeclinedKey, true);
+            SessionState.SetBool(InstallFailedKey, true);
             Debug.LogError(
                 $"[KitWright MCP] Could not install {PackageId}: {request.Error?.message}\n" +
                 $"Install it manually from Window > Package Manager (Add package by name: {PackageId}).");
