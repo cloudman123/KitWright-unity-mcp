@@ -187,6 +187,17 @@ public class CommandSyntax : IKitWrightCommand
                 });
         }
 
+        // Every other test here passes safety_checks=false, so the settings-to-guard wiring had no
+        // coverage. Omitted on purpose, and a source-rule pattern so the refusal lands before compiling.
+        [UnityTest]
+        public IEnumerator ExecuteCode_DangerousPattern_IsRefusedWithoutCompiling()
+        {
+            return ExecuteCodeAndAssert(
+                "public class Nuke { public static string Run() { System.IO.File.Delete(\"x\"); return \"no\"; } }",
+                result => AssertError(result, "SAFETY_CHECK_BLOCKED"),
+                safetyChecks: null);
+        }
+
         [UnityTest]
         public IEnumerator ExecuteCode_CompilationError_ReturnsStructuredErrorFormat()
         {
@@ -330,9 +341,10 @@ public class CommandSyntax : IKitWrightCommand
                 first.Select(path => System.IO.Path.GetFileNameWithoutExtension(path).ToLowerInvariant()).ToArray());
         }
 
-        private static IEnumerator ExecuteCodeAndAssert(string code, Action<object> assert, bool skipRefresh = false)
+        private static IEnumerator ExecuteCodeAndAssert(
+            string code, Action<object> assert, bool skipRefresh = false, bool? safetyChecks = false)
         {
-            var task = ScriptExecutionFunctions.ExecuteCode(code, false, skipRefresh);
+            var task = ScriptExecutionFunctions.ExecuteCode(code, safetyChecks, skipRefresh);
             while (!task.IsCompleted)
                 yield return null;
 
