@@ -96,7 +96,6 @@ namespace KitWright.Editor.Services
         public string GetCompilationErrors(int maxEntries = 50, bool includeWarnings = false, int cursor = 0)
         {
             maxEntries = Math.Max(1, maxEntries);
-            cursor = Math.Max(0, cursor);
 
             List<CompilerMessage> messages;
             lock (SyncRoot)
@@ -113,7 +112,7 @@ namespace KitWright.Editor.Services
 
             if (filtered.Count == 0)
             {
-                if (cursor > 0 && matching.Count > 0)
+                if (matching.Count > 0)
                     return $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, 0, matching.Count, 0)}";
 
                 return includeWarnings

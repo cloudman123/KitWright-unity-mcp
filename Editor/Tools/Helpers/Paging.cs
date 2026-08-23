@@ -20,6 +20,7 @@ namespace KitWright.Editor.Tools.Helpers
         // Empty while everything fits, so an unpaged response reads exactly as it did before.
         internal static string Suffix(int cursor, int shown, int total, int nextCursor)
         {
+            cursor = Mathf.Max(cursor, 0);
             if (nextCursor > 0)
                 return $" Showing {cursor + 1}-{cursor + shown} of {total}; pass cursor={nextCursor} for the next page.";
             if (cursor <= 0)

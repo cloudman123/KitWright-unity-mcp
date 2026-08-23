@@ -378,7 +378,9 @@ namespace KitWright.Editor.Tools.Builtins
             var page = Paging.Page(matches, cursor, cap, out var nextCursor);
 
             var message = $"Found {total} object(s).{Paging.Suffix(cursor, page.Count, total, nextCursor)}";
-            return Response.Success(message, GameObjectSerializer.DescribeMany(page));
+            // data stays a bare array, so the cursor rides in hint rather than reshaping it.
+            return Response.Success(message, GameObjectSerializer.DescribeMany(page),
+                nextCursor > 0 ? $"next_cursor={nextCursor}" : null);
         }
 
         [Description("Get full info on a GameObject: transform, components (with instance ids), active state, tag, layer.")]

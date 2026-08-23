@@ -81,6 +81,14 @@ namespace KitWright.Editor.Tests
             Assert.That(suffix, Does.Not.Contain("pass cursor="));
         }
 
+        // Page clamps internally and says nothing about it, so a caller that echoed the raw cursor
+        // into the text printed "Showing 0-" or worse. Two tools guarded it by hand; eight did not.
+        [Test]
+        public void SuffixClampsANegativeCursorInsteadOfCountingFromIt()
+        {
+            StringAssert.Contains("Showing 1-2 of 9", Paging.Suffix(cursor: -5, shown: 2, total: 9, nextCursor: 2));
+        }
+
         [Test]
         public void SuffixExplainsACursorPastTheEnd()
         {

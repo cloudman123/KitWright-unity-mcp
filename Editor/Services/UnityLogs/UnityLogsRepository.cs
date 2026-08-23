@@ -42,7 +42,6 @@ namespace KitWright.Editor.Services.UnityLogs
             bool includeTimestamps = false, int cursor = 0)
         {
             count = Mathf.Clamp(count, 1, 200);
-            cursor = Mathf.Max(cursor, 0);
             var filter = (logType ?? "all").ToLowerInvariant();
             var cutoff = sinceSeconds > 0 ? DateTime.Now.AddSeconds(-sinceSeconds) : (DateTime?)null;
 
