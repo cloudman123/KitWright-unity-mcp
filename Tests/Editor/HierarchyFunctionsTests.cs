@@ -144,6 +144,125 @@ namespace KitWright.Editor.Tests
 
         //  Edge cases: GetHierarchy boundary conditions
 
+        // max_nodes without a resume handle means an agent that hits the cap can only re-ask for
+        // a bigger page, paying again for everything it already read. These pin that the cap hands
+        // back a place to continue from, and that continuing loses nothing. The fixture is nested
+        // on purpose: over a flat scene every paging bug still reassembles correctly.
+        [Test]
+        public void GetHierarchy_PagesJoinIntoTheSameTreeAsOneWholeRead()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject root = null;
+
+            try
+            {
+                root = BuildNestedFixture(suffix);
+                var rootName = root.name;
+
+                var whole = ObjectLines(HierarchyFunctions.GetHierarchy(rootName, depth: 10, max_nodes: 5000));
+                Assert.AreEqual(7, whole.Count, "fixture shape changed; the paging arithmetic below assumes seven nodes");
+
+                var paged = new List<string>();
+                var cursor = 0;
+                for (var guard = 0; guard < 50; guard++)
+                {
+                    var page = HierarchyFunctions.GetHierarchy(rootName, depth: 10, max_nodes: 1, cursor: cursor);
+                    paged.AddRange(ObjectLines(page));
+
+                    var marker = page.IndexOf("next_cursor=", StringComparison.Ordinal);
+                    if (marker < 0)
+                        break;
+
+                    cursor = int.Parse(page.Substring(marker + "next_cursor=".Length).Trim());
+                }
+
+                CollectionAssert.AreEqual(whole, paged,
+                    "one object per page must reassemble into the same walk, in the same order");
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void GetHierarchy_TruncatedPageReportsAResumeCursorAndAPageStartingMidTreeNamesItsParent()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject root = null;
+
+            try
+            {
+                root = BuildNestedFixture(suffix);
+
+                var first = HierarchyFunctions.GetHierarchy(root.name, depth: 10, max_nodes: 1);
+                StringAssert.Contains("truncated at max_nodes=1", first);
+                StringAssert.Contains("next_cursor=1", first);
+
+                // Node 1 is the first child, so this page opens one level in.
+                var second = HierarchyFunctions.GetHierarchy(root.name, depth: 10, max_nodes: 1, cursor: 1);
+                StringAssert.Contains("resuming under", second);
+                StringAssert.Contains(root.name, second);
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void GetHierarchy_CursorPastTheEndSaysSoInsteadOfReturningAnEmptyTree()
+        {
+            StringAssert.Contains("is past the end", HierarchyFunctions.GetHierarchy(cursor: 100000));
+        }
+
+        // Two levels below the root, so a walk that fails to descend while fast-forwarding lands
+        // on different nodes than the walk that printed them.
+        private static GameObject BuildNestedFixture(string suffix)
+        {
+            var root = new GameObject("PageRoot_" + suffix);
+            var a = new GameObject("A");
+            var b = new GameObject("B");
+            var c = new GameObject("C");
+            a.transform.SetParent(root.transform);
+            b.transform.SetParent(root.transform);
+            c.transform.SetParent(root.transform);
+
+            var a1 = new GameObject("A1");
+            var a2 = new GameObject("A2");
+            a1.transform.SetParent(a.transform);
+            a2.transform.SetParent(a.transform);
+
+            var b1 = new GameObject("B1");
+            b1.transform.SetParent(b.transform);
+            return root;
+        }
+
+        // The scene header and the resume note are scaffolding, not objects; comparing pages
+        // against a whole read only means anything if both sides drop them.
+        private static List<string> ObjectLines(string hierarchy)
+        {
+            var kept = new List<string>();
+            foreach (var raw in hierarchy.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("Scene:", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("(resuming under", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("...", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("cursor=", StringComparison.Ordinal)) continue;
+                kept.Add(line);
+            }
+            return kept;
+        }
+
         [Test]
         public void GetHierarchy_DepthZero_ClampedToOneStillReturnsHierarchy()
         {
