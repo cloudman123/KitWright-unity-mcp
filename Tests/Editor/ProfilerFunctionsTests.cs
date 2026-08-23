@@ -102,5 +102,49 @@ namespace KitWright.Editor.Tests
                 }
             }
         }
+
+        // The listing is ranked heaviest-first, so the second page is the next N heaviest — the
+        // printed index has to keep counting from where the previous page stopped rather than
+        // restarting at [0], or two pages read as the same top of the list.
+        [Test]
+        public void GetTopMemoryObjects_CursorContinuesTheRankingInsteadOfRestartingIt()
+        {
+            var textures = new[] { new Texture2D(4, 4), new Texture2D(8, 8), new Texture2D(16, 16) };
+            try
+            {
+                // Compared against one whole read rather than between pages: two editor textures
+                // can share a name and a size, so "page two differs from page one" is not a
+                // reliable signal on its own.
+                var whole = RankedLines(ProfilerFunctions.GetTopMemoryObjects(type_name: "Texture2D", top_n: 3));
+                Assert.AreEqual(3, whole.Count, "Three textures were just allocated, so three can be ranked.");
+
+                for (var cursor = 0; cursor < 3; cursor++)
+                {
+                    var page = ProfilerFunctions.GetTopMemoryObjects(
+                        type_name: "Texture2D", top_n: 1, cursor: cursor);
+                    var lines = RankedLines(page);
+
+                    Assert.AreEqual(1, lines.Count, page);
+                    Assert.AreEqual(whole[cursor], lines[0],
+                        $"cursor={cursor} did not land on rank {cursor} of the whole read.");
+                    StringAssert.Contains($"Showing {cursor + 1}-{cursor + 1} of", page);
+                }
+            }
+            finally
+            {
+                foreach (var texture in textures)
+                    UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
+        // The "[n] size  name" rows, with the rank prefix stripped: the prefix is derived from the
+        // cursor separately from the slicing, so leaving it in would let a page that returned the
+        // wrong objects still compare equal.
+        private static System.Collections.Generic.List<string> RankedLines(string response) =>
+            response.Split('\n')
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("[") && line.Contains("] "))
+                .Select(line => line.Substring(line.IndexOf("] ", StringComparison.Ordinal) + 2))
+                .ToList();
     }
 }

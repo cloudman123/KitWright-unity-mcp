@@ -3,6 +3,7 @@
 using System;
 using System.Text.RegularExpressions;
 using KitWright.Editor.Tools.Builtins;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -36,12 +37,20 @@ namespace KitWright.Editor.Tests
             if (int.Parse(match.Groups[1].Value) < 2)
                 Assert.Ignore("Needs at least two shaders in the project for a cap to truncate anything.");
 
-            var capped = ShaderFunctions.ListShaders(count: 1).ToString();
+            var capped = ShaderFunctions.ListShaders(count: 1);
+            var cappedText = capped.ToString();
 
-            StringAssert.Contains("Showing 1-1 of", capped);
-            StringAssert.Contains("pass cursor=1", capped);
-            Assert.IsFalse(capped.Contains("Found 1 shader file(s)"),
+            StringAssert.Contains("Showing 1-1 of", cappedText);
+            StringAssert.Contains("pass cursor=1", cappedText);
+            Assert.IsFalse(cappedText.Contains("Found 1 shader file(s)"),
                 "The reported total must be the pre-cap count, not the shown count.");
+
+            var second = ShaderFunctions.ListShaders(count: 1, cursor: 1);
+            StringAssert.Contains("Showing 2-2 of", second.ToString());
+            Assert.AreNotEqual(
+                JObject.FromObject(capped)["data"]["shaders"][0].ToString(),
+                JObject.FromObject(second)["data"]["shaders"][0].ToString(),
+                "Page two returned the shader from page one, so the cursor was ignored.");
         }
 
         [Test]
