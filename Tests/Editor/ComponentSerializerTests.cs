@@ -99,8 +99,6 @@ namespace KitWright.Editor.Tests
             }
         }
 
-        // This one reads a window of cursor + max_properties and works out next_cursor against the
-        // untruncated total itself, so the window's own end is not the end of the list.
         [Test]
         public void GetComponentProperties_CursorMovesTheWindowOnAndStillCountsAgainstTheRealTotal()
         {

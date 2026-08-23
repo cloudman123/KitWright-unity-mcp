@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,8 +10,6 @@ using UnityEditor;
 
 namespace KitWright.Editor.Tests
 {
-    // search_files and list_directory both used to stop at a hardcoded cap with no way to reach
-    // the rest, so a folder past the cap was simply invisible to an agent.
     public sealed class FileListingPagingTests
     {
         private const string FolderName = "__KitWrightFileListingPagingTests";
@@ -49,6 +48,10 @@ namespace KitWright.Editor.Tests
             StringAssert.Contains("end of the list", second);
 
             CollectionAssert.AreEqual(whole, Entries(first).Concat(Entries(second)).ToList());
+
+            // Pins the contract only, same as find_assets: it does not fail today.
+            CollectionAssert.AreEqual(whole.OrderBy(p => p, StringComparer.Ordinal).ToList(), whole,
+                "search_files must return paths in a stable order for the cursor to mean anything.");
         }
 
         [Test]

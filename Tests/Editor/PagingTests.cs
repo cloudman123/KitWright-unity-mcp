@@ -7,13 +7,10 @@ using NUnit.Framework;
 
 namespace KitWright.Editor.Tests
 {
-    // Every capped tool routes through this, so a slicing bug here silently skips or repeats
-    // results in ten places at once.
     public sealed class PagingTests
     {
         private static List<int> Numbers(int count) => Enumerable.Range(0, count).ToList();
 
-        // The property that matters: paging a list must reproduce it exactly, no gap, no overlap.
         [Test]
         public void PagesJoinBackIntoTheWholeList([Values(1, 3, 7, 10, 25)] int pageSize)
         {
@@ -66,8 +63,6 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(0, next);
         }
 
-        // Silence is the contract: unpaged responses must read exactly as they did before paging
-        // existed, or every one-line tool result grows a sentence nobody needs.
         [Test]
         public void SuffixIsEmptyWhenEverythingFitsOnPageOne()
         {
@@ -93,8 +88,6 @@ namespace KitWright.Editor.Tests
             Assert.That(suffix, Does.Not.Contain("pass cursor="));
         }
 
-        // A cursor read from a stale response outlives the data it was minted against, so the
-        // answer has to say so instead of looking like an empty result set.
         [Test]
         public void SuffixExplainsACursorPastTheEnd()
         {

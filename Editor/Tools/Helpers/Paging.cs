@@ -4,9 +4,7 @@ using UnityEngine;
 
 namespace KitWright.Editor.Tools.Helpers
 {
-    // One cursor shape for every tool that caps a list. A capped tool used to tell the agent to
-    // "raise max for more", which re-sends the page it already read: walking 500 results 50 at a
-    // time cost 2750 records instead of 500.
+    // One cursor shape for every tool that caps a list.
     internal static class Paging
     {
         // nextCursor is 0 when the page reached the end, so callers can treat it as "no more".
@@ -25,8 +23,7 @@ namespace KitWright.Editor.Tools.Helpers
             return page;
         }
 
-        // Empty while everything fits, so an unpaged response reads exactly as it did before and an
-        // agent only has one wording to recognise once paging does kick in.
+        // Empty while everything fits, so an unpaged response reads exactly as it did before.
         internal static string Suffix(int cursor, int shown, int total, int nextCursor)
         {
             if (nextCursor > 0)

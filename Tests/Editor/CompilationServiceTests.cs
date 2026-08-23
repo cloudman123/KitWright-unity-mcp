@@ -73,8 +73,6 @@ namespace KitWright.Editor.Tests
                 StringAssert.Contains("Showing 1-1 of 3; pass cursor=1", truncated);
                 Assert.That(truncated.Split('\n').Count(line => line.StartsWith("- [")), Is.EqualTo(1));
 
-                // The cursor has to move the window, not just decorate the header: page two must
-                // carry the second issue and nothing from page one.
                 var second = CompilationService.Instance.GetCompilationErrors(maxEntries: 1, cursor: 1);
                 StringAssert.Contains("error 1", second);
                 Assert.That(second, Does.Not.Contain("error 0"));
@@ -87,6 +85,11 @@ namespace KitWright.Editor.Tests
                 StringAssert.Contains("3 total", complete);
                 Assert.That(complete, Does.Not.Contain("cursor"));
                 Assert.That(complete.Split('\n').Count(line => line.StartsWith("- [")), Is.EqualTo(3));
+
+                // A separate hop from the service tested above.
+                var viaTool = CompilationFunctions.GetCompilationErrors(max_entries: 1, cursor: 1);
+                StringAssert.Contains("error 1", viaTool);
+                Assert.That(viaTool, Does.Not.Contain("error 0"));
             }
             finally
             {

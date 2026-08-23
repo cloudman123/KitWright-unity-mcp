@@ -286,8 +286,7 @@ namespace KitWright.Editor.Tests
             Assert.IsEmpty(Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682 | (1 << 7) | (1 << 8)));
         }
 
-        // The cache is read newest-first, so the cursor walks backwards in time. Raising count
-        // instead would re-send every entry already read.
+        // The cache is read newest-first, so the cursor walks backwards in time.
         [Test]
         public void GetRecentLogs_CursorWalksOlderEntriesWithoutRepeatingThePageBefore()
         {
@@ -315,15 +314,13 @@ namespace KitWright.Editor.Tests
                 Assert.That(last, Does.Contain("oldest"));
                 Assert.That(last, Does.Contain("end of the list"));
 
-                // Not null: null falls through to the Editor console, which would answer a
-                // past-the-end cursor with its own page one.
+                // Not null: null falls through to the Editor console and its own page one.
                 var past = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 9);
                 Assert.That(past, Does.Contain("cursor=9 is past the end"));
             }
         }
 
-        // Timestamps ride in a list parallel to the lines; paging one and not the other pins the
-        // wrong time onto every entry.
+        // Timestamps ride in a list parallel to the lines.
         [Test]
         public void GetRecentLogs_CursorKeepsTimestampsLinedUpWithTheirEntries()
         {
@@ -343,6 +340,31 @@ namespace KitWright.Editor.Tests
                 var line = page.Split('\n').Single(l => l.Contains("[LOG] " + token));
                 StringAssert.IsMatch(@"^\d\d:\d\d:\d\d \[LOG\] " + token + " older", line.Trim());
             }
+        }
+
+        // A separate hop from the repository the two tests above drive directly.
+        [Test]
+        public void GetConsoleLogs_PassesTheCursorThroughToTheCache()
+        {
+            var token = "KitWrightConsoleToolPaging_" + System.Guid.NewGuid().ToString("N");
+            var repository = KitWright.Editor.DI.RootScopeServices.Services?.GetService(
+                typeof(UnityLogsRepository)) as UnityLogsRepository;
+            if (repository == null)
+                Assert.Ignore("The tool reads the repository off the root scope, which is not up here.");
+
+            repository.StartListening();
+            Debug.Log(token + " older");
+            Debug.Log(token + " newer");
+
+            var first = Tools.Builtins.VisualFeedbackFunctions.GetConsoleLogs(
+                log_type: "log", count: 1, source: "cache", filter_text: token);
+            Assert.That(first, Does.Contain("newer"));
+
+            var second = Tools.Builtins.VisualFeedbackFunctions.GetConsoleLogs(
+                log_type: "log", count: 1, source: "cache", filter_text: token, cursor: 1);
+            Assert.That(second, Does.Contain("older"));
+            Assert.That(second, Does.Not.Contain("newer"),
+                "The tool ignored cursor and handed back the newest entry again.");
         }
     }
 }

@@ -661,8 +661,6 @@ namespace KitWright.Editor.Tests
                 StringAssert.Contains("Showing 2-2 of 2; end of the list.", page2.Value<string>("message"));
                 Assert.That(page2.Value<string>("message"), Does.Not.Contain("pass cursor="));
 
-                // Page two has to be the *other* object, not the same one again: that is the whole
-                // point of the cursor over telling the agent to raise max and re-read page one.
                 Assert.AreNotEqual(
                     page1["data"][0]["instanceId"].ToString(),
                     page2["data"][0]["instanceId"].ToString(),

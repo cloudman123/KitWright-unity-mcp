@@ -67,7 +67,6 @@ namespace KitWright.Editor.Tests
             StringAssert.Contains("ASSET_NOT_FOUND", result);
         }
 
-        // find_assets used to cut off at a hardcoded 50 with no way to see the rest at all.
         [Test]
         public void FindAssets_PagesJoinIntoTheSameListAsOneWholeRead()
         {
@@ -92,6 +91,11 @@ namespace KitWright.Editor.Tests
             var walked = PathsIn(first).Concat(PathsIn(second)).ToList();
             CollectionAssert.AreEqual(whole, walked,
                 "Two pages must reproduce the whole list exactly - no gap, no repeat.");
+
+            // Pins the contract only: the API happens to hand back sorted paths here, so removing
+            // the OrderBy does not currently fail anything.
+            CollectionAssert.AreEqual(whole.OrderBy(p => p, StringComparer.Ordinal).ToList(), whole,
+                "find_assets must return paths in a stable order for the cursor to mean anything.");
         }
 
         [Test]
