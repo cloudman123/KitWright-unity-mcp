@@ -27,7 +27,7 @@ namespace KitWright.Editor.MCP.Server
             "get_console_logs",
             "get_compilation_errors",
             "find_game_objects",
-            "set_component_property",
+            "set_component_properties",
             "capture_game_view",
             "set_tool_profile"
         };
@@ -69,7 +69,6 @@ namespace KitWright.Editor.MCP.Server
             "set_transform",
             "set_parent",
             "get_component_properties",
-            "set_component_property",
             "set_component_properties",
             "reflect_api",
             "fetch_docs",

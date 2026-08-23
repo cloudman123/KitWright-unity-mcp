@@ -367,14 +367,14 @@ The current open-source package exposes four high-value capability layers:
 ## Built-in Tools
 
 <!-- tools-summary:start -->
-KitWright MCP for Unity ships **265 tool functions across 57 modules** (`core` profile exposes 41 of them).
+KitWright MCP for Unity ships **264 tool functions across 57 modules** (`core` profile exposes 40 of them).
 
 | Module | Tools | Module | Tools |
 |--------|-------|--------|-------|
-| **EditorState** | 18 | **Script** | 4 |
-| **GameObject** | 14 | **Texture** | 4 |
-| **Profiler** | 13 | **Build** | 3 |
-| **Scene** | 13 | **ComponentBatch** | 3 |
+| **EditorState** | 18 | **Texture** | 4 |
+| **GameObject** | 14 | **Build** | 3 |
+| **Profiler** | 13 | **ComponentBatch** | 3 |
+| **Scene** | 13 | **ComponentProperty** | 3 |
 | **Prefab** | 10 | **Docs** | 3 |
 | **Asset** | 8 | **Lighting** | 3 |
 | **Terrain** | 8 | **Package** | 3 |
@@ -396,10 +396,10 @@ KitWright MCP for Unity ships **265 tool functions across 57 modules** (`core` p
 | **Volume** | 5 | **Mesh** | 1 |
 | **Camera** | 4 | **Particle** | 1 |
 | **Compilation** | 4 | **ProjectSettings** | 1 |
-| **ComponentProperty** | 4 | **Reflection** | 1 |
-| **InputSimulation** | 4 | **Timeline** | 1 |
-| **LodConstraint** | 4 | **ToolExposure** | 1 |
-| **Screenshot** | 4 |  |  |
+| **InputSimulation** | 4 | **Reflection** | 1 |
+| **LodConstraint** | 4 | **Timeline** | 1 |
+| **Screenshot** | 4 | **ToolExposure** | 1 |
+| **Script** | 4 |  |  |
 
 > 📖 Every tool with its description: [TOOLS.md](TOOLS.md).
 <!-- tools-summary:end -->
