@@ -53,7 +53,7 @@ namespace KitWright.Editor.Tests
         public void MutatingToolsHaveNoReadOnlyHint()
         {
             Assert.IsFalse(HasReadOnlyHint(Tool("execute_code")));
-            Assert.IsFalse(HasReadOnlyHint(Tool("set_component_property")));
+            Assert.IsFalse(HasReadOnlyHint(Tool("set_component_properties")));
         }
 
         // Conformant clients run readOnlyHint tools unattended, so a wrong [ReadOnlyTool] makes a

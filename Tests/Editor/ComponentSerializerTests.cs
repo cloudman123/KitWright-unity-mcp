@@ -181,6 +181,69 @@ namespace KitWright.Editor.Tests
                     AssetDatabase.DeleteAsset(folder);
             }
         }
+
+        // set_component_property used to be the tool that failed loudly on a bad field name; with it
+        // gone, the plural has to fail too when nothing landed, or a typo reads as success.
+        [Test]
+        public void SetComponentProperties_NothingApplied_IsAnError()
+        {
+            var go = new GameObject("__KitWrightPropertyGuardProbe");
+            try
+            {
+                go.AddComponent<Camera>();
+
+                var allBad = JObject.FromObject(ComponentPropertyFunctions.SetComponentProperties(
+                    target: go.name, component: "Camera", properties: @"{""noSuchField"": 1}"));
+                Assert.IsFalse(allBad.Value<bool>("success"), allBad.ToString());
+                Assert.AreEqual("PROPERTY_SET_FAILED", allBad.Value<string>("code"));
+
+                var partial = JObject.FromObject(ComponentPropertyFunctions.SetComponentProperties(
+                    target: go.name, component: "Camera",
+                    properties: @"{""field of view"": 42, ""noSuchField"": 1}"));
+                Assert.IsTrue(partial.Value<bool>("success"), partial.ToString());
+                Assert.AreEqual(1, partial["data"].Value<int>("successCount"));
+                Assert.AreEqual(1, partial["data"].Value<int>("failCount"),
+                    "a partial write stays diagnosable rather than becoming an error");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        // WriteProperties has two callers, so the guard above only half-closed the hole: a typo on
+        // an .asset still came back as success, with "asset saved" attached to a write that landed
+        // nothing.
+        [Test]
+        public void SetScriptableObjectProperties_NothingApplied_IsAnError()
+        {
+            const string folderName = "__KitWrightSoPropertyGuardProbe";
+            var folder = "Assets/" + folderName;
+            if (!AssetDatabase.IsValidFolder(folder))
+                AssetDatabase.CreateFolder("Assets", folderName);
+
+            try
+            {
+                var path = folder + "/Probe.asset";
+                AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<ScriptableObjectReadProbe>(), path);
+
+                var allBad = JObject.FromObject(ScriptableObjectFunctions.SetScriptableObjectProperties(
+                    path, @"{""noSuchField"": 1}"));
+                Assert.IsFalse(allBad.Value<bool>("success"), allBad.ToString());
+                Assert.AreEqual("PROPERTY_SET_FAILED", allBad.Value<string>("code"));
+
+                var partial = JObject.FromObject(ScriptableObjectFunctions.SetScriptableObjectProperties(
+                    path, @"{""number"": 7, ""noSuchField"": 1}"));
+                Assert.IsTrue(partial.Value<bool>("success"), partial.ToString());
+                Assert.AreEqual(1, partial["data"].Value<int>("successCount"));
+                Assert.AreEqual(1, partial["data"].Value<int>("failCount"));
+            }
+            finally
+            {
+                if (AssetDatabase.IsValidFolder(folder))
+                    AssetDatabase.DeleteAsset(folder);
+            }
+        }
     }
 
     internal sealed class ScriptableObjectReadProbe : ScriptableObject

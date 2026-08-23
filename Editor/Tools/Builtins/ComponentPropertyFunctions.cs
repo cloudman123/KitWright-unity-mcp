@@ -19,7 +19,7 @@ namespace KitWright.Editor.Tools.Builtins
     internal static class ComponentPropertyFunctions
     {
         [Description("List components on a GameObject. Each entry includes its instanceId so subsequent " +
-                     "set_component_property calls can disambiguate when a GameObject has multiple components of the same type.")]
+                     "set_component_properties calls can disambiguate when a GameObject has multiple components of the same type.")]
         [ReadOnlyTool]
         public static object ListComponents(
             [ToolParam("GameObject identifier (instance id, name, path, tag…)")] string target,
@@ -46,7 +46,7 @@ namespace KitWright.Editor.Tools.Builtins
                      "On a component with many properties, pass name_filter to return only the ones you need — " +
                      "the response then reports how many were left out, so a filtered read is never mistaken for the whole component. " +
                      "An enum reads as { name, value } and an object reference carries assetPath, so a read can be fed back to " +
-                     "set_component_property. descend also returns nested and array element properties, capped by max_properties.")]
+                     "set_component_properties. descend also returns nested and array element properties, capped by max_properties.")]
         [ReadOnlyTool]
         public static object GetComponentProperties(
             [ToolParam("GameObject identifier (omit if using component_instance_id)", Required = false)] string target = null,
@@ -110,44 +110,6 @@ namespace KitWright.Editor.Tools.Builtins
             return false;
         }
 
-        [Description("Set a single property or field on a component. " +
-                     "Use simple JSON for value (e.g. '5', 'true', '\"text\"', '[1,2,3]'). " +
-                     "For Object references pass {\"fileID\": <instanceId>} or {\"assetPath\": \"Assets/...\"}.")]
-        public static object SetComponentProperty(
-            [ToolParam("GameObject identifier (omit if using component_instance_id)", Required = false)] string target = null,
-            [ToolParam("Component type name (omit if using component_instance_id)", Required = false)] string component = null,
-            [ToolParam("Property/field name to set")] string property = null,
-            [ToolParam("New value as JSON literal")] string value = null,
-            [ToolParam("Component instanceId (alternative to target+component)", Required = false)] string component_instance_id = null,
-            [ToolParam("How to resolve target", Required = false)] string find_method = null)
-        {
-            if (string.IsNullOrEmpty(property))
-                return Response.Error("PROPERTY_REQUIRED");
-            if (value == null)
-                return Response.Error("VALUE_REQUIRED");
-
-            var resolved = ResolveComponent(target, component, component_instance_id, find_method);
-            if (resolved.Error != null) return resolved.Error;
-
-            JToken token;
-            try { token = ParseJsonValue(value); }
-            catch (Exception ex) { return Response.Error("INVALID_VALUE_JSON", new { message = ex.Message }); }
-
-            var props = new JObject { [property] = token };
-            var results = ComponentSerializer.WriteProperties(resolved.Component, props,
-                $"Set {property} on {resolved.Component.GetType().Name}");
-
-            var first = results.Count > 0 ? results[0] : null;
-            if (first == null || !first.Success)
-            {
-                return Response.Error("PROPERTY_SET_FAILED",
-                    new { property, error = first?.Error ?? "unknown" });
-            }
-
-            return Response.Success($"Set {resolved.Component.GetType().Name}.{property}.",
-                new { componentInstanceId = ObjectIdCodec.GetSerializableId(resolved.Component), property });
-        }
-
         [Description("Set multiple properties on a component in one call. " +
                      "Pass `properties` as a JSON object: {\"mass\": 5, \"isKinematic\": true, \"material\": {\"fileID\": 12345}}. " +
                      "Returns per-field success so partial failures are diagnosable.")]
@@ -173,6 +135,9 @@ namespace KitWright.Editor.Tools.Builtins
 
             int success = results.Count(r => r.Success);
             int fail = results.Count - success;
+            if (success == 0)
+                return Response.Error("PROPERTY_SET_FAILED", new { fields = results });
+
             return Response.Success(
                 $"Applied {success} of {results.Count} field(s) on {resolved.Component.GetType().Name}.",
                 new
@@ -239,21 +204,6 @@ namespace KitWright.Editor.Tools.Builtins
                 Error = Response.Error("COMPONENT_NOT_FOUND_ON_TARGET",
                     new { target = go.name, component = componentName, available })
             };
-        }
-
-        // Accept loose values: bare numbers/booleans, quoted strings, JSON objects/arrays.
-        private static JToken ParseJsonValue(string raw)
-        {
-            raw = raw.Trim();
-            if (raw.Length == 0) return JValue.CreateString(string.Empty);
-            if (raw.StartsWith("{") || raw.StartsWith("[") || raw.StartsWith("\""))
-                return JToken.Parse(raw);
-            if (bool.TryParse(raw, out var b)) return new JValue(b);
-            if (long.TryParse(raw, out var l)) return new JValue(l);
-            if (double.TryParse(raw, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var d))
-                return new JValue(d);
-            return new JValue(raw); // treat as string
         }
     }
 }

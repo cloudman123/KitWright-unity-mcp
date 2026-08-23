@@ -369,14 +369,14 @@ Coplay 信息来源：[CoplayDev/unity-mcp](https://github.com/CoplayDev/unity-m
 ## 内置工具
 
 <!-- tools-summary:start -->
-KitWright MCP for Unity 当前提供 **265 个工具函数，覆盖 57 个模块**（`core` profile 暴露其中 41 个）。
+KitWright MCP for Unity 当前提供 **264 个工具函数，覆盖 57 个模块**（`core` profile 暴露其中 40 个）。
 
 | 模块 | 工具数 | 模块 | 工具数 |
 |------|--------|------|--------|
-| **EditorState** | 18 | **Script** | 4 |
-| **GameObject** | 14 | **Texture** | 4 |
-| **Profiler** | 13 | **Build** | 3 |
-| **Scene** | 13 | **ComponentBatch** | 3 |
+| **EditorState** | 18 | **Texture** | 4 |
+| **GameObject** | 14 | **Build** | 3 |
+| **Profiler** | 13 | **ComponentBatch** | 3 |
+| **Scene** | 13 | **ComponentProperty** | 3 |
 | **Prefab** | 10 | **Docs** | 3 |
 | **Asset** | 8 | **Lighting** | 3 |
 | **Terrain** | 8 | **Package** | 3 |
@@ -398,10 +398,10 @@ KitWright MCP for Unity 当前提供 **265 个工具函数，覆盖 57 个模块
 | **Volume** | 5 | **Mesh** | 1 |
 | **Camera** | 4 | **Particle** | 1 |
 | **Compilation** | 4 | **ProjectSettings** | 1 |
-| **ComponentProperty** | 4 | **Reflection** | 1 |
-| **InputSimulation** | 4 | **Timeline** | 1 |
-| **LodConstraint** | 4 | **ToolExposure** | 1 |
-| **Screenshot** | 4 |  |  |
+| **InputSimulation** | 4 | **Reflection** | 1 |
+| **LodConstraint** | 4 | **Timeline** | 1 |
+| **Screenshot** | 4 | **ToolExposure** | 1 |
+| **Script** | 4 |  |  |
 
 > 📖 每个工具及其说明见 [TOOLS.md](TOOLS.md)。
 <!-- tools-summary:end -->

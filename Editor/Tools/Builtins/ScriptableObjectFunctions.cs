@@ -102,6 +102,10 @@ namespace KitWright.Editor.Tools.Builtins
 
             int success = results.Count(r => r.Success);
             int fail = results.Count - success;
+
+            if (success == 0)
+                return Response.Error("PROPERTY_SET_FAILED", new { assetPath = asset_path, fields = results });
+
             return Response.Success(
                 $"Applied {success} of {results.Count} field(s) on {resolved.Asset.GetType().Name}, asset saved.",
                 new
