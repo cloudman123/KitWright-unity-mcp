@@ -51,7 +51,23 @@ namespace KitWright.Editor.MCP.Server
             autostartSection.Add(autostartToggle);
             settingsFoldout.Add(autostartSection);
 
-            SafetyPanel.AddTo(settingsFoldout, _settingsController);
+            AddToggleCard(settingsFoldout,
+                "Default execute_code safety checks",
+                "Default for execute_code calls when safety_checks is omitted. Explicit safety_checks=false can still bypass this for trusted local calls.",
+                _settingsController.ExecuteCodeSafetyChecksEnabled,
+                value => _settingsController.ExecuteCodeSafetyChecksEnabled = value);
+
+            AddToggleCard(settingsFoldout,
+                "Strict filesystem guard",
+                "Adds checks for broad System.IO file writes, raw file streams, and absolute/user/system/traversal paths. This is a defensive guard, not a complete sandbox.",
+                _settingsController.ExecuteCodeStrictFilesystemSafetyEnabled,
+                value => _settingsController.ExecuteCodeStrictFilesystemSafetyEnabled = value);
+
+            AddToggleCard(settingsFoldout,
+                "Auto-inject project namespaces",
+                "Off by default. When enabled, only namespaces from loaded Library/ScriptAssemblies assemblies are injected; explicit using directives remain the least ambiguous option.",
+                _settingsController.ExecuteCodeProjectNamespaceInjectionEnabled,
+                value => _settingsController.ExecuteCodeProjectNamespaceInjectionEnabled = value);
 
             var debugSection = new VisualElement().Card();
 
@@ -67,13 +83,11 @@ namespace KitWright.Editor.MCP.Server
 
             settingsFoldout.Add(debugSection);
 
-            var compactSection = new VisualElement().Card();
-            var compactToggle = new MCPSwitchToggle("Compact tool schema");
-            compactToggle.tooltip = "Strip parameter descriptions and trim each tool description to its first sentence when exporting the schema. Saves ~8-13k tokens per session at the cost of terser tool docs.";
-            compactToggle.SetValueWithoutNotify(_settingsController.MCPCompactSchemaEnabled);
-            compactToggle.RegisterValueChangedCallback(value => _settingsController.MCPCompactSchemaEnabled = value);
-            compactSection.Add(compactToggle);
-            settingsFoldout.Add(compactSection);
+            AddToggleCard(settingsFoldout,
+                "Compact tool schema",
+                "Strip parameter descriptions and trim each tool description to its first sentence when exporting the schema. Saves ~8-13k tokens per session at the cost of terser tool docs.",
+                _settingsController.MCPCompactSchemaEnabled,
+                value => _settingsController.MCPCompactSchemaEnabled = value);
 
             var logCapacitySection = new VisualElement().Card();
             logCapacitySection.Add(BuildSizeSlider("Recent activity log limit",
@@ -110,6 +124,18 @@ namespace KitWright.Editor.MCP.Server
 
         private const int ScreenshotSizeMin = 64;
         private const int ScreenshotSizeMax = 4096;
+
+        private static void AddToggleCard(VisualElement parent, string title, string hint, bool value, Action<bool> onChanged)
+        {
+            var toggle = new MCPSwitchToggle(title);
+            toggle.tooltip = hint;
+            toggle.SetValueWithoutNotify(value);
+            toggle.RegisterValueChangedCallback(onChanged);
+
+            var card = new VisualElement().Card();
+            card.Add(toggle);
+            parent.Add(card);
+        }
 
         private VisualElement BuildSizeSlider(string labelText, string tooltip, Func<int> getter, Action<int> setter, int min = ScreenshotSizeMin, int max = ScreenshotSizeMax)
         {
