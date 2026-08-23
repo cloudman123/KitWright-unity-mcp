@@ -1,6 +1,8 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEditor;
@@ -64,5 +66,47 @@ namespace KitWright.Editor.Tests
 
             StringAssert.Contains("ASSET_NOT_FOUND", result);
         }
+
+        // find_assets used to cut off at a hardcoded 50 with no way to see the rest at all.
+        [Test]
+        public void FindAssets_PagesJoinIntoTheSameListAsOneWholeRead()
+        {
+            var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+            Assert.IsNotNull(shader, "A test shader is required.");
+            var tag = "KitWrightPaged" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            for (var i = 0; i < 3; i++)
+                AssetDatabase.CreateAsset(new Material(shader), $"{_folder}/{tag}_{i}.mat");
+            AssetDatabase.SaveAssets();
+
+            var filter = "t:Material " + tag;
+            var whole = PathsIn(AssetFunctions.FindAssets(filter, max: 50));
+            Assert.AreEqual(3, whole.Count, "Setup failed: the three materials are not findable.");
+
+            var first = AssetFunctions.FindAssets(filter, max: 2);
+            StringAssert.Contains("Found 3 assets.", first);
+            StringAssert.Contains("Showing 1-2 of 3; pass cursor=2", first);
+
+            var second = AssetFunctions.FindAssets(filter, max: 2, cursor: 2);
+            StringAssert.Contains("end of the list", second);
+
+            var walked = PathsIn(first).Concat(PathsIn(second)).ToList();
+            CollectionAssert.AreEqual(whole, walked,
+                "Two pages must reproduce the whole list exactly - no gap, no repeat.");
+        }
+
+        [Test]
+        public void FindAssets_CursorPastTheEndSaysSoInsteadOfReturningPageOne()
+        {
+            var result = AssetFunctions.FindAssets("t:Shader", max: 1, cursor: 100000);
+
+            StringAssert.Contains("past the end", result);
+            Assert.IsFalse(result.Contains("  - "), "A past-the-end cursor must list nothing.");
+        }
+
+        private static List<string> PathsIn(string response) =>
+            response.Split('\n')
+                .Where(line => line.TrimStart().StartsWith("- "))
+                .Select(line => line.Trim().Substring(2))
+                .ToList();
     }
 }

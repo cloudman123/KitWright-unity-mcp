@@ -259,7 +259,8 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Absolute .snap path, or a file name inside the snapshot folder (with or without the .snap extension).")] string snapshot,
             [ToolParam("Native object name (exact match preferred, falls back to a case-insensitive substring match) or the native_object_index from memory_query_top_objects.")] string target,
             [ToolParam("'referenced_by' (default, what keeps this object alive) or 'references_to' (what this object points to).", Required = false)] string direction = "referenced_by",
-            [ToolParam("Maximum number of references to return (1-200). Default 30.", Required = false)] int max_results = 30)
+            [ToolParam("Maximum number of references to return (1-200). Default 30.", Required = false)] int max_results = 30,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             string path;
             try
@@ -296,17 +297,18 @@ namespace KitWright.Editor.Tools.Builtins
                         });
                     }
 
-                    var references = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by")
-                        .Take(max_results)
-                        .ToArray();
+                    var all = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by").ToList();
+                    var references = Paging.Page(all, cursor, max_results, out var nextCursor).ToArray();
 
                     return JsonConvert.SerializeObject(Response.Success(
-                        $"{references.Length} {directionNormalized} reference(s) for '{resolved.Name}'.",
+                        $"{all.Count} {directionNormalized} reference(s) for '{resolved.Name}'." +
+                        Paging.Suffix(cursor, references.Length, all.Count, nextCursor),
                         new
                         {
                             path,
                             target = new { native_object_index = resolved.Index, name = resolved.Name, type = resolved.TypeName, size_bytes = resolved.Size, size = ValueConverter.FormatBytes((long)resolved.Size) },
                             direction = directionNormalized,
+                            next_cursor = nextCursor,
                             references
                         }));
                 }

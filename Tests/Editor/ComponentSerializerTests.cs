@@ -91,7 +91,42 @@ namespace KitWright.Editor.Tests
                 var message = JObject.FromObject(response).Value<string>("message");
 
                 StringAssert.Contains($"50 of {total} properties", message);
-                StringAssert.Contains("truncated", message);
+                StringAssert.Contains($"Showing 1-50 of {total}; pass cursor=50", message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        // This one reads a window of cursor + max_properties and works out next_cursor against the
+        // untruncated total itself, so the window's own end is not the end of the list.
+        [Test]
+        public void GetComponentProperties_CursorMovesTheWindowOnAndStillCountsAgainstTheRealTotal()
+        {
+            var go = new GameObject("__cursor_probe");
+            try
+            {
+                var line = go.AddComponent<LineRenderer>();
+                line.positionCount = 1000;
+                var id = ObjectIdCodec.GetSerializableId(line);
+
+                ComponentSerializer.ReadProperties(line, out var total, descend: true);
+                Assert.Greater(total, 100, "A 1000-position LineRenderer must exceed two pages of 50.");
+
+                var page1 = JObject.FromObject(ComponentPropertyFunctions.GetComponentProperties(
+                    component_instance_id: id, descend: true, max_properties: 50));
+                var page2 = JObject.FromObject(ComponentPropertyFunctions.GetComponentProperties(
+                    component_instance_id: id, descend: true, max_properties: 50, cursor: 50));
+
+                StringAssert.Contains($"Showing 51-100 of {total}; pass cursor=100",
+                    page2.Value<string>("message"));
+
+                var names1 = page1["data"]["properties"].Select(p => p.Value<string>("Name")).ToList();
+                var names2 = page2["data"]["properties"].Select(p => p.Value<string>("Name")).ToList();
+                Assert.AreEqual(50, names2.Count);
+                CollectionAssert.IsEmpty(names1.Intersect(names2),
+                    "Page two repeated page one, so the window did not move.");
             }
             finally
             {

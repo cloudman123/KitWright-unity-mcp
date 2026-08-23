@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System.Linq;
 using KitWright.Editor.Services.UnityLogs;
 using NUnit.Framework;
 using UnityEngine;
@@ -283,6 +284,65 @@ namespace KitWright.Editor.Tests
             // 7682 = a reported consoleFlags value: LogLevelError (1<<9) on, Log (1<<7) and Warning (1<<8) off.
             Assert.AreEqual(new[] { 1 << 7, 1 << 8 }, Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682));
             Assert.IsEmpty(Tools.Builtins.VisualFeedbackFunctions.MissingConsoleLevelBits(7682 | (1 << 7) | (1 << 8)));
+        }
+
+        // The cache is read newest-first, so the cursor walks backwards in time. Raising count
+        // instead would re-send every entry already read.
+        [Test]
+        public void GetRecentLogs_CursorWalksOlderEntriesWithoutRepeatingThePageBefore()
+        {
+            var token = "KitWrightConsolePaging_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " oldest");
+                Debug.Log(token + " middle");
+                Debug.Log(token + " newest");
+
+                var first = repository.GetRecentLogs(logType: "log", count: 1, filterText: token);
+                Assert.That(first, Does.Contain("newest"));
+                Assert.That(first, Does.Contain("Showing 1-1 of 3; pass cursor=1"));
+
+                var second = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 1);
+                Assert.That(second, Does.Contain("middle"));
+                Assert.That(second, Does.Not.Contain("newest"));
+                Assert.That(second, Does.Contain("pass cursor=2"));
+
+                var last = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 2);
+                Assert.That(last, Does.Contain("oldest"));
+                Assert.That(last, Does.Contain("end of the list"));
+
+                // Not null: null falls through to the Editor console, which would answer a
+                // past-the-end cursor with its own page one.
+                var past = repository.GetRecentLogs(logType: "log", count: 1, filterText: token, cursor: 9);
+                Assert.That(past, Does.Contain("cursor=9 is past the end"));
+            }
+        }
+
+        // Timestamps ride in a list parallel to the lines; paging one and not the other pins the
+        // wrong time onto every entry.
+        [Test]
+        public void GetRecentLogs_CursorKeepsTimestampsLinedUpWithTheirEntries()
+        {
+            var token = "KitWrightConsoleStampPaging_" + System.Guid.NewGuid().ToString("N");
+
+            using (var repository = new UnityLogsRepository())
+            {
+                repository.StartListening();
+                repository.Clear();
+
+                Debug.Log(token + " older");
+                Debug.Log(token + " newer");
+
+                var page = repository.GetRecentLogs(
+                    logType: "log", count: 1, filterText: token, includeTimestamps: true, cursor: 1);
+
+                var line = page.Split('\n').Single(l => l.Contains("[LOG] " + token));
+                StringAssert.IsMatch(@"^\d\d:\d\d:\d\d \[LOG\] " + token + " older", line.Trim());
+            }
         }
     }
 }

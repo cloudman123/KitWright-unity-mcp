@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using KitWright.Editor.Tools.Helpers;
 using UnityEngine;
 
 namespace KitWright.Editor.Services.UnityLogs
@@ -38,9 +39,10 @@ namespace KitWright.Editor.Services.UnityLogs
 
         public string GetRecentLogs(string logType = "all", int count = 30, int sinceSeconds = 0,
             string filterText = null, bool groupDuplicates = false, bool includeStackTrace = false,
-            bool includeTimestamps = false)
+            bool includeTimestamps = false, int cursor = 0)
         {
             count = Mathf.Clamp(count, 1, 200);
+            cursor = Mathf.Max(cursor, 0);
             var filter = (logType ?? "all").ToLowerInvariant();
             var cutoff = sinceSeconds > 0 ? DateTime.Now.AddSeconds(-sinceSeconds) : (DateTime?)null;
 
@@ -53,10 +55,12 @@ namespace KitWright.Editor.Services.UnityLogs
             if (snapshot.Count == 0)
                 return null;
 
+            // Every match, not just the first page: the cache is capped at MaxLogs, so collecting
+            // the lot is what makes a total (and therefore a cursor) reportable at all.
             var lines = new List<string>();
             var stamps = includeTimestamps ? new List<string>() : null;
 
-            for (int i = snapshot.Count - 1; i >= 0 && lines.Count < count; i--)
+            for (int i = snapshot.Count - 1; i >= 0; i--)
             {
                 var entry = snapshot[i];
                 if (cutoff.HasValue && entry.Timestamp < cutoff.Value)
@@ -84,15 +88,25 @@ namespace KitWright.Editor.Services.UnityLogs
             if (lines.Count == 0)
                 return null;
 
+            var total = lines.Count;
+            var pagedLines = Paging.Page(lines, cursor, count, out var nextCursor);
+            var pagedStamps = stamps == null ? null : Paging.Page(stamps, cursor, count, out _);
+            // An answer, not null: the cache did hold entries, so falling through to the console
+            // reader here would silently hand back its page one under a cursor that asked for more.
+            if (pagedLines.Count == 0)
+                return $"Console logs (filter: {filter}, source: cache):{Paging.Suffix(cursor, 0, total, 0)}";
+
             var sb = new StringBuilder();
-            var uniqueCount = AppendLines(sb, lines, groupDuplicates, stamps);
+            var uniqueCount = AppendLines(sb, pagedLines, groupDuplicates, pagedStamps);
 
             var timeSuffix = sinceSeconds > 0 ? $", last {sinceSeconds}s" : string.Empty;
             var textSuffix = string.IsNullOrEmpty(filterText) ? string.Empty : $", text: '{filterText}'";
-            var groupSuffix = groupDuplicates && uniqueCount < lines.Count
+            var groupSuffix = groupDuplicates && uniqueCount < pagedLines.Count
                 ? $", {uniqueCount} unique"
                 : string.Empty;
-            return $"Console logs ({lines.Count} entries{groupSuffix}, filter: {filter}, source: cache{timeSuffix}{textSuffix}):\n{sb}";
+            var pageSuffix = Paging.Suffix(cursor, pagedLines.Count, total, nextCursor);
+            return $"Console logs ({pagedLines.Count} entries{groupSuffix}, filter: {filter}, source: cache{timeSuffix}{textSuffix}):" +
+                   $"{pageSuffix}\n{sb}";
         }
 
         // Whitelisted tag names only, so a log containing List<int> or XML survives.

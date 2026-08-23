@@ -38,7 +38,8 @@ namespace KitWright.Editor.Tests
 
             var capped = ShaderFunctions.ListShaders(count: 1).ToString();
 
-            StringAssert.Contains("showing 1", capped);
+            StringAssert.Contains("Showing 1-1 of", capped);
+            StringAssert.Contains("pass cursor=1", capped);
             Assert.IsFalse(capped.Contains("Found 1 shader file(s)"),
                 "The reported total must be the pre-cap count, not the shown count.");
         }

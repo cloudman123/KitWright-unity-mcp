@@ -121,11 +121,13 @@ namespace KitWright.Editor.Tools.Builtins
             }
         }
 
-        [Description("List shader files (.shader) in the project. Optionally filter by a name substring.")]
+        [Description("List shader files (.shader) in the project. Optionally filter by a name substring. " +
+                     "A page cut short by count reports a next_cursor to pass back as cursor for the rest.")]
         [ReadOnlyTool]
         public static object ListShaders(
             [ToolParam("Case-insensitive substring to filter shader paths by", Required = false)] string filter = null,
-            [ToolParam("Maximum number of results", Required = false)] int count = 100)
+            [ToolParam("Maximum number of results", Required = false)] int count = 100,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             count = Mathf.Clamp(count, 1, 500);
             var guids = AssetDatabase.FindAssets("t:Shader");
@@ -135,12 +137,10 @@ namespace KitWright.Editor.Tools.Builtins
                 .Where(p => string.IsNullOrEmpty(filter) || p.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
                 .OrderBy(p => p)
                 .ToList();
-            var paths = matches.Take(count).ToList();
+            var paths = Paging.Page(matches, cursor, count, out var nextCursor);
 
-            var message = paths.Count < matches.Count
-                ? $"Found {matches.Count} shader file(s) (showing {paths.Count})."
-                : $"Found {matches.Count} shader file(s).";
-            return Response.Success(message, new { count = paths.Count, total = matches.Count, shaders = paths });
+            var message = $"Found {matches.Count} shader file(s).{Paging.Suffix(cursor, paths.Count, matches.Count, nextCursor)}";
+            return Response.Success(message, new { count = paths.Count, total = matches.Count, next_cursor = nextCursor, shaders = paths });
         }
 
         [Description("Get metadata for a shader loaded in the project (by shader name as declared in the Shader \"...\" line): supported flag, render queue, LOD, and its exposed properties with types.")]

@@ -93,9 +93,10 @@ namespace KitWright.Editor.Services
             return completedTask == waitSource.Task && waitSource.Task.IsCompletedSuccessfully;
         }
 
-        public string GetCompilationErrors(int maxEntries = 50, bool includeWarnings = false)
+        public string GetCompilationErrors(int maxEntries = 50, bool includeWarnings = false, int cursor = 0)
         {
             maxEntries = Math.Max(1, maxEntries);
+            cursor = Math.Max(0, cursor);
 
             List<CompilerMessage> messages;
             lock (SyncRoot)
@@ -108,12 +109,13 @@ namespace KitWright.Editor.Services
                                   (includeWarnings && message.type == CompilerMessageType.Warning))
                 .ToList();
 
-            var filtered = matching
-                .Take(maxEntries)
-                .ToList();
+            var filtered = Paging.Page(matching, cursor, maxEntries, out var nextCursor);
 
             if (filtered.Count == 0)
             {
+                if (cursor > 0 && matching.Count > 0)
+                    return $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, 0, matching.Count, 0)}";
+
                 return includeWarnings
                     ? "No compilation errors or warnings detected."
                     : "No compilation errors detected.";
@@ -128,7 +130,7 @@ namespace KitWright.Editor.Services
             });
 
             var header = filtered.Count < matching.Count
-                ? $"Compilation issues ({matching.Count} total, showing first {filtered.Count}; raise maxEntries for the rest):"
+                ? $"Compilation issues ({matching.Count} total).{Paging.Suffix(cursor, filtered.Count, matching.Count, nextCursor)}"
                 : $"Compilation issues ({matching.Count} total):";
 
             return header + "\n" + string.Join("\n", lines);

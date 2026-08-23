@@ -158,11 +158,13 @@ namespace KitWright.Editor.Tools.Builtins
             return "External changes imported. No compilation errors or warnings detected.";
         }
 
-        [Description("Get the latest Unity script compilation errors from the most recent compilation cycle.")]
+        [Description("Get the latest Unity script compilation errors from the most recent compilation cycle. " +
+                     "A page cut short by max_entries reports a next_cursor to pass back as cursor for the rest.")]
         [ReadOnlyTool]
         public static string GetCompilationErrors(
             [ToolParam("Maximum number of issues to return", Required = false)] int max_entries = 50,
-            [ToolParam("Include warnings in addition to errors", Required = false)] bool include_warnings = false)
+            [ToolParam("Include warnings in addition to errors", Required = false)] bool include_warnings = false,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             var compilationService = GetCompilationService();
             if (compilationService == null)
@@ -173,7 +175,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             return EditorRefreshPipeline.AnnotatePendingScriptChanges(
                 EditorRefreshPipeline.CaptureScriptChangeState(scanForUnknownProjectScripts: false),
-                compilationService.GetCompilationErrors(max_entries, include_warnings));
+                compilationService.GetCompilationErrors(max_entries, include_warnings, cursor));
         }
 
         [Description("Get the latest domain reload recovery event, if any. Useful after Unity recompiles scripts and an MCP request gets interrupted.")]

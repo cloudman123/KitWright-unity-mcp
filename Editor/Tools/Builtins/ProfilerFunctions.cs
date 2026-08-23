@@ -329,7 +329,8 @@ namespace KitWright.Editor.Tools.Builtins
         [ReadOnlyTool]
         public static string GetTopMemoryObjects(
             [ToolParam("Type to enumerate (e.g. 'Texture2D'), or 'All' for a per-type summary", Required = false)] string type_name = "Texture2D",
-            [ToolParam("Number of top objects to return (1-100)", Required = false)] int top_n = 20)
+            [ToolParam("Number of top objects to return (1-100)", Required = false)] int top_n = 20,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             try
             {
@@ -358,19 +359,20 @@ namespace KitWright.Editor.Tools.Builtins
 
                 entries.Sort((a, b) => b.Size.CompareTo(a.Size));
 
+                var page = Paging.Page(entries, cursor, top_n, out var nextCursor);
+                var start = Mathf.Clamp(cursor, 0, entries.Count);
+
                 var sb = new StringBuilder();
                 sb.AppendLine($"Top memory objects: {type.Name}");
-                sb.AppendLine($"Total: {entries.Count} object(s), {ValueConverter.FormatBytes(totalSize)}");
-                var count = Mathf.Min(top_n, entries.Count);
-                for (int i = 0; i < count; i++)
+                sb.AppendLine($"Total: {entries.Count} object(s), {ValueConverter.FormatBytes(totalSize)}." +
+                              Paging.Suffix(cursor, page.Count, entries.Count, nextCursor));
+                for (int i = 0; i < page.Count; i++)
                 {
-                    var (obj, size) = entries[i];
-                    sb.Append($"[{i}] {ValueConverter.FormatBytes(size)}  {obj.name}");
+                    var (obj, size) = page[i];
+                    sb.Append($"[{start + i}] {ValueConverter.FormatBytes(size)}  {obj.name}");
                     AppendObjectDetail(sb, obj);
                     sb.AppendLine();
                 }
-                if (entries.Count > count)
-                    sb.AppendLine($"... {entries.Count - count} more object(s) not shown (raise top_n to see more).");
                 return sb.ToString();
             }
             catch (Exception ex)
@@ -724,7 +726,8 @@ namespace KitWright.Editor.Tools.Builtins
                      "Best-effort: returns event name and associated object per event, not full per-draw-call shader parameters.")]
         [ReadOnlyTool]
         public static string FrameDebuggerGetEvents(
-            [ToolParam("Maximum number of events to return", Required = false)] int max_events = 50)
+            [ToolParam("Maximum number of events to return", Required = false)] int max_events = 50,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             try
             {
@@ -737,10 +740,13 @@ namespace KitWright.Editor.Tools.Builtins
                         new { hint = "Ensure frame_debugger_enable was called, then wait a moment for a frame to render before calling this again." });
 
                 max_events = Mathf.Clamp(max_events, 1, 500);
-                var count = Mathf.Min(max_events, events.Length);
+                var start = Mathf.Clamp(cursor, 0, events.Length);
+                var count = Mathf.Min(max_events, events.Length - start);
+                var nextCursor = start + count < events.Length ? start + count : 0;
                 var sb = new StringBuilder();
-                sb.AppendLine($"Total events: {events.Length} (showing {count})");
-                for (int i = 0; i < count; i++)
+                sb.AppendLine($"Total events: {events.Length}." +
+                              Paging.Suffix(cursor, count, events.Length, nextCursor));
+                for (int i = start; i < start + count; i++)
                 {
                     var infoName = (string)_fdGetFrameEventInfoName.Invoke(null, new object[] { i });
                     string objName = "<none>";

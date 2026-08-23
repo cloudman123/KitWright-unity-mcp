@@ -107,7 +107,7 @@
 | `create_folder` | Create a project folder (and any missing parent folders) under Assets. |
 | `create_material` | Create a new material with a specified color |
 | `delete_asset` | Delete an asset by moving it to the OS trash (Recycle Bin). |
-| `find_assets` | Search for assets by type and name |
+| `find_assets` | Search for assets by type and name. |
 | `move_asset` | Move or rename an asset to a new path (creates missing destination folders). |
 | `rename_asset` | Rename an asset |
 
@@ -265,9 +265,9 @@
 | Tool | Description |
 |------|-------------|
 | `exists` | Check if a file or directory exists |
-| `list_directory` | List files and directories directly inside a directory (top level only; use search_files to recurse into subdirectories) |
+| `list_directory` | List files and directories directly inside a directory (top level only; use search_files to recurse into subdirectories). |
 | `read_file` | Read the contents of a file. |
-| `search_files` | Search for files by name pattern in the project |
+| `search_files` | Search for files by name pattern in the project. |
 | `write_file` | Write content to a file, creating it or overwriting it whole. |
 
 ## MemorySnapshot (5)

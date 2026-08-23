@@ -349,14 +349,16 @@ namespace KitWright.Editor.Tools.Builtins
                 new { instanceId = ObjectIdCodec.GetSerializableId(go), activeSelf = go.activeSelf });
         }
 
-        [Description("Find GameObjects by id/name/path/tag/layer/component. Returns full structured results so the agent can chain by_id calls.")]
+        [Description("Find GameObjects by id/name/path/tag/layer/component. Returns full structured results so the agent can chain by_id calls. " +
+                     "A page cut short by max reports a next_cursor; pass it back as cursor for the rest instead of raising max and re-reading page one.")]
         [ReadOnlyTool]
         public static object FindGameObjects(
             [ToolParam("Search query (id, name, path, tag name, layer name/index, or component type)")] string query,
             [ToolParam("Search method (by_id/by_name/by_path/by_tag/by_layer/by_component)", Required = false)] string find_method = null,
             [ToolParam("Include inactive objects", Required = false)] string include_inactive = null,
             [ToolParam("Limit results to children of this GameObject identifier (used with find_method=by_*)", Required = false)] string in_parent = null,
-            [ToolParam("Maximum results to return (default 50)", Required = false)] string max = "50")
+            [ToolParam("Maximum results to return (default 50)", Required = false)] string max = "50",
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             bool inactive = include_inactive == "true" || include_inactive == "1";
             GameObject root = null;
@@ -373,13 +375,10 @@ namespace KitWright.Editor.Tools.Builtins
             int.TryParse(max, out var cap);
             if (cap <= 0) cap = 50;
             var total = matches.Count;
-            if (matches.Count > cap)
-                matches = matches.GetRange(0, cap);
+            var page = Paging.Page(matches, cursor, cap, out var nextCursor);
 
-            var message = matches.Count < total
-                ? $"Found {total} object(s), showing {matches.Count} (raise 'max' for more)."
-                : $"Found {total} object(s).";
-            return Response.Success(message, GameObjectSerializer.DescribeMany(matches));
+            var message = $"Found {total} object(s).{Paging.Suffix(cursor, page.Count, total, nextCursor)}";
+            return Response.Success(message, GameObjectSerializer.DescribeMany(page));
         }
 
         [Description("Get full info on a GameObject: transform, components (with instance ids), active state, tag, layer.")]

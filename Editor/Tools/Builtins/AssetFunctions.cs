@@ -1,6 +1,8 @@
 // Copyright (C) KitWright. Licensed under MIT.
+using System;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using System.IO;
+using System.Linq;
 using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
@@ -91,25 +93,29 @@ namespace KitWright.Editor.Tools.Builtins
             return $"Assigned material '{mat.name}' to '{go.name}'";
         }
 
-        [Description("Search for assets by type and name")]
+        [Description("Search for assets by type and name. Paths come back sorted, and a page cut short by " +
+                     "max reports a next_cursor to pass back as cursor for the rest.")]
         [ReadOnlyTool]
         public static string FindAssets(
-            [ToolParam("Search filter (e.g. 't:Material red', 't:Prefab Player', 't:Texture')")] string filter)
+            [ToolParam("Search filter (e.g. 't:Material red', 't:Prefab Player', 't:Texture')")] string filter,
+            [ToolParam("Maximum paths to return (1-500). Default 50.", Required = false)] int max = 50,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
-            var guids = AssetDatabase.FindAssets(filter);
-            if (guids.Length == 0)
+            // Sorted because AssetDatabase.FindAssets promises no order, and paging an unordered
+            // result set silently skips and repeats entries between calls.
+            var paths = AssetDatabase.FindAssets(filter)
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(p => p, StringComparer.Ordinal)
+                .ToList();
+            if (paths.Count == 0)
                 return $"No assets found for filter: {filter}";
 
+            var page = Paging.Page(paths, cursor, Mathf.Clamp(max, 1, 500), out var nextCursor);
+
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Found {guids.Length} assets:");
-            int count = 0;
-            foreach (var guid in guids)
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
+            sb.AppendLine($"Found {paths.Count} assets.{Paging.Suffix(cursor, page.Count, paths.Count, nextCursor)}");
+            foreach (var path in page)
                 sb.AppendLine($"  - {path}");
-                count++;
-                if (count >= 50) { sb.AppendLine("  ... (truncated)"); break; }
-            }
             return sb.ToString();
         }
 

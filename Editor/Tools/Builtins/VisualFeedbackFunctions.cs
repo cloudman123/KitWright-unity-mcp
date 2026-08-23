@@ -103,7 +103,9 @@ namespace KitWright.Editor.Tools.Builtins
                      "'message (xN)' line so spammy warnings don't drown out unique entries, and optionally " +
                      "including each entry's stack trace (truncated separately from the message) or the time " +
                      "each entry was logged. Unity rich-text markup (<color>, <b>, ...) is stripped from every " +
-                     "message, so filter_text matches the readable text rather than the markup.")]
+                     "message, so filter_text matches the readable text rather than the markup. " +
+                     "Reading from the cache, a page cut short by count reports a next_cursor to pass back as cursor " +
+                     "for the older entries.")]
         [ReadOnlyTool]
         public static string GetConsoleLogs(
             [ToolParam("Filter by log type: 'all', 'log', 'warning', 'error'", Required = false)] string log_type = "all",
@@ -114,7 +116,8 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Only include entries whose message contains this text (case-insensitive)", Required = false)] string filter_text = null,
             [ToolParam("Collapse repeated identical messages into one line with a (xN) count", Required = false)] bool group_duplicates = false,
             [ToolParam("Include each entry's stack trace, indented below the message (its own truncation cap, separate from the message's).", Required = false)] bool include_stack_trace = false,
-            [ToolParam("Prefix each entry with the HH:mm:ss it was logged (cache/auto only; the Editor console keeps no timestamps).", Required = false)] bool include_timestamps = false)
+            [ToolParam("Prefix each entry with the HH:mm:ss it was logged (cache/auto only; the Editor console keeps no timestamps).", Required = false)] bool include_timestamps = false,
+            [ToolParam("Resume at this entry index counting back from the newest, as reported by a previous call's next_cursor. Cache source only. 0 starts at the newest.", Required = false)] int cursor = 0)
         {
             count = Mathf.Clamp(count, 1, 200);
             since_seconds = Mathf.Clamp(since_seconds, 0, 86400);
@@ -131,7 +134,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             if (source == "cache" || source == "auto")
             {
-                var cachedLogs = logsRepository?.GetRecentLogs(log_type, count, since_seconds, filter_text, group_duplicates, include_stack_trace, include_timestamps);
+                var cachedLogs = logsRepository?.GetRecentLogs(log_type, count, since_seconds, filter_text, group_duplicates, include_stack_trace, include_timestamps, cursor);
                 if (!string.IsNullOrEmpty(cachedLogs))
                     return cachedLogs;
 

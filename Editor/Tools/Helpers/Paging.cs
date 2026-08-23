@@ -1,0 +1,44 @@
+// Copyright (C) KitWright. Licensed under MIT.
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace KitWright.Editor.Tools.Helpers
+{
+    // One cursor shape for every tool that caps a list. A capped tool used to tell the agent to
+    // "raise max for more", which re-sends the page it already read: walking 500 results 50 at a
+    // time cost 2750 records instead of 500.
+    internal static class Paging
+    {
+        // nextCursor is 0 when the page reached the end, so callers can treat it as "no more".
+        internal static List<T> Page<T>(IList<T> items, int cursor, int pageSize, out int nextCursor)
+        {
+            var total = items?.Count ?? 0;
+            cursor = Mathf.Clamp(cursor, 0, total);
+            pageSize = Mathf.Max(pageSize, 1);
+
+            var take = Mathf.Min(pageSize, total - cursor);
+            var page = new List<T>(take);
+            for (int i = 0; i < take; i++)
+                page.Add(items[cursor + i]);
+
+            nextCursor = cursor + take < total ? cursor + take : 0;
+            return page;
+        }
+
+        // Empty while everything fits, so an unpaged response reads exactly as it did before and an
+        // agent only has one wording to recognise once paging does kick in.
+        internal static string Suffix(int cursor, int shown, int total, int nextCursor)
+        {
+            if (nextCursor > 0)
+                return $" Showing {cursor + 1}-{cursor + shown} of {total}; pass cursor={nextCursor} for the next page.";
+            if (cursor <= 0)
+                return string.Empty;
+            return shown > 0
+                ? $" Showing {cursor + 1}-{cursor + shown} of {total}; end of the list."
+                : $" cursor={cursor} is past the end of {total} item(s).";
+        }
+
+        internal const string CursorParam =
+            "Resume at this index, as reported by a previous call's next_cursor. 0 starts at the beginning.";
+    }
+}

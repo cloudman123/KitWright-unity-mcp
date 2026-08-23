@@ -55,22 +55,31 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("How to resolve target", Required = false)] string find_method = null,
             [ToolParam("Comma-separated name substrings; a property is kept if it contains any of them (case-insensitive). Matches Unity's serialized names, so 'resolution' finds 'm_ReferenceResolution'. Empty = every property.", Required = false)] string name_filter = null,
             [ToolParam("Also return nested and array/list element properties, named by full path (e.g. 'm_Sizes.Array.data[0]'). Off by default: arrays then read as '<Array length=N>'.", Required = false)] bool descend = false,
-            [ToolParam("Stop after this many properties (1-5000). Mostly matters with descend, where an array of a few thousand elements is one property per element. The response reports the untruncated total.", Required = false)] int max_properties = 400)
+            [ToolParam("Stop after this many properties (1-5000). Mostly matters with descend, where an array of a few thousand elements is one property per element. The response reports the untruncated total.", Required = false)] int max_properties = 400,
+            [ToolParam(Paging.CursorParam, Required = false)] int cursor = 0)
         {
             var resolved = ResolveComponent(target, component, component_instance_id, find_method);
             if (resolved.Error != null) return resolved.Error;
 
             max_properties = Mathf.Clamp(max_properties, 1, 5000);
-            var props = ComponentSerializer.ReadProperties(resolved.Component, out var total, descend: descend, maxProperties: max_properties);
+            cursor = Mathf.Clamp(cursor, 0, 1000000);
+            var window = ComponentSerializer.ReadProperties(resolved.Component, out var total, descend: descend, maxProperties: cursor + max_properties);
+            var props = Paging.Page(window, cursor, max_properties, out _);
+            // Against the untruncated total, not the window that was read: the window stops at
+            // cursor + max_properties by design, so its own end is not the end of the list.
+            var nextCursor = cursor + props.Count < total ? cursor + props.Count : 0;
+            var scanned = props.Count;
+
             var terms = SplitFilterTerms(name_filter);
             if (terms.Length > 0)
                 props = props.Where(p => MatchesAnyTerm(p.Name, terms)).ToList();
 
             var typeName = resolved.Component.GetType().Name;
+            var pageSuffix = Paging.Suffix(cursor, scanned, total, nextCursor);
             var message = terms.Length > 0
-                ? $"{props.Count} of {total} properties on {typeName} (filter: {name_filter})."
-                : total > max_properties
-                    ? $"{props.Count} of {total} properties on {typeName} (truncated; raise max_properties or pass name_filter)."
+                ? $"{props.Count} of {total} properties on {typeName} (filter: {name_filter}).{pageSuffix}"
+                : total > scanned
+                    ? $"{props.Count} of {total} properties on {typeName}.{pageSuffix}"
                     : $"{props.Count} properties on {typeName}.";
 
             return Response.Success(message,

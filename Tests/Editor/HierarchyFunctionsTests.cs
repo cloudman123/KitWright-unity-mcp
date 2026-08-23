@@ -6,6 +6,7 @@ using System.IO;
 using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
 using KitWright.Editor.Tools.Helpers;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -652,9 +653,20 @@ namespace KitWright.Editor.Tests
                 first = new GameObject(name);
                 second = new GameObject(name);
 
-                var capped = GameObjectFunctions.FindGameObjects(name, max: "1").ToString();
+                var page1 = JObject.FromObject(GameObjectFunctions.FindGameObjects(name, max: "1"));
+                var page2 = JObject.FromObject(GameObjectFunctions.FindGameObjects(name, max: "1", cursor: 1));
 
-                StringAssert.Contains("Found 2 object(s), showing 1", capped);
+                StringAssert.Contains("Found 2 object(s).", page1.Value<string>("message"));
+                StringAssert.Contains("Showing 1-1 of 2; pass cursor=1", page1.Value<string>("message"));
+                StringAssert.Contains("Showing 2-2 of 2; end of the list.", page2.Value<string>("message"));
+                Assert.That(page2.Value<string>("message"), Does.Not.Contain("pass cursor="));
+
+                // Page two has to be the *other* object, not the same one again: that is the whole
+                // point of the cursor over telling the agent to raise max and re-read page one.
+                Assert.AreNotEqual(
+                    page1["data"][0]["instanceId"].ToString(),
+                    page2["data"][0]["instanceId"].ToString(),
+                    "Page two returned the object from page one, so the cursor was ignored.");
             }
             finally
             {
