@@ -297,12 +297,12 @@ namespace KitWright.Editor.Tools.Builtins
                         });
                     }
 
-                    var all = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by").ToList();
-                    var references = Paging.Page(all, cursor, max_results, out var nextCursor).ToArray();
+                    var all = accessor.GetReferences(resolved.Index, referencedBy: directionNormalized == "referenced_by").ToArray();
+                    var references = Paging.Page(all, cursor, max_results, out var nextCursor);
 
                     return JsonConvert.SerializeObject(Response.Success(
-                        $"{all.Count} {directionNormalized} reference(s) for '{resolved.Name}'." +
-                        Paging.Suffix(cursor, references.Length, all.Count, nextCursor),
+                        $"{all.Length} {directionNormalized} reference(s) for '{resolved.Name}'." +
+                        Paging.Suffix(cursor, references.Count, all.Length, nextCursor),
                         new
                         {
                             path,

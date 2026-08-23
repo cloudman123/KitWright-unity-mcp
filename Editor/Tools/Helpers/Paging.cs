@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace KitWright.Editor.Tools.Helpers
@@ -10,16 +11,9 @@ namespace KitWright.Editor.Tools.Helpers
         // nextCursor is 0 when the page reached the end, so callers can treat it as "no more".
         internal static List<T> Page<T>(IList<T> items, int cursor, int pageSize, out int nextCursor)
         {
-            var total = items?.Count ?? 0;
-            cursor = Mathf.Clamp(cursor, 0, total);
-            pageSize = Mathf.Max(pageSize, 1);
-
-            var take = Mathf.Min(pageSize, total - cursor);
-            var page = new List<T>(take);
-            for (int i = 0; i < take; i++)
-                page.Add(items[cursor + i]);
-
-            nextCursor = cursor + take < total ? cursor + take : 0;
+            cursor = Mathf.Clamp(cursor, 0, items.Count);
+            var page = items.Skip(cursor).Take(Mathf.Max(pageSize, 1)).ToList();
+            nextCursor = cursor + page.Count < items.Count ? cursor + page.Count : 0;
             return page;
         }
 
