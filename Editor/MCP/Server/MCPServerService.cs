@@ -11,7 +11,6 @@ using KitWright.Editor.State;
 using KitWright.Editor.Threading;
 using KitWright.Editor.Tools;
 using KitWright.Editor.Tools.Builtins;
-using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
 
@@ -122,26 +121,11 @@ namespace KitWright.Editor.MCP.Server
                 return Task.FromResult(false);
             }
 
-            bool cleanupStaleState = false;
+            bool cleanupStaleState;
             lock (_lifecycleLock)
             {
-                if (_disposed)
-                {
-                    Debug.LogWarning("[KitWright MCP Server] Cannot start: service is disposed");
-                    return Task.FromResult(false);
-                }
-
-                if (_isRunning && _transport?.IsRunning == true)
-                {
-                    PluginDebugLogger.Log("[KitWright MCP Server] Server is already running");
-                    return Task.FromResult(true);
-                }
-
-                if (_startTask != null)
-                {
-                    PluginDebugLogger.Log("[KitWright MCP Server] Server start is already in progress");
-                    return _startTask;
-                }
+                if (TryFastPathStart(out var beforeCleanup))
+                    return beforeCleanup;
 
                 cleanupStaleState = _isRunning || _transport != null || _requestHandler != null || _resourceProvider != null;
             }
@@ -154,23 +138,9 @@ namespace KitWright.Editor.MCP.Server
 
             lock (_lifecycleLock)
             {
-                if (_disposed)
-                {
-                    Debug.LogWarning("[KitWright MCP Server] Cannot start: service is disposed");
-                    return Task.FromResult(false);
-                }
-
-                if (_isRunning && _transport?.IsRunning == true)
-                {
-                    PluginDebugLogger.Log("[KitWright MCP Server] Server is already running");
-                    return Task.FromResult(true);
-                }
-
-                if (_startTask != null)
-                {
-                    PluginDebugLogger.Log("[KitWright MCP Server] Server start is already in progress");
-                    return _startTask;
-                }
+                // Re-checked because StopSync above runs with the lock released.
+                if (TryFastPathStart(out var afterCleanup))
+                    return afterCleanup;
 
                 _lifecycleVersion++;
                 _startCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -238,7 +208,7 @@ namespace KitWright.Editor.MCP.Server
 
                 if (!assigned)
                 {
-                    DisposeUnassignedStartState(transport, resourceProvider);
+                    DisposeTransportState(transport, resourceProvider);
                     return false;
                 }
 
@@ -284,7 +254,7 @@ namespace KitWright.Editor.MCP.Server
                 if (assigned)
                     CleanupServerState(transport);
                 else
-                    DisposeUnassignedStartState(transport, resourceProvider);
+                    DisposeTransportState(transport, resourceProvider);
                 return false;
             }
             catch (Exception ex)
@@ -292,10 +262,39 @@ namespace KitWright.Editor.MCP.Server
                 if (assigned)
                     CleanupServerState(transport);
                 else
-                    DisposeUnassignedStartState(transport, resourceProvider);
+                    DisposeTransportState(transport, resourceProvider);
                 Debug.LogError($"[KitWright MCP Server] Failed to start: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
+        }
+
+        /// <summary>Caller must hold <see cref="_lifecycleLock"/>. True when the start is already
+        /// settled and <paramref name="result"/> is what StartAsync should return.</summary>
+        private bool TryFastPathStart(out Task<bool> result)
+        {
+            if (_disposed)
+            {
+                Debug.LogWarning("[KitWright MCP Server] Cannot start: service is disposed");
+                result = Task.FromResult(false);
+                return true;
+            }
+
+            if (_isRunning && _transport?.IsRunning == true)
+            {
+                PluginDebugLogger.Log("[KitWright MCP Server] Server is already running");
+                result = Task.FromResult(true);
+                return true;
+            }
+
+            if (_startTask != null)
+            {
+                PluginDebugLogger.Log("[KitWright MCP Server] Server start is already in progress");
+                result = _startTask;
+                return true;
+            }
+
+            result = null;
+            return false;
         }
 
         private void ClearCompletedStartTask(Task<bool> completedTask, CancellationTokenSource startCts)
@@ -375,14 +374,7 @@ namespace KitWright.Editor.MCP.Server
                 _isRunning = false;
             }
 
-            if (transportToDispose != null)
-            {
-                transportToDispose.OnRequestReceived -= HandleRequestReceived;
-                transportToDispose.Stop();
-                transportToDispose.Dispose();
-            }
-
-            resourceProviderToDispose?.Dispose();
+            DisposeTransportState(transportToDispose, resourceProviderToDispose);
 
             if (hadState)
                 MCPInstanceRegistry.Remove(ApplicationPaths.ProjectRoot);
@@ -390,7 +382,7 @@ namespace KitWright.Editor.MCP.Server
             return hadState;
         }
 
-        private void DisposeUnassignedStartState(IMCPTransport transport, MCPResourceProvider resourceProvider)
+        private void DisposeTransportState(IMCPTransport transport, MCPResourceProvider resourceProvider)
         {
             if (transport != null)
             {
@@ -851,16 +843,6 @@ namespace KitWright.Editor.MCP.Server
                 PluginDebugLogger.Log($"[KitWright MCP Server] Recovery completed for '{toolName}'. {summary}");
             else
                 Debug.LogWarning($"[KitWright MCP Server] Recovery detected for '{toolName}'. {summary}");
-        }
-
-        internal static MCPToolCallStatus DetermineInterruptedToolRecoveryStatus(string scriptResult)
-        {
-            if (ToolResultFormatter.IsError(scriptResult))
-                return MCPToolCallStatus.Error;
-
-            return string.IsNullOrEmpty(scriptResult)
-                ? MCPToolCallStatus.Interrupted
-                : MCPToolCallStatus.Success;
         }
 
         private static void WaitForCompilationThen(Action onReady)

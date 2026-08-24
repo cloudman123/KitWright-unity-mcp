@@ -85,7 +85,7 @@ namespace KitWright.Editor.MCP.Server
 
             _versionLabel = new Label();
             _versionLabel.style.fontSize = 13;
-            _versionLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+            _versionLabel.style.color = MCPPalette.TextMuted;
             _versionLabel.style.unityTextAlign = TextAnchor.MiddleRight;
             titleRow.Add(_versionLabel);
 
@@ -196,7 +196,7 @@ namespace KitWright.Editor.MCP.Server
                 _statusLabel.tooltip = attached
                     ? $"Attached to an existing listener on {url}"
                     : $"Running on {url}";
-                _statusLabel.style.color = new Color(0.4f, 1f, 0.4f);
+                _statusLabel.style.color = MCPPalette.Ok;
             }
             else
             {

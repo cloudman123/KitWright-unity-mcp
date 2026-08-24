@@ -93,20 +93,6 @@ namespace KitWright.Editor
             Assert.AreEqual("ERR", RecentActivityPanel.GetBadgeText(MCPToolCallStatus.Error));
         }
 
-        [Test]
-        public void InterruptedToolRecoveryStatus_EmptyContinuationIsInterrupted()
-        {
-            Assert.AreEqual(
-                MCPToolCallStatus.Interrupted,
-                MCPServerService.DetermineInterruptedToolRecoveryStatus(null));
-            Assert.AreEqual(
-                MCPToolCallStatus.Success,
-                MCPServerService.DetermineInterruptedToolRecoveryStatus("Continuation completed."));
-            Assert.AreEqual(
-                MCPToolCallStatus.Error,
-                MCPServerService.DetermineInterruptedToolRecoveryStatus(ToolResultFormatter.Error("TEST_ERROR")));
-        }
-
         [UnityTest]
         public IEnumerator StartAsync_WhenPortIsAlreadyOwned_ReturnsFalseWithoutStoppingOwner()
         {

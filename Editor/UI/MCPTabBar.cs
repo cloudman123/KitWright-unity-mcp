@@ -15,7 +15,7 @@ namespace KitWright.Editor.MCP.Server
     /// </summary>
     internal sealed class MCPTabBar<TKey>
     {
-        private static readonly Color ActiveTabColor = new Color(0.20f, 0.20f, 0.21f);
+        private static readonly Color ActiveTabColor = MCPPalette.Surface;
         private static readonly Color InactiveTabColor = new Color(0.145f, 0.145f, 0.145f);
         private static readonly Color HoverTabColor = new Color(0.18f, 0.18f, 0.185f);
         private static readonly Color AccentColor = new Color(0.30f, 0.55f, 0.85f);

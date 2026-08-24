@@ -13,7 +13,7 @@ namespace KitWright.Editor.MCP.Server
     /// </summary>
     internal sealed class MCPSwitchToggle : VisualElement
     {
-        private static readonly Color OnTrack = new Color(0.30f, 0.66f, 0.36f);
+        private static readonly Color OnTrack = MCPPalette.AccentGreen;
         private static readonly Color OffTrack = new Color(0.62f, 0.26f, 0.26f);
 
         private readonly Label _label;

@@ -437,20 +437,18 @@ namespace KitWright.Editor.MCP.Server
             }
 
             var content = File.ReadAllText(path);
-            var beginCount = CountOccurrences(content, ManagedMarker);
-            var endCount = CountOccurrences(content, ManagedEndMarker);
-            var begin = content.IndexOf(ManagedMarker, StringComparison.Ordinal);
-            var end = begin >= 0
-                ? content.IndexOf(ManagedEndMarker, begin + ManagedMarker.Length, StringComparison.Ordinal)
-                : -1;
+            var markers = ScanManagedMarkers(content);
 
-            if (beginCount == 1 && endCount == 1 && end > begin)
+            if (markers.IsWellFormed)
             {
-                var prefix = content.Substring(0, begin);
-                var suffix = content.Substring(end + ManagedEndMarker.Length);
+                var prefix = content.Substring(0, markers.Begin);
+                var suffix = content.Substring(markers.End + ManagedEndMarker.Length);
                 File.WriteAllText(path, prefix + block + suffix);
                 return;
             }
+
+            var beginCount = markers.BeginCount;
+            var endCount = markers.EndCount;
 
             if (beginCount == 1 && endCount == 0)
             {
@@ -483,12 +481,9 @@ namespace KitWright.Editor.MCP.Server
                 return;
 
             var content = File.ReadAllText(path);
-            var beginCount = CountOccurrences(content, ManagedMarker);
-            var endCount = CountOccurrences(content, ManagedEndMarker);
-            var begin = content.IndexOf(ManagedMarker, StringComparison.Ordinal);
-            var end = begin >= 0
-                ? content.IndexOf(ManagedEndMarker, begin + ManagedMarker.Length, StringComparison.Ordinal)
-                : -1;
+            var markers = ScanManagedMarkers(content);
+            var beginCount = markers.BeginCount;
+            var endCount = markers.EndCount;
 
             if (beginCount == 0 && endCount == 0)
                 return;
@@ -505,12 +500,12 @@ namespace KitWright.Editor.MCP.Server
                     $"'{path}' contains an edited legacy KitWright file with no end marker. It was left untouched while disabling Project Skills. Preserve any hand-authored text and remove the stale KitWright section manually.");
             }
 
-            if (beginCount != 1 || endCount != 1 || end <= begin)
+            if (!markers.IsWellFormed)
                 throw new InvalidOperationException(
                     $"'{path}' contains duplicate, unmatched, or out-of-order KitWright managed markers. It was left untouched while disabling Project Skills.");
 
-            var prefix = content.Substring(0, begin);
-            var suffix = content.Substring(end + ManagedEndMarker.Length);
+            var prefix = content.Substring(0, markers.Begin);
+            var suffix = content.Substring(markers.End + ManagedEndMarker.Length);
             var remaining = (prefix + suffix).Trim();
 
             if (remaining.Length == 0 || remaining == defaultTitle.Trim())
@@ -520,6 +515,37 @@ namespace KitWright.Editor.MCP.Server
             }
 
             File.WriteAllText(path, prefix.TrimEnd() + "\n" + suffix.TrimStart('\n', '\r'));
+        }
+
+        private static ManagedMarkers ScanManagedMarkers(string content)
+        {
+            var begin = content.IndexOf(ManagedMarker, StringComparison.Ordinal);
+            return new ManagedMarkers(
+                CountOccurrences(content, ManagedMarker),
+                CountOccurrences(content, ManagedEndMarker),
+                begin,
+                begin >= 0
+                    ? content.IndexOf(ManagedEndMarker, begin + ManagedMarker.Length, StringComparison.Ordinal)
+                    : -1);
+        }
+
+        private readonly struct ManagedMarkers
+        {
+            public ManagedMarkers(int beginCount, int endCount, int begin, int end)
+            {
+                BeginCount = beginCount;
+                EndCount = endCount;
+                Begin = begin;
+                End = end;
+            }
+
+            public int BeginCount { get; }
+            public int EndCount { get; }
+            public int Begin { get; }
+            public int End { get; }
+
+            /// Exactly one begin followed by exactly one end: the only shape safe to rewrite in place.
+            public bool IsWellFormed => BeginCount == 1 && EndCount == 1 && End > Begin;
         }
 
         private static int CountOccurrences(string content, string marker)
@@ -697,19 +723,14 @@ namespace KitWright.Editor.MCP.Server
 
             if (expected.SkillId == "project")
             {
-                var beginCount = CountOccurrences(content, ManagedMarker);
-                var endCount = CountOccurrences(content, ManagedEndMarker);
-                var begin = content.IndexOf(ManagedMarker, StringComparison.Ordinal);
-                var end = begin >= 0
-                    ? content.IndexOf(ManagedEndMarker, begin + ManagedMarker.Length, StringComparison.Ordinal)
-                    : -1;
-                if (beginCount != 1 || endCount != 1 || end <= begin)
+                var markers = ScanManagedMarkers(content);
+                if (!markers.IsWellFormed)
                 {
                     return new SkillFileVersionStatus(
                         expected.Path,
                         expected.SkillId,
                         expected.ExpectedVersion,
-                        beginCount == 1 && endCount == 0 ? "legacy marker" : "invalid markers",
+                        markers.BeginCount == 1 && markers.EndCount == 0 ? "legacy marker" : "invalid markers",
                         false,
                         false,
                         true);
@@ -917,9 +938,6 @@ version: {skill.Version}
 
         private static string BuildSkillDocument(SkillDefinition skill, SkillPlatform platform)
         {
-            if (skill.ContentBuilder != null)
-                return skill.ContentBuilder(skill, platform);
-
             if (string.Equals(skill.Id, "unity-mcp-workflow", StringComparison.OrdinalIgnoreCase))
                 return BuildUnityMcpWorkflowSkillDocument(skill, platform);
 
@@ -1315,7 +1333,7 @@ $@"
 
         internal sealed class SkillDefinition
         {
-            public SkillDefinition(string id, string version, string title, string description, bool isBuiltIn, string whenToUse, IReadOnlyList<string> rules, Func<SkillDefinition, SkillPlatform, string> contentBuilder = null)
+            public SkillDefinition(string id, string version, string title, string description, bool isBuiltIn, string whenToUse, IReadOnlyList<string> rules)
             {
                 Id = id;
                 Version = version;
@@ -1324,7 +1342,6 @@ $@"
                 IsBuiltIn = isBuiltIn;
                 WhenToUse = whenToUse;
                 Rules = rules ?? Array.Empty<string>();
-                ContentBuilder = contentBuilder;
             }
 
             public string Id { get; }
@@ -1334,9 +1351,6 @@ $@"
             public bool IsBuiltIn { get; }
             public string WhenToUse { get; }
             public IReadOnlyList<string> Rules { get; }
-
-            // Set by out-of-package skill providers that ship their own SKILL.md body.
-            public Func<SkillDefinition, SkillPlatform, string> ContentBuilder { get; }
         }
 
         private sealed class ExpectedSkillVersionFile

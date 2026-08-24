@@ -53,7 +53,7 @@ namespace KitWright.Editor.MCP.Server
             {
                 connToggleLabel.style.fontSize = 12;
                 connToggleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                connToggleLabel.style.color = new Color(0.55f, 0.7f, 0.9f);
+                connToggleLabel.style.color = MCPPalette.HeadingBlue;
                 connToggleLabel.style.flexGrow = 1;
             }
 

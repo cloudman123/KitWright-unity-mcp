@@ -239,7 +239,7 @@ namespace KitWright.Editor.MCP.Server
 
             card.style.backgroundColor = normalBg;
             card.Rounded(6);
-            card.Border(1, new Color(0.09f, 0.09f, 0.09f));
+            card.Border(1, MCPPalette.BorderDark);
             card.style.marginBottom = 6;
             card.style.overflow = Overflow.Hidden;
             card.style.transitionProperty = new System.Collections.Generic.List<StylePropertyName> { "background-color" };
@@ -298,7 +298,7 @@ namespace KitWright.Editor.MCP.Server
             var nameLabel = new Label(integration.Name);
             nameLabel.style.fontSize = 13;
             nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            nameLabel.style.color = installed ? new Color(0.92f, 0.92f, 0.94f) : new Color(0.6f, 0.6f, 0.6f);
+            nameLabel.style.color = installed ? new Color(0.92f, 0.92f, 0.94f) : MCPPalette.TextDim;
             titleRow.Add(nameLabel);
 
             var isUnity = integration.PackageId.StartsWith("com.unity.", StringComparison.OrdinalIgnoreCase);

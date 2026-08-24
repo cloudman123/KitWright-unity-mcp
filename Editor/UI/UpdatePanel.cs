@@ -19,7 +19,7 @@ namespace KitWright.Editor.MCP.Server
             _container.style.display = DisplayStyle.None;
             _container.style.backgroundColor = new Color(0.13f, 0.19f, 0.15f);
             _container.style.borderLeftWidth = 3;
-            _container.style.borderLeftColor = new Color(0.30f, 0.66f, 0.36f);
+            _container.style.borderLeftColor = MCPPalette.AccentGreen;
             _container.Rounded(4);
             _container.Padding(8, 10, 8, 10);
             _container.style.marginBottom = 10;

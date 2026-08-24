@@ -40,7 +40,7 @@ namespace KitWright.Editor.MCP.Server
             _container.Add(MCPSection.PanelHint("Project-level settings for the KitWright MCP for Unity plugin. Safety checks and debug logging are stored per project."));
 
             var (settingsSection, settingsFoldout) = MCPSection.Create(
-                "Settings", "Settings", labelColor: new Color(0.55f, 0.7f, 0.9f));
+                "Settings", "Settings", labelColor: MCPPalette.HeadingBlue);
             _container.Add(settingsSection);
 
             var autostartSection = new VisualElement().Card();
@@ -139,7 +139,7 @@ namespace KitWright.Editor.MCP.Server
 
         private VisualElement BuildSizeSlider(string labelText, string tooltip, Func<int> getter, Action<int> setter, int min = ScreenshotSizeMin, int max = ScreenshotSizeMax)
         {
-            var accent = new Color(0.30f, 0.66f, 0.36f);
+            var accent = MCPPalette.AccentGreen;
             var root = new VisualElement();
             root.style.flexDirection = FlexDirection.Row;
             root.style.alignItems = Align.Center;

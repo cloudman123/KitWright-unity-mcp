@@ -143,7 +143,7 @@ namespace KitWright.Editor.MCP.Server
             _updateButton.style.marginLeft = 0;
             _updateButton.style.marginRight = 0;
             _updateButton.Rounded(5);
-            _updateButton.style.backgroundColor = new Color(0.30f, 0.66f, 0.36f);
+            _updateButton.style.backgroundColor = MCPPalette.AccentGreen;
             _updateButton.style.color = Color.white;
             _updateButton.style.fontSize = 13;
             _updateButton.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -152,7 +152,7 @@ namespace KitWright.Editor.MCP.Server
             _updateButton.RegisterCallback<MouseEnterEvent>(_ =>
                 _updateButton.style.backgroundColor = new Color(0.36f, 0.76f, 0.44f));
             _updateButton.RegisterCallback<MouseLeaveEvent>(_ =>
-                _updateButton.style.backgroundColor = new Color(0.30f, 0.66f, 0.36f));
+                _updateButton.style.backgroundColor = MCPPalette.AccentGreen);
             _updateFooter.Add(_updateButton);
 
             UpdateChecker.StateChanged -= RefreshUpdateButton;

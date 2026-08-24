@@ -231,11 +231,11 @@ namespace KitWright.Editor.MCP.Server
             {
                 var isActive = _enabled.Contains(entry.Key);
                 var accent = FilterAccentColor(entry.Key);
-                entry.Value.style.backgroundColor = isActive ? accent : new Color(0.20f, 0.20f, 0.21f);
+                entry.Value.style.backgroundColor = isActive ? accent : MCPPalette.Surface;
 
                 if (_filterLabels.TryGetValue(entry.Key, out var label))
                 {
-                    label.style.color = isActive ? Color.white : new Color(0.7f, 0.7f, 0.7f);
+                    label.style.color = isActive ? Color.white : MCPPalette.TextMuted;
                     label.style.unityFontStyleAndWeight = isActive ? FontStyle.Bold : FontStyle.Normal;
                 }
             }
@@ -424,7 +424,7 @@ namespace KitWright.Editor.MCP.Server
 
             var summaryLabel = new Label(summaryText);
             summaryLabel.style.fontSize = 13;
-            summaryLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
+            summaryLabel.style.color = MCPPalette.TextDim;
             summaryLabel.style.marginTop = 3;
             summaryLabel.style.whiteSpace = WhiteSpace.Normal;
             summaryLabel.style.overflow = Overflow.Hidden;

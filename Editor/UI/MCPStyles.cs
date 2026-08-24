@@ -6,6 +6,22 @@ using UnityEngine.UIElements;
 
 namespace KitWright.Editor.MCP.Server
 {
+    /// The colours the window reuses across panels. Named here so a theme change is one edit
+    /// instead of hunting the same literal through thirteen files.
+    internal static class MCPPalette
+    {
+        public static readonly Color TextMuted = new Color(0.7f, 0.7f, 0.7f);
+        public static readonly Color TextHint = new Color(0.65f, 0.65f, 0.65f);
+        public static readonly Color TextDim = new Color(0.6f, 0.6f, 0.6f);
+        public static readonly Color HeadingBlue = new Color(0.55f, 0.7f, 0.9f);
+        public static readonly Color AccentBlue = new Color(0.25f, 0.45f, 0.65f);
+        public static readonly Color AccentGreen = new Color(0.30f, 0.66f, 0.36f);
+        public static readonly Color Surface = new Color(0.20f, 0.20f, 0.21f);
+        public static readonly Color BorderDark = new Color(0.09f, 0.09f, 0.09f);
+        public static readonly Color Ok = new Color(0.4f, 1f, 0.4f);
+        public static readonly Color Warn = new Color(1f, 0.6f, 0.4f);
+    }
+
     internal static class MCPStyleExt
     {
         public static VisualElement Rounded(this VisualElement e, float r)
@@ -59,7 +75,7 @@ namespace KitWright.Editor.MCP.Server
         {
             e.style.backgroundColor = new Color(0.155f, 0.155f, 0.16f);
             e.style.marginBottom = 8;
-            return e.Rounded(6).Border(1, new Color(0.09f, 0.09f, 0.09f)).Padding(8, 10, 8, 10);
+            return e.Rounded(6).Border(1, MCPPalette.BorderDark).Padding(8, 10, 8, 10);
         }
 
         // UITK defaults Label/TextField to flex-shrink:0, so a long string (a config path) keeps
@@ -97,7 +113,7 @@ namespace KitWright.Editor.MCP.Server
         {
             var label = new Label(text);
             label.style.fontSize = 12;
-            label.style.color = new Color(0.65f, 0.65f, 0.65f);
+            label.style.color = MCPPalette.TextHint;
             label.style.whiteSpace = WhiteSpace.Normal;
             label.style.marginBottom = 10;
             return label;
@@ -138,8 +154,6 @@ namespace KitWright.Editor.MCP.Server
 
     internal static class MCPDropdownStyle
     {
-        private static readonly Color Background = new Color(0.20f, 0.20f, 0.21f);
-        private static readonly Color Border = new Color(0.09f, 0.09f, 0.09f);
         private static readonly Color Text = new Color(0.85f, 0.85f, 0.85f);
 
         public static void Apply(VisualElement dropdown)
@@ -155,8 +169,8 @@ namespace KitWright.Editor.MCP.Server
             var input = dropdown.Q(className: "unity-base-popup-field__input") ?? dropdown;
             input.style.marginLeft = 0;
             input.style.marginRight = 0;
-            input.style.backgroundColor = Background;
-            input.Rounded(5).Border(1, Border);
+            input.style.backgroundColor = MCPPalette.Surface;
+            input.Rounded(5).Border(1, MCPPalette.BorderDark);
             input.style.paddingLeft = 8;
             input.style.paddingRight = 6;
             input.style.height = 22;

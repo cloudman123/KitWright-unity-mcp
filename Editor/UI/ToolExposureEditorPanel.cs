@@ -34,8 +34,8 @@ namespace KitWright.Editor.MCP.Server
         private string _editingProfile = "core";
 
         private static readonly Color SegmentActive = new Color(0.24f, 0.42f, 0.58f);
-        private static readonly Color SegmentInactive = new Color(0.20f, 0.20f, 0.21f);
-        private static readonly Color SwitchOnTrack = new Color(0.30f, 0.66f, 0.36f);
+        private static readonly Color SegmentInactive = MCPPalette.Surface;
+        private static readonly Color SwitchOnTrack = MCPPalette.AccentGreen;
         private static readonly Color SwitchOffTrack = new Color(0.62f, 0.26f, 0.26f);
         private static readonly Color RowOnBg = new Color(0.17f, 0.21f, 0.17f);
         private static readonly Color RowOffBg = new Color(0.165f, 0.165f, 0.17f);
@@ -401,7 +401,7 @@ namespace KitWright.Editor.MCP.Server
                 entry.Value.style.backgroundColor = isActive ? SegmentActive : SegmentInactive;
                 entry.Value.style.color = isActive
                     ? (isCustom ? new Color(1f, 0.9f, 0.55f) : Color.white)
-                    : (isCustom ? new Color(0.95f, 0.8f, 0.45f) : new Color(0.7f, 0.7f, 0.7f));
+                    : (isCustom ? new Color(0.95f, 0.8f, 0.45f) : MCPPalette.TextMuted);
                 entry.Value.style.unityFontStyleAndWeight = isActive ? FontStyle.Bold : FontStyle.Normal;
                 entry.Value.tooltip = isCustom
                     ? $"{labelName} profile (customized list)"

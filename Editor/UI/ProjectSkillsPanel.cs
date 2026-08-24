@@ -132,7 +132,7 @@ namespace KitWright.Editor.MCP.Server
             if (optionalSkills.Count == 0)
             {
                 var optionalHint = "No optional skills are available yet. Additional skills will be added after verification.";
-                optionalFoldout.Add(CreateHint(optionalHint, new Color(0.65f, 0.65f, 0.65f)));
+                optionalFoldout.Add(CreateHint(optionalHint, MCPPalette.TextHint));
             }
             else
             {
@@ -144,7 +144,7 @@ namespace KitWright.Editor.MCP.Server
                 }
 
                 var optionalHint = "Uncheck optional skills and click Apply Skills to remove them. Built-in skills cannot be removed.";
-                optionalFoldout.Add(CreateHint(optionalHint, new Color(0.65f, 0.65f, 0.65f)));
+                optionalFoldout.Add(CreateHint(optionalHint, MCPPalette.TextHint));
             }
 
             _mainContainer.Add(optionalSection);
@@ -183,7 +183,7 @@ namespace KitWright.Editor.MCP.Server
             applyButton.text = "Apply Skills";
             applyButton.style.height = 26;
             applyButton.style.width = 100;
-            applyButton.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
+            applyButton.style.backgroundColor = MCPPalette.AccentBlue;
             applyButton.style.color = Color.white;
             applyButton.tooltip = "Write KitWright-managed skill files for the selected platform using the versions bundled in this package.";
             actionRow.Add(applyButton);
@@ -219,12 +219,12 @@ namespace KitWright.Editor.MCP.Server
             if (!currentPlatformSupported)
             {
                 _statusSummaryText.text = $"Status: Unsupported current platform | Built-in: {ProjectSkillsManager.GetBuiltInSkills().Count} | Optional installed: {manifest.optionalSkills.Count}";
-                _statusSummaryText.style.color = new Color(1f, 0.6f, 0.4f);
+                _statusSummaryText.style.color = MCPPalette.Warn;
             }
             else if (!currentPlatformConfigured)
             {
                 _statusSummaryText.text = $"Status: Not configured for {currentPlatformDisplayName} | Built-in: {ProjectSkillsManager.GetBuiltInSkills().Count} | Optional installed: {manifest.optionalSkills.Count}";
-                _statusSummaryText.style.color = new Color(1f, 0.6f, 0.4f);
+                _statusSummaryText.style.color = MCPPalette.Warn;
             }
             else
             {
@@ -236,7 +236,7 @@ namespace KitWright.Editor.MCP.Server
                 else
                 {
                     _statusSummaryText.text = $"Status: Configured for {currentPlatformDisplayName} | Skills: {installedSkills.Count} | Up to date";
-                    _statusSummaryText.style.color = new Color(0.4f, 1f, 0.4f);
+                    _statusSummaryText.style.color = MCPPalette.Ok;
                 }
             }
 
@@ -343,20 +343,20 @@ namespace KitWright.Editor.MCP.Server
 
             if (string.IsNullOrEmpty(currentPlatformId))
             {
-                _generatedFilesContainer.Add(CreateHint($"{currentPlatformDisplayName} is not supported for project skills yet.", new Color(0.6f, 0.6f, 0.6f)));
+                _generatedFilesContainer.Add(CreateHint($"{currentPlatformDisplayName} is not supported for project skills yet.", MCPPalette.TextDim));
                 return;
             }
 
             if (!currentPlatformConfigured)
             {
-                _generatedFilesContainer.Add(CreateHint($"{currentPlatformDisplayName} skills are not configured yet. Enable skills for the current platform, then click Apply Skills to generate files.", new Color(0.7f, 0.7f, 0.7f)));
+                _generatedFilesContainer.Add(CreateHint($"{currentPlatformDisplayName} skills are not configured yet. Enable skills for the current platform, then click Apply Skills to generate files.", MCPPalette.TextMuted));
                 return;
             }
 
             var upgradeStatus = ProjectSkillsManager.GetUpgradeStatus(projectRoot, manifest, currentPlatformId);
             if (upgradeStatus.Files.Count > 0)
             {
-                _generatedFilesContainer.Add(CreateHint($"Versioned files for {currentPlatformDisplayName}:", new Color(0.7f, 0.7f, 0.7f)));
+                _generatedFilesContainer.Add(CreateHint($"Versioned files for {currentPlatformDisplayName}:", MCPPalette.TextMuted));
                 foreach (var file in upgradeStatus.Files)
                 {
                     var upToDate = !file.Missing && !file.Unmanaged && !file.RequiresUpgrade;
@@ -368,11 +368,11 @@ namespace KitWright.Editor.MCP.Server
             var paths = ProjectSkillsManager.GetGeneratedPathsForPlatform(projectRoot, manifest, currentPlatformId);
             if (paths.Count == 0)
             {
-                _generatedFilesContainer.Add(CreateHint($"Generated files for {currentPlatformDisplayName}: none.", new Color(0.6f, 0.6f, 0.6f)));
+                _generatedFilesContainer.Add(CreateHint($"Generated files for {currentPlatformDisplayName}: none.", MCPPalette.TextDim));
                 return;
             }
 
-            _generatedFilesContainer.Add(CreateHint($"Generated paths for {currentPlatformDisplayName}:", new Color(0.7f, 0.7f, 0.7f)));
+            _generatedFilesContainer.Add(CreateHint($"Generated paths for {currentPlatformDisplayName}:", MCPPalette.TextMuted));
             foreach (var path in paths)
             {
                 var exists = File.Exists(path) || Directory.Exists(path);
@@ -445,7 +445,7 @@ namespace KitWright.Editor.MCP.Server
             var row = new VisualElement();
             row.style.backgroundColor = new Color(0.17f, 0.17f, 0.17f);
             row.Rounded(4);
-            row.Border(1, new Color(0.09f, 0.09f, 0.09f));
+            row.Border(1, MCPPalette.BorderDark);
             row.Padding(5, 7, 5, 7);
             row.style.marginBottom = 4;
 
@@ -463,7 +463,7 @@ namespace KitWright.Editor.MCP.Server
             var badge = new Label(badgeText);
             badge.style.fontSize = 11;
             badge.style.color = Color.white;
-            badge.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
+            badge.style.backgroundColor = MCPPalette.AccentBlue;
             badge.Rounded(3);
             badge.Padding(1, 5, 1, 5);
             titleRow.Add(badge);
@@ -472,7 +472,7 @@ namespace KitWright.Editor.MCP.Server
 
             var descriptionLabel = new Label(description);
             descriptionLabel.style.fontSize = 11;
-            descriptionLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
+            descriptionLabel.style.color = MCPPalette.TextDim;
             descriptionLabel.style.marginTop = 3;
             descriptionLabel.style.whiteSpace = WhiteSpace.Normal;
             row.Add(descriptionLabel);
@@ -485,7 +485,7 @@ namespace KitWright.Editor.MCP.Server
             var row = new VisualElement();
             row.style.backgroundColor = new Color(0.17f, 0.17f, 0.17f);
             row.Rounded(4);
-            row.Border(1, new Color(0.09f, 0.09f, 0.09f));
+            row.Border(1, MCPPalette.BorderDark);
             row.Padding(5, 7, 5, 7);
             row.style.marginBottom = 4;
 

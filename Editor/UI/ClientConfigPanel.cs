@@ -48,7 +48,7 @@ namespace KitWright.Editor.MCP.Server
             {
                 toggleLabel.style.fontSize = 12;
                 toggleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                toggleLabel.style.color = new Color(0.55f, 0.7f, 0.9f);
+                toggleLabel.style.color = MCPPalette.HeadingBlue;
                 toggleLabel.style.flexGrow = 1;
             }
 
@@ -153,7 +153,7 @@ namespace KitWright.Editor.MCP.Server
             configureSkillsButton.style.width = 130;
             configureSkillsButton.style.marginLeft = 4;
             configureSkillsButton.style.marginRight = 0;
-            configureSkillsButton.style.backgroundColor = new Color(0.25f, 0.45f, 0.65f);
+            configureSkillsButton.style.backgroundColor = MCPPalette.AccentBlue;
             configureSkillsButton.style.color = Color.white;
             configureSkillsButton.SetEnabled(skillsSupported);
             row.Add(configureSkillsButton);
@@ -178,7 +178,7 @@ namespace KitWright.Editor.MCP.Server
             if (toggleLabel != null)
             {
                 toggleLabel.style.fontSize = 12;
-                toggleLabel.style.color = new Color(0.55f, 0.7f, 0.9f);
+                toggleLabel.style.color = MCPPalette.HeadingBlue;
             }
 
             foldout.Add(MakeSectionLabel("Config Path:"));
@@ -252,7 +252,7 @@ namespace KitWright.Editor.MCP.Server
                 "3. Merge the configuration snippet into the file, or use the Configure button above\n" +
                 $"4. Restart {target.Name} if necessary");
             steps.style.fontSize = 11;
-            steps.style.color = new Color(0.65f, 0.65f, 0.65f);
+            steps.style.color = MCPPalette.TextHint;
             steps.style.whiteSpace = WhiteSpace.Normal;
             steps.style.marginBottom = 4;
             foldout.Add(steps);
@@ -280,9 +280,9 @@ namespace KitWright.Editor.MCP.Server
             button.Margin(0, 0, 2, global ? 3 : 8);
             button.Rounded(3);
             button.style.backgroundColor = isActive
-                ? new Color(0.25f, 0.45f, 0.65f)
-                : new Color(0.20f, 0.20f, 0.21f);
-            button.style.color = isActive ? Color.white : new Color(0.7f, 0.7f, 0.7f);
+                ? MCPPalette.AccentBlue
+                : MCPPalette.Surface;
+            button.style.color = isActive ? Color.white : MCPPalette.TextMuted;
             button.style.unityFontStyleAndWeight = isActive ? FontStyle.Bold : FontStyle.Normal;
             button.SetEnabled(supported && !isActive);
             button.tooltip = supported
@@ -321,7 +321,7 @@ namespace KitWright.Editor.MCP.Server
             {
                 EditorGUIUtility.systemCopyBuffer = getText();
                 button.text = "Copied ✓";
-                button.style.color = new Color(0.4f, 1f, 0.4f);
+                button.style.color = MCPPalette.Ok;
                 button.schedule.Execute(() =>
                 {
                     button.text = "Copy";
@@ -368,8 +368,8 @@ namespace KitWright.Editor.MCP.Server
             var configured = ConfigHasOurEntry(configText);
             _configStatusLabel.text = configured ? "Configured ✓" : "Not configured ✕";
             _configStatusLabel.style.color = configured
-                ? new Color(0.4f, 1f, 0.4f)
-                : new Color(1f, 0.6f, 0.4f);
+                ? MCPPalette.Ok
+                : MCPPalette.Warn;
             _configPathLabel.text = target.ConfigPath;
             _configPathLabel.tooltip = target.ConfigPath;
 
