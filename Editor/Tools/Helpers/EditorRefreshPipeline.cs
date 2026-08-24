@@ -33,14 +33,19 @@ namespace KitWright.Editor.Tools.Helpers
             if (verifyScriptChanges && !escalationBlocked)
                 result.ScriptStateBefore = CaptureScriptChangeState(scanForUnknownProjectScripts: false);
 
-            try
+            // An import mid-play can reload the domain, which wipes the runtime state the caller is
+            // playing to observe - the same reason escalation is blocked above.
+            if (!result.PlayModeActive)
             {
-                AssetDatabase.Refresh(forceUpdate ? ImportAssetOptions.ForceUpdate : ImportAssetOptions.Default);
-                result.PrimaryRefreshInvoked = true;
-            }
-            catch (Exception ex)
-            {
-                result.PrimaryRefreshError = ex.Message;
+                try
+                {
+                    AssetDatabase.Refresh(forceUpdate ? ImportAssetOptions.ForceUpdate : ImportAssetOptions.Default);
+                    result.PrimaryRefreshInvoked = true;
+                }
+                catch (Exception ex)
+                {
+                    result.PrimaryRefreshError = ex.Message;
+                }
             }
 
             // No compilation can start that we may wait for, so the detection timeout would be dead time.

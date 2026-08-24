@@ -176,6 +176,18 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void RefreshAndRequestCompilation_NotPlaying_StillInvokesTheImport()
+        {
+            var task = EditorRefreshPipeline.RefreshAndRequestCompilationAsync(forceUpdate: false);
+            if (!task.IsCompleted)
+                Assert.Ignore("A compile or import started, so the result is not readable without blocking the editor thread.");
+
+            Assert.IsFalse(task.Result.PlayModeActive, "An EditMode test never runs in Play Mode.");
+            Assert.IsTrue(task.Result.PrimaryRefreshInvoked,
+                "The Play Mode guard around AssetDatabase.Refresh must not block the import outside Play Mode.");
+        }
+
+        [Test]
         public void AnnotatePendingScriptChanges_AnnouncesStaleSourcesAndPointsAtRequestRecompile()
         {
             var temp = CreateTempDirectory();

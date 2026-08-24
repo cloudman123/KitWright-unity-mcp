@@ -40,7 +40,8 @@ namespace KitWright.Editor.Tools.Builtins
                      "  3) Legacy: any class with `public static` Run() — return value becomes the response message.\n" +
                      "Before compiling, the editor's AssetDatabase is refreshed and pending compilation is awaited, " +
                      "so external file edits are picked up automatically without a separate request_recompile " +
-                     "(pass skip_refresh=true to bypass this for read-only snippets or a live Play Mode session you must not disturb). " +
+                     "(pass skip_refresh=true to bypass this for read-only snippets). " +
+                     "The refresh is skipped while Play Mode runs, so a snippet then runs against whatever is already compiled. " +
                      "When a full-class snippet implements IKitWrightCommand, the required KitWright.Editor.Tools.Scripting using is added automatically if omitted. " +
                      "safety_checks blocks a small set of obviously dangerous patterns " +
                      "(File.Delete, Process.Start, while(true), Environment.Exit, AssetDatabase.DeleteAsset, etc) " +
@@ -52,7 +53,7 @@ namespace KitWright.Editor.Tools.Builtins
         public static async Task<object> ExecuteCode(
             [ToolParam("C# code to execute: a bare method body, or a full class (IKitWrightCommand or static Run()).")] string code,
             [ToolParam("If true, reject the call before compile when the code contains obviously dangerous patterns. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null,
-            [ToolParam("If true, skip the pre-compile AssetDatabase.Refresh + wait-for-ready. Use only when the editor is already up to date -- e.g. a read-only inspection snippet, or during a live Play Mode session you must not disturb. The default refresh can trigger an import/domain reload (from your own OR another actor's pending changes in a shared editor) that wipes Play Mode runtime state. When skipped, external file edits made since the last compile are NOT picked up.", Required = false)] bool skip_refresh = false)
+            [ToolParam("If true, skip the pre-compile AssetDatabase.Refresh + wait-for-ready. Use only when the editor is already up to date -- e.g. a read-only inspection snippet. The default refresh can trigger an import/domain reload (from your own OR another actor's pending changes in a shared editor), which is why it is skipped automatically while Play Mode runs. When skipped, external file edits made since the last compile are NOT picked up.", Required = false)] bool skip_refresh = false)
         {
             var effectiveSafetyChecks = ResolveSafetyChecks(safety_checks);
             if (effectiveSafetyChecks)

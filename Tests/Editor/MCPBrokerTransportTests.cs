@@ -657,6 +657,19 @@ namespace KitWright.Editor
                 "broker diagnostics belong in a file beside the broker exe");
         }
 
+        [Test]
+        public void BrokerCompile_DrainsBothPipesConcurrently()
+        {
+            var manager = Path.Combine(
+                Path.GetDirectoryName(ResolveBrokerSourcePath()), "MCPBrokerProcessManager.cs");
+            var source = File.ReadAllText(manager);
+
+            // Reading one redirected pipe to the end first lets the compiler fill the other and block,
+            // which blocks the editor thread, and WaitForExit's timeout is never reached.
+            Assert.That(source, Does.Not.Contain("StandardOutput.ReadToEnd()"), "Use ReadToEndAsync: " + manager);
+            Assert.That(source, Does.Not.Contain("StandardError.ReadToEnd()"), "Use ReadToEndAsync: " + manager);
+        }
+
         private static MCPResponse CreateToolTextResponse(object id, string text)
         {
             return new MCPResponse
