@@ -40,6 +40,30 @@ namespace KitWright.Editor.Tools.Scripting
             "UnityEditor.FileUtil.DeleteFileOrDirectory"
         };
 
+        // Reflection and expression trees launder a blocked call past every other check: the source
+        // never names Process/File.Delete (so the L1 regex misses) and the type is resolved from a
+        // runtime string (so no blocked TypeRef/MemberRef reaches the tables above). What the snippet
+        // cannot hide is the invocation primitive itself, which is a real MemberRef here. Blocking the
+        // primitives is the enforceable choke point.
+        // ponytail: best-effort, not a boundary. A determined caller can still reach IL through paths
+        // not listed here; the real boundary is safety_checks=false being unavailable, or out-of-process
+        // execution. Legitimate reflection under safety_checks=true must pass safety_checks=false.
+        private static readonly string[] BlockedReflectionMembers =
+        {
+            "System.Activator.CreateInstance",
+            "System.Reflection.MethodBase.Invoke",
+            "System.Reflection.MethodInfo.CreateDelegate",
+            "System.Delegate.CreateDelegate",
+            "System.Type.InvokeMember",
+            "System.Type.GetType",
+            "System.Reflection.Assembly.GetType",
+            "System.Reflection.Assembly.Load",
+            "System.Reflection.Assembly.LoadFrom",
+            "System.Reflection.Assembly.LoadFile",
+            "System.Linq.Expressions.Expression.Call",
+            "System.Reflection.Emit.ILGenerator.Emit"
+        };
+
         // A modal dialog or file picker runs its own message loop, which stops the editor from
         // pumping MCP requests: the snippet never returns and the caller hangs until a human clicks.
         private static readonly string[] ModalMembers =
@@ -163,7 +187,8 @@ namespace KitWright.Editor.Tools.Scripting
                     return true;
                 }
 
-                if (Matches(name, BlockedMembers) || (strict && Matches(name, StrictMembers)))
+                if (Matches(name, BlockedMembers) || Matches(name, BlockedReflectionMembers) ||
+                    (strict && Matches(name, StrictMembers)))
                 {
                     reference = name;
                     reason = $"The compiled snippet calls '{name}', which execute_code refuses to run.";

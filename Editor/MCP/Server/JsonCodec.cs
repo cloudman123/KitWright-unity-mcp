@@ -26,7 +26,16 @@ namespace KitWright.Editor.MCP.Server
             if (obj is bool b)
                 return b ? "true" : "false";
 
-            if (obj is int || obj is long || obj is float || obj is double)
+            if (obj is float || obj is double)
+            {
+                // JSON has no Infinity/NaN literal; Convert.ToString emits one, which is invalid JSON.
+                // Match JSON.stringify and drop non-finite floats to null.
+                var number = Convert.ToDouble(obj, CultureInfo.InvariantCulture);
+                return double.IsNaN(number) || double.IsInfinity(number)
+                    ? "null"
+                    : Convert.ToString(obj, CultureInfo.InvariantCulture);
+            }
+            if (obj is int || obj is long)
                 return Convert.ToString(obj, CultureInfo.InvariantCulture);
 
             if (obj is IDictionary dict)
@@ -257,7 +266,10 @@ namespace KitWright.Editor.MCP.Server
                     case '\n': sb.Append("\\n"); break;
                     case '\r': sb.Append("\\r"); break;
                     case '\t': sb.Append("\\t"); break;
-                    default: sb.Append(c); break;
+                    default:
+                        if (c < ' ') sb.Append("\\u").Append(((int)c).ToString("x4"));
+                        else sb.Append(c);
+                        break;
                 }
             }
             return sb.ToString();

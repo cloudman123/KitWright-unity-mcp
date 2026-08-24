@@ -83,6 +83,43 @@ public class Benign
     }
 }";
 
+        // GetMethods() (plural) slips past the source rule's \.GetMethod\s*\( and .Invoke with a var
+        // slips past MethodInfo..Invoke, so the source policy misses this. The compiled snippet still
+        // binds to MethodBase.Invoke, which is where it is caught.
+        private const string ReflectedInvokeDelete = @"
+using System;
+using System.Linq;
+
+public class RInvoke
+{
+    public static string Run()
+    {
+        var m = typeof(System.IO.File).GetMethods().First(x => x.Name == ""Delete"");
+        m.Invoke(null, new object[] { ""probe.txt"" });
+        return ""done"";
+    }
+}";
+
+        // The type name is built at runtime and resolved through an Assembly instance, so neither the
+        // literal appears in source nor a Process TypeRef in the metadata. Assembly.GetType is the bind.
+        private const string RuntimeStringType = @"
+using System;
+using System.Linq;
+
+public class RString
+{
+    public static string Run()
+    {
+        string n = string.Concat(""System.Diagnostics.Proc"", ""ess"");
+        foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var t = a.GetType(n);
+            if (t != null) return t.FullName;
+        }
+        return null;
+    }
+}";
+
         [Test]
         public void SourcePolicy_MissesAnAliasedNamespace()
         {
@@ -155,6 +192,34 @@ public class Benign
             Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
 
             Assert.IsFalse(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out _, out _));
+        }
+
+        // Reflection that actually invokes launders a blocked call past both the source rule and the
+        // metadata scan of the target member; the invocation primitive is the enforceable choke point.
+        [Test]
+        public void Guard_BlocksReflectionInvocation()
+        {
+            Assert.IsFalse(ExecuteCodeSafetyPolicy.TryFindViolation(ReflectedInvokeDelete, true, out _, out _));
+
+            var compilation = ScriptCompilerPipeline.Compile(ReflectedInvokeDelete);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out var reference, out _));
+            Assert.AreEqual("System.Reflection.MethodBase.Invoke", reference);
+        }
+
+        // A type name built at runtime resolves through Assembly.GetType, leaving no dangerous TypeRef;
+        // blocking the resolver closes the runtime-string path both strict settings share.
+        [Test]
+        public void Guard_BlocksRuntimeStringTypeResolution()
+        {
+            Assert.IsFalse(ExecuteCodeSafetyPolicy.TryFindViolation(RuntimeStringType, true, out _, out _));
+
+            var compilation = ScriptCompilerPipeline.Compile(RuntimeStringType);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out var reference, out _));
+            Assert.AreEqual("System.Reflection.Assembly.GetType", reference);
         }
     }
 }

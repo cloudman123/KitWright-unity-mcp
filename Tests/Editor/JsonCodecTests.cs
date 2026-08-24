@@ -54,5 +54,24 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual("{\"k\":\"v\"}",
                 JsonCodec.Serialize(new Dictionary<string, object> { ["k"] = "v" }));
         }
+
+        [Test]
+        public void Serialize_EscapesControlCharsSoAReflectedNullByteStaysValidJson()
+        {
+            Assert.AreEqual("\"a\\u0000b\"", JsonCodec.Serialize("a\0b"));
+            Assert.AreEqual("\"\\u001f\"", JsonCodec.Serialize("\u001f"));
+            Assert.AreEqual("\"\\n\\t\"", JsonCodec.Serialize("\n\t"),
+                "Named escapes must not regress to \\u form.");
+        }
+
+        [Test]
+        public void Serialize_DropsNonFiniteFloatsToNullSoTheResponseStaysValidJson()
+        {
+            Assert.AreEqual("null", JsonCodec.Serialize(double.PositiveInfinity));
+            Assert.AreEqual("null", JsonCodec.Serialize(double.NegativeInfinity));
+            Assert.AreEqual("null", JsonCodec.Serialize(double.NaN));
+            Assert.AreEqual("null", JsonCodec.Serialize(float.PositiveInfinity));
+            Assert.AreEqual("1.5", JsonCodec.Serialize(1.5), "Finite floats must still serialize.");
+        }
     }
 }
