@@ -981,7 +981,22 @@ namespace KitWright.UnityMcp.Broker
         {
             string value;
             return headers.TryGetValue(TokenHeader.ToLowerInvariant(), out value) &&
-                   string.Equals(value, Token, StringComparison.Ordinal);
+                   FixedTimeEquals(value, Token);
+        }
+
+        // string.Equals returns on the first differing char, so its timing tells a caller how much
+        // of the token it already guessed. Mono's 4.5 profile compiles this broker and has no
+        // CryptographicOperations.FixedTimeEquals, hence the loop.
+        private static bool FixedTimeEquals(string candidate, string expected)
+        {
+            if (candidate == null || expected == null || candidate.Length != expected.Length)
+                return false;
+
+            var difference = 0;
+            for (int i = 0; i < candidate.Length; i++)
+                difference |= candidate[i] ^ expected[i];
+
+            return difference == 0;
         }
 
         private static string BrokerHeaderLine()

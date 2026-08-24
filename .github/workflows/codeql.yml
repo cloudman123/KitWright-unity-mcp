@@ -1,0 +1,53 @@
+name: CodeQL
+
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+    schedule:
+        # Weekly, so a new query release finds old code without waiting for a push.
+        - cron: "0 3 * * 1"
+    workflow_dispatch:
+
+jobs:
+    analyze:
+        name: Analyze C#
+        runs-on: ubuntu-latest
+        permissions:
+            security-events: write
+            contents: read
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            # keepalive-broker.cs.txt is the broker's whole source: it owns the client-facing port,
+            # runs outside Unity's AppDomain and outlives the editor. The .txt extension keeps Unity
+            # from compiling it into the package, and it also keeps every C# extractor from reading
+            # it, so without this step CodeQL passes having never looked at the most exposed file in
+            # the repository.
+            - name: Stage the runtime-compiled broker for analysis
+              run: |
+                  src="Editor/MCP/Server/Broker/keepalive-broker.cs.txt"
+                  if [ ! -f "$src" ]; then
+                      echo "::error::$src not found. It moved or was renamed, and the broker would drop out of this scan without failing it. Update this step."
+                      exit 1
+                  fi
+                  mkdir -p codeql-staging
+                  cp "$src" codeql-staging/keepalive-broker.cs
+                  echo "Staged $(wc -l < codeql-staging/keepalive-broker.cs) lines of broker source."
+
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@v3
+              with:
+                  languages: csharp
+                  # No Unity license on this runner, so nothing here can be built. The extractor
+                  # reads the sources directly instead.
+                  build-mode: none
+                  queries: security-extended
+
+            - name: Analyze
+              uses: github/codeql-action/analyze@v3
+              with:
+                  category: /language:csharp
