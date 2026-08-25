@@ -1,5 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+#if KITWRIGHT_ANIMATION
 using KitWright.Editor.Tools.Builtins;
 using NUnit.Framework;
 using UnityEngine.Animations;
@@ -38,3 +39,4 @@ namespace KitWright.Editor.Tests
         }
     }
 }
+#endif

@@ -5,7 +5,9 @@ using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using KitWright.Editor.Tools.Helpers;
 using UnityEditor;
 using UnityEngine;
+#if KITWRIGHT_ANIMATION
 using UnityEngine.Animations;
+#endif
 
 namespace KitWright.Editor.Tools.Builtins
 {
@@ -72,6 +74,8 @@ namespace KitWright.Editor.Tools.Builtins
         }
 
         // ----- Constraints -----
+        // Only this half is gated: the LOD half above does not need the animation module.
+#if KITWRIGHT_ANIMATION
 
         [Description("Add an animation constraint (position, rotation, scale, aim, lookat, parent) to a GameObject, optionally binding a source object and activating it.")]
         public static object AddConstraint(
@@ -151,5 +155,6 @@ namespace KitWright.Editor.Tools.Builtins
                 default: return (null, null);
             }
         }
+#endif
     }
 }

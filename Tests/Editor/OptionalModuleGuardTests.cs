@@ -33,8 +33,9 @@ namespace KitWright.Editor.Tests
                 @"\bParticleSystem\b"),
             ("KITWRIGHT_AUDIO", "com.unity.modules.audio",
                 @"\bAudioSource\b|\bAudioClip\b|\bAudioListener\b|\bAudioImporter\b|\bAudioMixer\w*\b|\bAudioClipLoadType\b|\bAudioCompressionFormat\b"),
+            // Constraints ship in the animation module too.
             ("KITWRIGHT_ANIMATION", "com.unity.modules.animation",
-                @"\bAnimator\b|\bAnimatorController\w*\b|\bAnimationClip\b|\bAnimatorOverrideController\b|\bRuntimeAnimatorController\b|\bAnimationUtility\b|\bAnimationMode\b"),
+                @"\bAnimator\b|\bAnimatorController\w*\b|\bAnimationClip\b|\bAnimatorOverrideController\b|\bRuntimeAnimatorController\b|\bAnimationUtility\b|\bAnimationMode\b|\bUnityEngine\.Animations\b|\b\w*Constraint\b|\bConstraintSource\b"),
         };
 
         // Scanned files exempted by name. A match here is either not a module reference at all, or
