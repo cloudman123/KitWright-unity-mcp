@@ -23,7 +23,11 @@ namespace KitWright.Editor.Tools.Scripting
         private static readonly string[] BlockedTypes =
         {
             "System.Diagnostics.Process",
-            "System.IO.FileSystemWatcher"
+            "System.IO.FileSystemWatcher",
+            // Gadget-chain deserializers (ysoserial.net): live on Unity mono, never legit in a snippet.
+            "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "System.Runtime.Serialization.Formatters.Soap.SoapFormatter",
+            "System.Runtime.Serialization.NetDataContractSerializer"
         };
 
         private static readonly string[] BlockedMembers =
@@ -62,6 +66,8 @@ namespace KitWright.Editor.Tools.Scripting
             "System.Reflection.Assembly.LoadFile",
             "System.Linq.Expressions.Expression.Call",
             "System.Reflection.Emit.ILGenerator.Emit",
+            // Raw-IL injection without ILGenerator; mono-only, so unreachable on .NET Core today.
+            "System.Reflection.Emit.MethodBuilder.SetMethodBody",
             // A raw function pointer + a marshalled delegate reaches the target through neither
             // MethodBase.Invoke nor CreateDelegate; block both ends of that chain.
             "System.RuntimeMethodHandle.GetFunctionPointer",

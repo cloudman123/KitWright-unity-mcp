@@ -155,6 +155,22 @@ public class Native
     }
 }";
 
+        // A gadget-chain deserializer reaches RCE from a crafted blob without naming a blocked member;
+        // the type itself is the catch, since constructing one is never legitimate in a snippet.
+        private const string LegacyDeserializer = @"
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
+
+public class Deser
+{
+    public static object Run()
+    {
+        var bf = new BinaryFormatter();
+        using var ms = new MemoryStream(new byte[] { 0, 1, 0, 0, 0 });
+        return bf.Deserialize(ms);
+    }
+}";
+
         [Test]
         public void SourcePolicy_MissesAnAliasedNamespace()
         {
@@ -281,6 +297,18 @@ public class Native
             Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out var reference, out var reason));
             Assert.AreEqual("Native.GetModuleHandle", reference);
             Assert.That(reason, Does.Contain("P/Invoke"));
+        }
+
+        [Test]
+        public void Guard_BlocksLegacyDeserializers()
+        {
+            Assert.IsFalse(ExecuteCodeSafetyPolicy.TryFindViolation(LegacyDeserializer, true, out _, out _));
+
+            var compilation = ScriptCompilerPipeline.Compile(LegacyDeserializer);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out var reference, out _));
+            Assert.AreEqual("System.Runtime.Serialization.Formatters.Binary.BinaryFormatter", reference);
         }
     }
 }
