@@ -99,5 +99,27 @@ namespace KitWright.Editor.Tests
                 Throws.Exception.With.Message.Contains("too deep"),
                 "A deep or cyclic graph must fail catchably, not StackOverflow the editor.");
         }
+
+        [Test]
+        public void Deserialize_KeepsBraceAndBracketCharactersInsideNestedStringValues()
+        {
+            // FindValueEnd counted braces/brackets without skipping string bodies, so a nested value
+            // like {"opts":{"note":"a}b"}} was truncated at the brace inside the string -- the codec
+            // could not even round-trip its own output.
+            var obj = (Dictionary<string, object>)JsonCodec.Deserialize("{\"opts\":{\"note\":\"a}b\"}}");
+            var inner = (Dictionary<string, object>)obj["opts"];
+            Assert.AreEqual("a}b", inner["note"]);
+
+            var arr = (Dictionary<string, object>)JsonCodec.Deserialize("{\"arr\":[\"x]y\"]}");
+            var list = (List<object>)arr["arr"];
+            Assert.AreEqual("x]y", list[0]);
+
+            var original = new Dictionary<string, object>
+            {
+                ["opts"] = new Dictionary<string, object> { ["note"] = "close } here" }
+            };
+            var roundTripped = (Dictionary<string, object>)JsonCodec.Deserialize(JsonCodec.Serialize(original));
+            Assert.AreEqual("close } here", ((Dictionary<string, object>)roundTripped["opts"])["note"]);
+        }
     }
 }

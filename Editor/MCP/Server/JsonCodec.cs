@@ -239,6 +239,8 @@ namespace KitWright.Editor.MCP.Server
                 int depth = 1; int pos = start + 1;
                 while (pos < json.Length && depth > 0)
                 {
+                    // Skip string bodies so a brace inside a value ("a}b") does not miscount depth.
+                    if (json[pos] == '"') { pos = FindStringEnd(json, pos) + 1; continue; }
                     if (json[pos] == '{') depth++;
                     else if (json[pos] == '}') depth--;
                     pos++;
@@ -251,6 +253,7 @@ namespace KitWright.Editor.MCP.Server
                 int depth = 1; int pos = start + 1;
                 while (pos < json.Length && depth > 0)
                 {
+                    if (json[pos] == '"') { pos = FindStringEnd(json, pos) + 1; continue; }
                     if (json[pos] == '[') depth++;
                     else if (json[pos] == ']') depth--;
                     pos++;
