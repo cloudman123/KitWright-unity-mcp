@@ -17,6 +17,17 @@ namespace KitWright.Editor.MCP.Server
     {
         public static string Serialize(object obj)
         {
+            return Serialize(obj, 0);
+        }
+
+        private static string Serialize(object obj, int depth)
+        {
+            // Serialize recurses through nested containers; without this a deep or cyclic graph
+            // overflows the stack, which is uncatchable and takes the editor down. Deserialize
+            // already caps at the same depth.
+            if (depth > MaxDepth)
+                throw new Exception("JSON nesting too deep");
+
             if (obj == null)
                 return "null";
 
@@ -35,17 +46,18 @@ namespace KitWright.Editor.MCP.Server
                     ? "null"
                     : Convert.ToString(obj, CultureInfo.InvariantCulture);
             }
-            if (obj is int || obj is long)
+            if (obj is int || obj is long || obj is uint || obj is ulong ||
+                obj is byte || obj is sbyte || obj is short || obj is ushort || obj is decimal)
                 return Convert.ToString(obj, CultureInfo.InvariantCulture);
 
             if (obj is IDictionary dict)
-                return SerializeDictionary(dict);
+                return SerializeDictionary(dict, depth);
 
             if (obj is IList list)
-                return SerializeList(list);
+                return SerializeList(list, depth);
 
             if (IsAnonymousType(obj.GetType()))
-                return SerializeAnonymous(obj);
+                return SerializeAnonymous(obj, depth);
 
             return "\"" + EscapeString(obj.ToString()) + "\"";
         }
@@ -58,7 +70,7 @@ namespace KitWright.Editor.MCP.Server
                    type.Name.IndexOf("AnonymousType", StringComparison.Ordinal) >= 0;
         }
 
-        private static string SerializeAnonymous(object obj)
+        private static string SerializeAnonymous(object obj, int depth)
         {
             var sb = new StringBuilder();
             sb.Append("{");
@@ -71,14 +83,14 @@ namespace KitWright.Editor.MCP.Server
                 sb.Append("\"");
                 sb.Append(EscapeString(property.Name));
                 sb.Append("\":");
-                sb.Append(Serialize(property.GetValue(obj)));
+                sb.Append(Serialize(property.GetValue(obj), depth + 1));
             }
 
             sb.Append("}");
             return sb.ToString();
         }
 
-        private static string SerializeDictionary(IDictionary dict)
+        private static string SerializeDictionary(IDictionary dict, int depth)
         {
             var sb = new StringBuilder();
             sb.Append("{");
@@ -91,14 +103,14 @@ namespace KitWright.Editor.MCP.Server
                 sb.Append("\"");
                 sb.Append(EscapeString(entry.Key.ToString()));
                 sb.Append("\":");
-                sb.Append(Serialize(entry.Value));
+                sb.Append(Serialize(entry.Value, depth + 1));
             }
 
             sb.Append("}");
             return sb.ToString();
         }
 
-        private static string SerializeList(IList list)
+        private static string SerializeList(IList list, int depth)
         {
             var sb = new StringBuilder();
             sb.Append("[");
@@ -108,7 +120,7 @@ namespace KitWright.Editor.MCP.Server
             {
                 if (!first) sb.Append(",");
                 first = false;
-                sb.Append(Serialize(item));
+                sb.Append(Serialize(item, depth + 1));
             }
 
             sb.Append("]");

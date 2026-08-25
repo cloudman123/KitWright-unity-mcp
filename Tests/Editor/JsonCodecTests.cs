@@ -73,5 +73,31 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual("null", JsonCodec.Serialize(float.PositiveInfinity));
             Assert.AreEqual("1.5", JsonCodec.Serialize(1.5), "Finite floats must still serialize.");
         }
+
+        [Test]
+        public void Serialize_EmitsBareNumbersForEveryIntegerType()
+        {
+            // Only int/long were caught before; the rest fell through to the string fallback and
+            // reached the client as a quoted string ("42") instead of a number.
+            Assert.AreEqual("42", JsonCodec.Serialize((uint)42));
+            Assert.AreEqual("42", JsonCodec.Serialize((ulong)42));
+            Assert.AreEqual("5", JsonCodec.Serialize((byte)5));
+            Assert.AreEqual("-5", JsonCodec.Serialize((sbyte)-5));
+            Assert.AreEqual("3", JsonCodec.Serialize((short)3));
+            Assert.AreEqual("7", JsonCodec.Serialize((ushort)7));
+            Assert.AreEqual("1.5", JsonCodec.Serialize(1.5m));
+        }
+
+        [Test]
+        public void Serialize_ThrowsInsteadOfOverflowingTheStackOnDeepNesting()
+        {
+            object nested = "leaf";
+            for (int i = 0; i < 200; i++)
+                nested = new List<object> { nested };
+
+            Assert.That(() => JsonCodec.Serialize(nested),
+                Throws.Exception.With.Message.Contains("too deep"),
+                "A deep or cyclic graph must fail catchably, not StackOverflow the editor.");
+        }
     }
 }
