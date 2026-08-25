@@ -49,12 +49,10 @@ namespace KitWright.Editor.Tools.Builtins
                 }
                 else
                 {
-                    // Full hierarchy: every loaded scene, not just the active one.
+                    // Through the helper so play mode's DontDestroyOnLoad scene comes with it.
                     var activeScene = SceneManager.GetActiveScene();
-                    for (int i = 0; i < SceneManager.sceneCount; i++)
+                    foreach (var scene in ObjectsHelper.EnumerateLoadedScenes())
                     {
-                        var scene = SceneManager.GetSceneAt(i);
-                        if (!scene.isLoaded) continue;
                         // Held back rather than written: a page that starts inside a later scene
                         // would otherwise be preceded by the headers of scenes it skipped past.
                         walk.PendingHeader = scene == activeScene ? $"Scene: {scene.name}" : $"Scene: {scene.name} (additive)";

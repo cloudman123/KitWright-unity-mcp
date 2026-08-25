@@ -304,7 +304,7 @@ namespace KitWright.Editor.Tools.Helpers
             }
         }
 
-        private static IEnumerable<Scene> EnumerateLoadedScenes()
+        internal static IEnumerable<Scene> EnumerateLoadedScenes()
         {
             for (int i = 0; i < SceneManager.sceneCount; i++)
             {
@@ -312,6 +312,32 @@ namespace KitWright.Editor.Tools.Helpers
                 if (scene.IsValid() && scene.isLoaded)
                     yield return scene;
             }
+
+            var dontDestroyOnLoad = DontDestroyOnLoadScene();
+            if (dontDestroyOnLoad.IsValid() && dontDestroyOnLoad.isLoaded)
+                yield return dontDestroyOnLoad;
+        }
+
+        private static Scene s_dontDestroyOnLoad;
+
+        /// <summary>
+        /// The DontDestroyOnLoad scene, invalid outside play mode. <c>sceneCount</c> does not count
+        /// it (IvanMurzak/Unity-MCP #826) and its handle is only reachable through an object in it.
+        /// </summary>
+        internal static Scene DontDestroyOnLoadScene()
+        {
+            if (!Application.isPlaying)
+                return default;
+
+            if (s_dontDestroyOnLoad.IsValid() && s_dontDestroyOnLoad.isLoaded)
+                return s_dontDestroyOnLoad;
+
+            var probe = new GameObject("KitWright.DontDestroyOnLoadProbe");
+            UnityEngine.Object.DontDestroyOnLoad(probe);
+            s_dontDestroyOnLoad = probe.scene;
+            UnityEngine.Object.DestroyImmediate(probe);
+
+            return s_dontDestroyOnLoad;
         }
 
         /// <summary>
