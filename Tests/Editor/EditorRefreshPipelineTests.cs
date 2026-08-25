@@ -1,4 +1,4 @@
-// Copyright (C) KitWright. Licensed under MIT.
+﻿// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
 using System.IO;
@@ -165,10 +165,10 @@ namespace KitWright.Editor.Tests
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
                 Assert.Ignore("Editor is busy, so compile-start detection short-circuits regardless.");
 
-            var task = EditorRefreshPipeline.RefreshAndRequestCompilationAsync(forceUpdate: false);
-
-            if (task.IsCompleted && task.Result.LatestScriptState.HasPendingScriptChanges)
+            if (EditorRefreshPipeline.CaptureScriptChangeState(scanForUnknownProjectScripts: false).HasPendingScriptChanges)
                 Assert.Ignore("Project has genuinely stale scripts, so waiting for a compile start is correct here.");
+
+            var task = EditorRefreshPipeline.RefreshAndRequestCompilationAsync(forceUpdate: false);
 
             Assert.IsTrue(task.IsCompleted,
                 "With nothing stale and an idle editor there is no compilation to wait for, so the refresh must not burn the detection timeout.");
