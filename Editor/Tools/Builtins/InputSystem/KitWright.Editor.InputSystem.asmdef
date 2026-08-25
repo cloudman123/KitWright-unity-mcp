@@ -14,8 +14,14 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [
-        "ENABLE_INPUT_SYSTEM"
+        "KITWRIGHT_INPUTSYSTEM"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "",
+            "define": "KITWRIGHT_INPUTSYSTEM"
+        }
+    ],
     "noEngineReferences": false
 }

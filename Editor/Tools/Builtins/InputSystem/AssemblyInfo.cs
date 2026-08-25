@@ -1,6 +1,6 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
-#if ENABLE_INPUT_SYSTEM
+#if KITWRIGHT_INPUTSYSTEM
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("KitWright.Editor.InputSystem.Tests")]

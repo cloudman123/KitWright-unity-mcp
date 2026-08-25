@@ -89,6 +89,28 @@ namespace KitWright.Editor.Tests
             }
         }
 
+        // ENABLE_INPUT_SYSTEM tracks Active Input Handling, not whether com.unity.inputsystem is
+        // installed, so gating on it let a project with the setting on but the package removed
+        // compile the assembly against a dangling reference - 20x CS0234, all tools gone.
+        [Test]
+        public void EveryDefineConstraint_ComesFromAVersionDefineInTheSameAsmdef()
+        {
+            foreach (var asmdef in Directory.GetFiles(PackageRoot(), "*.asmdef", SearchOption.AllDirectories))
+            {
+                var json = JObject.Parse(File.ReadAllText(asmdef));
+                if (!(json["defineConstraints"] is JArray constraints)) continue;
+
+                var declared = ReadVersionDefines(json);
+                foreach (var constraint in constraints)
+                {
+                    var symbol = (string)constraint;
+                    Assert.IsTrue(declared.ContainsKey(symbol),
+                        Path.GetFileName(asmdef) + " is gated on '" + symbol + "', which no versionDefine in it " +
+                        "declares. Gate on the package that supplies the types, not on a Unity built-in symbol.");
+                }
+            }
+        }
+
         [Test]
         public void EveryOptionalModuleReference_SitsInsideItsVersionDefine()
         {
@@ -160,9 +182,13 @@ namespace KitWright.Editor.Tests
         private static Dictionary<string, string> ReadVersionDefines(string path)
         {
             Assert.IsTrue(File.Exists(path), "Could not locate an asmdef (looked at " + path + ").");
+            return ReadVersionDefines(JObject.Parse(File.ReadAllText(path)));
+        }
 
+        private static Dictionary<string, string> ReadVersionDefines(JObject asmdef)
+        {
             var map = new Dictionary<string, string>();
-            var entries = JObject.Parse(File.ReadAllText(path))["versionDefines"] as JArray;
+            var entries = asmdef["versionDefines"] as JArray;
             if (entries != null)
                 foreach (var entry in entries)
                     map[(string)entry["define"]] = (string)entry["name"];

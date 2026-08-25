@@ -240,7 +240,7 @@ namespace KitWright.Editor.Tests
         {
             foreach (var name in MCPToolExportPolicy.DefaultMinimalTools.Concat(MCPToolExportPolicy.DefaultCoreTools))
             {
-#if !ENABLE_INPUT_SYSTEM
+#if !KITWRIGHT_INPUTSYSTEM
                 // These three live in KitWright.Editor.InputSystem, which is excluded from the
                 // build without the Input System package.
                 if (name == "simulate_key_press" || name == "simulate_key_combo" || name == "simulate_mouse_drag")
