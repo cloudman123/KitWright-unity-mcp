@@ -120,6 +120,24 @@ public class RString
     }
 }";
 
+        // A raw function pointer plus a marshalled delegate reaches the target through neither
+        // MethodBase.Invoke nor CreateDelegate -- it survived the first reflection block.
+        private const string FunctionPointerMarshal = @"
+using System;
+using System.Linq;
+using System.Runtime.InteropServices;
+
+public class FnPtr
+{
+    public static string Run()
+    {
+        var m = typeof(System.IO.File).GetMethods().First(x => x.Name == ""Delete"");
+        var ptr = m.MethodHandle.GetFunctionPointer();
+        var del = Marshal.GetDelegateForFunctionPointer(ptr, typeof(Action<string>));
+        return del == null ? ""n"" : ""y"";
+    }
+}";
+
         [Test]
         public void SourcePolicy_MissesAnAliasedNamespace()
         {
@@ -220,6 +238,19 @@ public class RString
 
             Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, false, out var reference, out _));
             Assert.AreEqual("System.Reflection.Assembly.GetType", reference);
+        }
+
+        [Test]
+        public void Guard_BlocksTheFunctionPointerMarshalChain()
+        {
+            Assert.IsFalse(ExecuteCodeSafetyPolicy.TryFindViolation(FunctionPointerMarshal, true, out _, out _));
+
+            var compilation = ScriptCompilerPipeline.Compile(FunctionPointerMarshal);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out var reference, out _));
+            Assert.That(reference, Does.Contain("FunctionPointer"),
+                "Either the raw pointer extraction or the marshalled delegate must be refused.");
         }
     }
 }

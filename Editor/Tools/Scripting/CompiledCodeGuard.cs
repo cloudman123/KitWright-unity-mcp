@@ -61,7 +61,11 @@ namespace KitWright.Editor.Tools.Scripting
             "System.Reflection.Assembly.LoadFrom",
             "System.Reflection.Assembly.LoadFile",
             "System.Linq.Expressions.Expression.Call",
-            "System.Reflection.Emit.ILGenerator.Emit"
+            "System.Reflection.Emit.ILGenerator.Emit",
+            // A raw function pointer + a marshalled delegate reaches the target through neither
+            // MethodBase.Invoke nor CreateDelegate; block both ends of that chain.
+            "System.RuntimeMethodHandle.GetFunctionPointer",
+            "System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer"
         };
 
         // A modal dialog or file picker runs its own message loop, which stops the editor from
