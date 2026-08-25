@@ -214,6 +214,18 @@ namespace KitWright.UnityMcp.Broker
                 return;
             }
 
+            // Same DNS-rebinding defense that does not depend on Origin: a rebound name resolves to
+            // this loopback port but arrives with a non-loopback Host. This is the client-facing port.
+            string host;
+            headers.TryGetValue("host", out host);
+            if (!IsValidHost(host))
+            {
+                Log("refused request with host " + host);
+                WriteResponse(stream, 403, "Forbidden", "text/plain", BrokerHeaderLine(), "Host not allowed");
+                SafeClose(client);
+                return;
+            }
+
             LastActivityMs = NowMs();
 
             if (method == "GET" && path.StartsWith("/_kitwright/broker/health", StringComparison.Ordinal))
@@ -1010,6 +1022,29 @@ namespace KitWright.UnityMcp.Broker
         {
             return string.IsNullOrEmpty(origin) ||
                    (Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+        }
+
+        private static bool IsValidHost(string host)
+        {
+            if (string.IsNullOrEmpty(host))
+                return true; // Absent Host (HTTP/1.0 / native client); the loopback bind already limits reach.
+
+            host = host.Trim();
+            if (host.StartsWith("["))
+            {
+                var end = host.IndexOf(']');
+                host = end > 0 ? host.Substring(1, end - 1) : host;
+            }
+            else
+            {
+                var colon = host.IndexOf(':');
+                if (colon >= 0)
+                    host = host.Substring(0, colon);
+            }
+
+            return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase);
         }
 
         // Mirrors HttpMCPTransport.ExtractPin: this process cannot reference the package assembly.
