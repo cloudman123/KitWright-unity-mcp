@@ -546,6 +546,21 @@ namespace KitWright.Editor
             Assert.IsFalse(HttpMCPTransport.IsValidOrigin("http://attacker.local"));
         }
 
+        // DNS-rebinding defense independent of Origin: a rebound name resolves to 127.0.0.1 but the
+        // browser still sends its Host, so a non-loopback Host must be refused.
+        [Test]
+        public void HostValidation_AcceptsAbsentAndLoopback_RejectsReboundName()
+        {
+            Assert.IsTrue(HttpMCPTransport.IsValidHost(null), "Absent Host (HTTP/1.0) must be allowed.");
+            Assert.IsTrue(HttpMCPTransport.IsValidHost(""), "Empty Host must be allowed.");
+            Assert.IsTrue(HttpMCPTransport.IsValidHost("127.0.0.1:8766"));
+            Assert.IsTrue(HttpMCPTransport.IsValidHost("localhost:8766"));
+            Assert.IsTrue(HttpMCPTransport.IsValidHost("[::1]:8766"));
+            Assert.IsTrue(HttpMCPTransport.IsValidHost("127.0.0.1"));
+            Assert.IsFalse(HttpMCPTransport.IsValidHost("evil.com:8766"));
+            Assert.IsFalse(HttpMCPTransport.IsValidHost("attacker.local:8766"));
+        }
+
         [UnityTest]
         public IEnumerator PostInitialize_ReturnsMcpSessionIdHeader()
         {

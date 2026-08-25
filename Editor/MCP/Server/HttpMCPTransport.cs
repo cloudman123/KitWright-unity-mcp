@@ -330,6 +330,14 @@ namespace KitWright.Editor.MCP.Server
                         return;
                     }
 
+                    // DNS-rebinding defense that does not depend on the Origin header: a rebound name
+                    // (evil.example -> 127.0.0.1) arrives with a non-loopback Host. Belt to Origin's suspenders.
+                    if (!IsValidHost(httpRequest.Host))
+                    {
+                        await SendHtmlStatusAsync(stream, HttpStatusCode.Forbidden, "Forbidden", "Host not allowed", ct);
+                        return;
+                    }
+
                     if (httpRequest.Method == "OPTIONS")
                     {
                         await SendOptionsResponseAsync(stream, ct);
@@ -518,6 +526,7 @@ namespace KitWright.Editor.MCP.Server
             var acceptsEventStream = false;
             string sessionId = null;
             string origin = null;
+            string host = null;
             for (var i = 1; i < lines.Length; i++)
             {
                 var separator = lines[i].IndexOf(':');
@@ -544,6 +553,10 @@ namespace KitWright.Editor.MCP.Server
                 {
                     origin = lines[i].Substring(separator + 1).Trim();
                 }
+                else if (string.Equals(name, "Host", StringComparison.OrdinalIgnoreCase))
+                {
+                    host = lines[i].Substring(separator + 1).Trim();
+                }
             }
 
             var bodyStart = headerEnd + 4;
@@ -567,6 +580,7 @@ namespace KitWright.Editor.MCP.Server
                 AcceptsEventStream = acceptsEventStream,
                 SessionId = sessionId,
                 Origin = origin,
+                Host = host,
                 Body = Encoding.UTF8.GetString(bodyBytes, 0, copied)
             };
         }
@@ -659,6 +673,29 @@ namespace KitWright.Editor.MCP.Server
             }
 
             return false;
+        }
+
+        internal static bool IsValidHost(string hostHeader)
+        {
+            if (string.IsNullOrEmpty(hostHeader))
+                return true; // Absent Host (HTTP/1.0 or a native client); the loopback bind already limits reach.
+
+            var host = hostHeader.Trim();
+            if (host.StartsWith("["))
+            {
+                var end = host.IndexOf(']');
+                host = end > 0 ? host.Substring(1, end - 1) : host;
+            }
+            else
+            {
+                var colon = host.IndexOf(':');
+                if (colon >= 0)
+                    host = host.Substring(0, colon);
+            }
+
+            return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase);
         }
 
         private Task SendHtmlStatusAsync(NetworkStream stream, HttpStatusCode code, string reason, string message, CancellationToken ct)
@@ -942,6 +979,7 @@ namespace KitWright.Editor.MCP.Server
             public bool AcceptsEventStream { get; set; }
             public string SessionId { get; set; }
             public string Origin { get; set; }
+            public string Host { get; set; }
             public string Body { get; set; }
         }
     }
