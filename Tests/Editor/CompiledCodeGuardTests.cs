@@ -138,6 +138,23 @@ public class FnPtr
     }
 }";
 
+        // [DllImport] calls native code directly and references no blocked managed type or member,
+        // so the ref-table scans are blind to it; the P/Invoke flag on the method is the signal.
+        private const string PInvokeNative = @"
+using System;
+using System.Runtime.InteropServices;
+
+public class Native
+{
+    [DllImport(""kernel32.dll"", CharSet = CharSet.Unicode)]
+    static extern IntPtr GetModuleHandle(string name);
+
+    public static object Run()
+    {
+        return GetModuleHandle(""kernel32.dll"").ToString();
+    }
+}";
+
         [Test]
         public void SourcePolicy_MissesAnAliasedNamespace()
         {
@@ -251,6 +268,19 @@ public class FnPtr
             Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out var reference, out _));
             Assert.That(reference, Does.Contain("FunctionPointer"),
                 "Either the raw pointer extraction or the marshalled delegate must be refused.");
+        }
+
+        [Test]
+        public void Guard_BlocksNativePInvokeDeclarations()
+        {
+            Assert.IsFalse(ExecuteCodeSafetyPolicy.TryFindViolation(PInvokeNative, true, out _, out _));
+
+            var compilation = ScriptCompilerPipeline.Compile(PInvokeNative);
+            Assert.AreEqual(ScriptCompilationStatus.Success, compilation.Status, compilation.Message);
+
+            Assert.IsTrue(CompiledCodeGuard.TryFindViolation(compilation.Assembly, true, out var reference, out var reason));
+            Assert.AreEqual("Native.GetModuleHandle", reference);
+            Assert.That(reason, Does.Contain("P/Invoke"));
         }
     }
 }

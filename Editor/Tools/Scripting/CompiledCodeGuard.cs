@@ -131,7 +131,8 @@ namespace KitWright.Editor.Tools.Scripting
             foreach (var module in assembly.GetModules())
             {
                 if (ScanTypeRefs(module, strict, ref reference, ref reason) ||
-                    ScanMemberRefs(module, strict, ref reference, ref reason))
+                    ScanMemberRefs(module, strict, ref reference, ref reason) ||
+                    ScanForPInvoke(module, ref reference, ref reason))
                     return true;
             }
 
@@ -201,6 +202,43 @@ namespace KitWright.Editor.Tools.Scripting
             }
 
             WarnScanTruncated(module, "MemberRef");
+            return false;
+        }
+
+        // A [DllImport] method calls native code directly: it never references a blocked managed
+        // type or member, so the ref-table scans above are blind to it. Its P/Invoke flag lives on
+        // the method definition instead, so this pass walks the defined methods for it.
+        private static bool ScanForPInvoke(Module module, ref string reference, ref string reason)
+        {
+            Type[] types;
+            try { types = module.GetTypes(); }
+            catch (ReflectionTypeLoadException ex) { types = ex.Types; }
+            catch { return false; }
+
+            const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic |
+                                     BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+            foreach (var type in types)
+            {
+                if (type == null)
+                    continue;
+
+                MethodInfo[] methods;
+                try { methods = type.GetMethods(all); }
+                catch { continue; }
+
+                foreach (var method in methods)
+                {
+                    if ((method.Attributes & MethodAttributes.PinvokeImpl) == 0)
+                        continue;
+
+                    reference = $"{type.FullName}.{method.Name}";
+                    reason = $"The compiled snippet declares a native P/Invoke method '{reference}', " +
+                             "which calls unmanaged code directly and execute_code refuses to run.";
+                    return true;
+                }
+            }
+
             return false;
         }
 
