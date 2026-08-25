@@ -34,5 +34,21 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(300, ToolRegistry.TimeoutSecondsForRequest(
                 "tools/call", new Dictionary<string, object> { { "name", "get_hierarchy" } }, 300));
         }
+
+        // CoplayDev/unity-mcp #1130.
+        // ponytail: hand-kept list; alternative is parsing NoThrottleLease durations out of source.
+        [Test]
+        public void EveryToolThatBlocksTheMainThreadForMinutes_DeclaresABudget()
+        {
+            foreach (var tool in new[] { "build_player", "switch_build_target", "bake_nav_mesh" })
+            {
+                var budget = ToolRegistry.TimeoutSecondsForRequest(
+                    "tools/call", new Dictionary<string, object> { { "name", tool } });
+
+                // Against the fallback, not the transport cap, or a tool with no attribute passes.
+                Assert.Greater(budget, ToolRegistry.DefaultToolTimeoutSeconds,
+                    tool + " blocks the editor past the default ceiling, so it needs [LongRunningTool].");
+            }
+        }
     }
 }

@@ -116,6 +116,7 @@ namespace KitWright.Editor.Tools.Builtins
         }
 
         [Description("Switch the active build target platform (triggers a platform switch + recompile). Use before building for a different platform.")]
+        [LongRunningTool(1800)]
         public static object SwitchBuildTarget(
             [ToolParam("Target platform: windows64, windows32, osx, linux64, android, ios, webgl, uwp, tvos")] string target)
         {

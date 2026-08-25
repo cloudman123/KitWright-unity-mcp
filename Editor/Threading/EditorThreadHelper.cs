@@ -30,9 +30,20 @@ namespace KitWright.Editor.Threading
         internal static TimeSpan SinceLastPump =>
             TimeSpan.FromTicks(DateTime.UtcNow.Ticks - Interlocked.Read(ref s_lastPumpUtcTicks));
 
-        internal static bool LooksBlocked(bool alreadyCompleted, TimeSpan sinceLastPump)
+        private static int s_workItemDepth;
+
+        internal static bool WorkItemRunning => Volatile.Read(ref s_workItemDepth) > 0;
+
+        // A tool blocking the main thread synchronously (BuildPlayer, SwitchActiveBuildTarget)
+        // stalls the pump exactly like a modal does. Failing it here would defeat its
+        // [LongRunningTool] budget and make the client retry into a second build (CoplayDev #1130).
+        internal static bool LooksBlocked(
+            bool alreadyCompleted, TimeSpan sinceLastPump, bool workItemRunning, bool dialogOpen)
         {
-            return !alreadyCompleted && sinceLastPump.TotalMilliseconds >= PumpStaleMs;
+            if (alreadyCompleted || sinceLastPump.TotalMilliseconds < PumpStaleMs)
+                return false;
+
+            return dialogOpen || !workItemRunning;
         }
 
         internal static string BlockedMessage(TimeSpan sinceLastPump)
@@ -79,10 +90,11 @@ namespace KitWright.Editor.Threading
             Task.Delay(StallProbeMs).ContinueWith(_ =>
             {
                 var idle = SinceLastPump;
-                if (!LooksBlocked(tcs.Task.IsCompleted, idle))
+                var dialog = Win32Dialogs.BlockingDialog();
+                if (!LooksBlocked(tcs.Task.IsCompleted, idle, WorkItemRunning, dialog != null))
                     return;
 
-                tcs.TrySetException(new TimeoutException(BlockedMessage(idle)));
+                tcs.TrySetException(new TimeoutException(BlockedMessage(idle, dialog)));
             }, TaskScheduler.Default);
         }
 
@@ -193,6 +205,7 @@ namespace KitWright.Editor.Threading
                     continue;
                 }
 
+                Interlocked.Increment(ref s_workItemDepth);
                 try
                 {
                     var result = item.func();
@@ -201,6 +214,10 @@ namespace KitWright.Editor.Threading
                 catch (Exception ex)
                 {
                     item.tcs.TrySetException(ex);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref s_workItemDepth);
                 }
                 processedCount++;
             }

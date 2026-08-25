@@ -14,17 +14,50 @@ namespace KitWright.Editor.Tests
         [Test]
         public void LooksBlocked_SeparatesAStalledEditorFromAMerelySlowTool()
         {
-            Assert.IsFalse(EditorThreadHelper.LooksBlocked(false, TimeSpan.FromMilliseconds(200)),
+            Assert.IsFalse(Blocked(TimeSpan.FromMilliseconds(200)),
                 "A slow but pumping editor must not be reported as blocked.");
-            Assert.IsFalse(EditorThreadHelper.LooksBlocked(false, TimeSpan.FromSeconds(4)),
+            Assert.IsFalse(Blocked(TimeSpan.FromSeconds(4)),
                 "Under the staleness threshold is still healthy.");
 
-            Assert.IsTrue(EditorThreadHelper.LooksBlocked(false, TimeSpan.FromSeconds(5)));
-            Assert.IsTrue(EditorThreadHelper.LooksBlocked(false, TimeSpan.FromMinutes(2)));
+            Assert.IsTrue(Blocked(TimeSpan.FromSeconds(5)));
+            Assert.IsTrue(Blocked(TimeSpan.FromMinutes(2)));
 
-            Assert.IsFalse(EditorThreadHelper.LooksBlocked(true, TimeSpan.FromMinutes(2)),
+            Assert.IsFalse(
+                EditorThreadHelper.LooksBlocked(true, TimeSpan.FromMinutes(2), false, false),
                 "A call that already returned must never be failed after the fact.");
         }
+
+        // CoplayDev/unity-mcp #1130, #1341.
+        [Test]
+        public void LooksBlocked_LeavesOurOwnLongSynchronousToolToItsTimeoutBudget()
+        {
+            Assert.IsFalse(
+                EditorThreadHelper.LooksBlocked(false, TimeSpan.FromMinutes(6), true, false),
+                "A six-minute build is not a blocked editor; its [LongRunningTool] ceiling owns it.");
+
+            Assert.IsTrue(
+                EditorThreadHelper.LooksBlocked(false, TimeSpan.FromMinutes(6), true, true),
+                "A modal our own work item opened is still a block - that is what the probe is for.");
+
+            Assert.IsTrue(
+                EditorThreadHelper.LooksBlocked(false, TimeSpan.FromMinutes(6), false, false),
+                "Nothing of ours is running, so a stale pump is someone else blocking the editor.");
+        }
+
+        [Test]
+        public void WorkItemRunning_IsTrueInsideTheWorkItemAndFalseOutsideIt()
+        {
+            Assert.IsFalse(EditorThreadHelper.WorkItemRunning, "Nothing is mid-flight before the pump.");
+
+            PumpOnce(cancelBeforePump: false, out var sawWorkItemRunning);
+
+            Assert.IsTrue(sawWorkItemRunning,
+                "The flag has to be set around the invoke, or the probe cannot see a build.");
+            Assert.IsFalse(EditorThreadHelper.WorkItemRunning, "The finally must clear it again.");
+        }
+
+        private static bool Blocked(TimeSpan sinceLastPump) =>
+            EditorThreadHelper.LooksBlocked(false, sinceLastPump, false, false);
 
         [Test]
         public void BlockedMessage_NamesTheCauseAndTheWayOut()
@@ -82,9 +115,13 @@ namespace KitWright.Editor.Tests
                 "A call whose deadline passed must never mutate the project after the fact.");
         }
 
-        private static bool PumpOnce(bool cancelBeforePump)
+        private static bool PumpOnce(bool cancelBeforePump) =>
+            PumpOnce(cancelBeforePump, out _);
+
+        private static bool PumpOnce(bool cancelBeforePump, out bool sawWorkItemRunning)
         {
             var ran = false;
+            var sawFlag = false;
 
             using (var helper = new EditorThreadHelper())
             using (var cts = new CancellationTokenSource())
@@ -99,6 +136,7 @@ namespace KitWright.Editor.Tests
                         helper.ExecuteAsyncOnEditorThreadAsync(() =>
                         {
                             ran = true;
+                            sawFlag = EditorThreadHelper.WorkItemRunning;
                             return Task.FromResult(true);
                         }, cts.Token);
                         handoff.Set();
@@ -113,6 +151,7 @@ namespace KitWright.Editor.Tests
                 helper.ProcessQueues();
             }
 
+            sawWorkItemRunning = sawFlag;
             return ran;
         }
     }
