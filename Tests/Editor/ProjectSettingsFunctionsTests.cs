@@ -1,6 +1,9 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
+using System.Linq;
 using KitWright.Editor.Tools.Builtins;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -43,6 +46,18 @@ namespace KitWright.Editor.Tests
 
             StringAssert.Contains("PROPERTY_SET_FAILED", result);
             Assert.AreEqual(_originalTimeScale, Time.timeScale, 0.0001f);
+        }
+
+        // The dump is how an agent discovers the paths the writer takes, so anything the writer can
+        // reach has to appear here. Hidden properties used to be missing from it entirely.
+        [Test]
+        public void GetProjectSettings_DumpIncludesPropertiesTheInspectorHides()
+        {
+            var dump = JObject.Parse(JsonConvert.SerializeObject(ProjectSettingsFunctions.GetProjectSettings(Singleton)));
+
+            var names = dump["data"]["properties"].Select(p => p["Name"].Value<string>()).ToArray();
+            CollectionAssert.Contains(names, "m_ObjectHideFlags");
+            CollectionAssert.Contains(names, "m_TimeScale");
         }
 
         [Test]

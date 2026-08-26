@@ -45,6 +45,74 @@ namespace KitWright.Editor.Tests
             Assert.IsNull(ComponentSerializer.ExtractPPtrTypeName(null));
         }
 
+        // intValue clamps a negative to 0 on an unsigned field, so an "all bits set" mask used to write
+        // as "no bits set" and still report success. MeshRenderer.m_RenderingLayerMask is uint32 and
+        // needs no optional module, so it stands in for PhysicsManager's layer collision matrix.
+        [Test]
+        public void WriteProperties_NegativeMaskOnAnUnsignedFieldSetsEveryBitNotZero()
+        {
+            var go = new GameObject("ComponentSerializerUnsignedProbe");
+            try
+            {
+                var renderer = go.AddComponent<MeshRenderer>();
+                Assert.AreEqual(SerializedPropertyNumericType.UInt32,
+                    new SerializedObject(renderer).FindProperty("m_RenderingLayerMask").numericType,
+                    "Test target is no longer an unsigned field; pick another one.");
+
+                var results = ComponentSerializer.WriteProperties(renderer, new JObject { ["m_RenderingLayerMask"] = -1 });
+
+                Assert.IsTrue(results[0].Success, results[0].Error);
+                Assert.AreEqual(uint.MaxValue,
+                    new SerializedObject(renderer).FindProperty("m_RenderingLayerMask").uintValue);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void WriteProperties_UnsignedFieldTakesValuesPastIntMaxValue()
+        {
+            var go = new GameObject("ComponentSerializerUnsignedRangeProbe");
+            try
+            {
+                var renderer = go.AddComponent<MeshRenderer>();
+
+                var results = ComponentSerializer.WriteProperties(renderer,
+                    new JObject { ["m_RenderingLayerMask"] = 4294967295L });
+
+                Assert.IsTrue(results[0].Success, results[0].Error);
+                Assert.AreEqual(uint.MaxValue,
+                    new SerializedObject(renderer).FindProperty("m_RenderingLayerMask").uintValue);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        // Settings singletons keep writable fields off the inspector, and NextVisible skips exactly
+        // those — so the dump used to omit properties set_project_settings can write.
+        [Test]
+        public void ReadProperties_IncludeHiddenSurfacesWhatNextVisibleSkips()
+        {
+            var go = new GameObject("ComponentSerializerHiddenProbe");
+            try
+            {
+                bool HasHideFlags(bool includeHidden) => ComponentSerializer
+                    .ReadProperties(go.transform, out _, includeHidden: includeHidden)
+                    .Any(p => p.Name == "m_ObjectHideFlags");
+
+                Assert.IsFalse(HasHideFlags(false));
+                Assert.IsTrue(HasHideFlags(true));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
 #if KITWRIGHT_PHYSICS2D
         [Test]
         public void FlagsEnum_MaskRoundTrips()

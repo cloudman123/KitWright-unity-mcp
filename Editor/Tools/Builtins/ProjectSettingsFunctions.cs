@@ -145,8 +145,10 @@ namespace KitWright.Editor.Tools.Builtins
             var target = ResolveSettingsSingleton(singleton, out var error);
             if (target == null) return error;
 
-            // Nested pages (QualitySettings, TimeManager) hide every real field inside a container.
-            var all = ComponentSerializer.ReadProperties(target, out _, descend: true);
+            // Nested pages (QualitySettings, TimeManager) hide every real field inside a container,
+            // and settings singletons keep writable fields off the inspector entirely — without
+            // includeHidden this dump omits m_LayerCollisionMatrix, which set_project_settings can write.
+            var all = ComponentSerializer.ReadProperties(target, out _, descend: true, includeHidden: true);
             var shown = Math.Min(all.Count, MaxDumpedProperties);
 
             return Response.Success($"{singleton} read ({shown} of {all.Count} properties).", new

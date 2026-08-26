@@ -32,9 +32,11 @@ namespace KitWright.Editor.Tools.Helpers
         /// Returns every visible serialized property on the component. Skips Unity's "m_Script"
         /// field by default since it's noise for AI consumers. <paramref name="totalCount"/> reports
         /// how many the component really has, so a read capped by <paramref name="maxProperties"/>
-        /// can say what it left out.
+        /// can say what it left out. <paramref name="includeHidden"/> also walks properties Unity
+        /// hides from the inspector — writable through FindProperty, but invisible to this read
+        /// without it.
         /// </summary>
-        public static List<PropertySnapshot> ReadProperties(UnityEngine.Object component, out int totalCount, bool includeScriptField = false, bool descend = false, int maxProperties = int.MaxValue)
+        public static List<PropertySnapshot> ReadProperties(UnityEngine.Object component, out int totalCount, bool includeScriptField = false, bool descend = false, int maxProperties = int.MaxValue, bool includeHidden = false)
         {
             totalCount = 0;
             var list = new List<PropertySnapshot>();
@@ -43,7 +45,7 @@ namespace KitWright.Editor.Tools.Helpers
             var so = new SerializedObject(component);
             var prop = so.GetIterator();
             // First call returns the root; pass true to descend into children
-            if (prop.NextVisible(true))
+            if (Advance(prop, true, includeHidden))
             {
                 do
                 {
@@ -63,10 +65,15 @@ namespace KitWright.Editor.Tools.Helpers
                         Value = ReadPropertyValue(prop)
                     });
                 }
-                while (prop.NextVisible(descend));
+                while (Advance(prop, descend, includeHidden));
             }
             return list;
         }
+
+        // NextVisible skips whatever Unity hides from the inspector, which on a settings singleton
+        // includes real, writable fields — PhysicsManager's m_LayerCollisionMatrix among them.
+        private static bool Advance(SerializedProperty property, bool enterChildren, bool includeHidden) =>
+            includeHidden ? property.Next(enterChildren) : property.NextVisible(enterChildren);
 
         private static object ReadPropertyValue(SerializedProperty p)
         {
@@ -193,6 +200,29 @@ namespace KitWright.Editor.Tools.Helpers
             return results;
         }
 
+        // intValue clamps on an unsigned field, so -1 lands as 0: a bitmask write meant to set every
+        // bit silently clears the field instead, and reports success. PhysicsManager's
+        // m_LayerCollisionMatrix is uint32, so "everything collides" wrote as "nothing collides".
+        // The read side already reinterprets, so -1 and 4294967295 both round-trip from here.
+        private static void WriteInteger(SerializedProperty p, JToken value)
+        {
+            switch (p.numericType)
+            {
+                case SerializedPropertyNumericType.UInt32:
+                    p.uintValue = unchecked((uint)value.ToObject<long>());
+                    break;
+                case SerializedPropertyNumericType.UInt64:
+                    p.ulongValue = unchecked((ulong)value.ToObject<long>());
+                    break;
+                case SerializedPropertyNumericType.Int64:
+                    p.longValue = value.ToObject<long>();
+                    break;
+                default:
+                    p.intValue = value.ToObject<int>();
+                    break;
+            }
+        }
+
         private static bool TryWriteSerializedProperty(SerializedProperty p, JToken value, out string error)
         {
             error = null;
@@ -201,7 +231,7 @@ namespace KitWright.Editor.Tools.Helpers
                 switch (p.propertyType)
                 {
                     case SerializedPropertyType.Integer:
-                        p.intValue = value.ToObject<int>(); return true;
+                        WriteInteger(p, value); return true;
                     case SerializedPropertyType.Boolean:
                         p.boolValue = value.ToObject<bool>(); return true;
                     case SerializedPropertyType.Float:
