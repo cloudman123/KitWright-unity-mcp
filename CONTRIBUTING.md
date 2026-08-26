@@ -60,4 +60,14 @@ Before submitting a PR, please verify the change in a Unity test project:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under MIT.
+This project is released under the MIT License, and your contribution will be
+distributed under MIT as part of it.
+
+In addition, by submitting a contribution you grant the project owner a
+perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to
+reproduce, modify, distribute, sublicense, and relicense your contribution,
+including as part of proprietary or commercially licensed products. You retain
+copyright in your contribution.
+
+If you would rather not grant this, open an issue to discuss instead of
+sending a PR.
