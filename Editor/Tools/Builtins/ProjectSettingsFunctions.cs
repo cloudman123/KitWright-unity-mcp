@@ -29,8 +29,9 @@ namespace KitWright.Editor.Tools.Builtins
                      "hand straight to FindProperty (e.g. 'm_QualitySettings.Array.data[0].shadowResolution'); at most 400 are " +
                      "returned and 'propertyCount' reports the real total. This tool is read-only — hand the paths it " +
                      "reports straight to set_project_settings to write them back.\n" +
-                     "Do not patch ProjectSettings/*.asset as text while the editor is open — these pages are in-memory native " +
-                     "singletons outside the AssetDatabase, so Unity does not reload the file and overwrites it on save.")]
+                     "Patching ProjectSettings/*.asset as text while the editor is open is picked up only if an " +
+                     "AssetDatabase.Refresh follows. Skip that and the file and the editor's in-memory copy of the page " +
+                     "disagree, and the in-memory one wins the next time Unity writes settings.")]
         [ReadOnlyTool]
         public static object GetProjectSettings(
             [ToolParam("Optional settings singleton to dump in full: 'PhysicsManager', 'Physics2DSettings', 'QualitySettings', " +
@@ -83,9 +84,10 @@ namespace KitWright.Editor.Tools.Builtins
                      "The Physics page's layer collision matrix is 'm_LayerCollisionMatrix', 32 masks where bit b of " +
                      "entry a means 'layer a collides with layer b' — Unity keeps it symmetric, so clear or set both " +
                      "entry a bit b and entry b bit a.\n" +
-                     "Writes go through SerializedObject and are flushed with AssetDatabase.SaveAssets, because these " +
-                     "pages are native singletons outside the AssetDatabase. For the same reason, never patch " +
-                     "ProjectSettings/*.asset as text while the editor is open.")]
+                     "Writes go through SerializedObject and are flushed with AssetDatabase.SaveAssets, so the editor's " +
+                     "copy of the page and the file on disk move together. Patching ProjectSettings/*.asset as text " +
+                     "instead is picked up only if an AssetDatabase.Refresh follows; without one the editor keeps its " +
+                     "own copy and overwrites the edit the next time Unity writes settings.")]
         public static object SetProjectSettings(
             [ToolParam("Settings singleton to write — the same names get_project_settings accepts ('PhysicsManager', " +
                        "'TimeManager', 'QualitySettings', 'GraphicsSettings', ...).")] string singleton,
