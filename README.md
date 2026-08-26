@@ -367,7 +367,7 @@ The current open-source package exposes four high-value capability layers:
 ## Built-in Tools
 
 <!-- tools-summary:start -->
-KitWright MCP for Unity ships **265 tool functions across 57 modules** (`core` profile exposes 40 of them).
+KitWright MCP for Unity ships **271 tool functions across 57 modules** (`core` profile exposes 40 of them).
 
 | Module | Tools | Module | Tools |
 |--------|-------|--------|-------|
@@ -375,30 +375,30 @@ KitWright MCP for Unity ships **265 tool functions across 57 modules** (`core` p
 | **GameObject** | 14 | **Build** | 3 |
 | **Profiler** | 13 | **ComponentBatch** | 3 |
 | **Scene** | 13 | **ComponentProperty** | 3 |
-| **Prefab** | 10 | **Docs** | 3 |
-| **Asset** | 8 | **Lighting** | 3 |
-| **Terrain** | 8 | **Package** | 3 |
-| **AssemblyDefinition** | 7 | **Physics** | 3 |
-| **Prefs** | 7 | **ScriptableObject** | 3 |
-| **SpriteAtlas** | 7 | **Sprite** | 3 |
-| **Visual** | 7 | **Testing** | 3 |
-| **Addressable** | 6 | **Undo** | 3 |
-| **Animation** | 6 | **AssetImport** | 2 |
-| **Audio** | 6 | **EditorDialog** | 2 |
-| **Code** | 6 | **EditorWindowInteraction** | 2 |
-| **InputActions** | 6 | **Material** | 2 |
-| **NavMesh** | 6 | **MenuItem** | 2 |
-| **Shader** | 6 | **Performance** | 2 |
-| **UI** | 6 | **ProjectSettings** | 2 |
+| **Animation** | 10 | **Docs** | 3 |
+| **Prefab** | 10 | **Lighting** | 3 |
+| **Asset** | 8 | **Package** | 3 |
+| **Terrain** | 8 | **Physics** | 3 |
+| **AssemblyDefinition** | 7 | **ScriptableObject** | 3 |
+| **Prefs** | 7 | **Sprite** | 3 |
+| **SpriteAtlas** | 7 | **Testing** | 3 |
+| **UI** | 7 | **Undo** | 3 |
+| **Visual** | 7 | **AssetImport** | 2 |
+| **Addressable** | 6 | **EditorDialog** | 2 |
+| **Audio** | 6 | **EditorWindowInteraction** | 2 |
+| **Code** | 6 | **Material** | 2 |
+| **InputActions** | 6 | **MenuItem** | 2 |
+| **NavMesh** | 6 | **Performance** | 2 |
+| **Shader** | 6 | **ProjectSettings** | 2 |
 | **File** | 5 | **References** | 2 |
 | **MemorySnapshot** | 5 | **Batch** | 1 |
 | **SceneView** | 5 | **Hierarchy** | 1 |
-| **Volume** | 5 | **Interop** | 1 |
-| **Camera** | 4 | **Mesh** | 1 |
-| **Compilation** | 4 | **Particle** | 1 |
-| **InputSimulation** | 4 | **Reflection** | 1 |
-| **LodConstraint** | 4 | **Timeline** | 1 |
-| **Screenshot** | 4 | **ToolExposure** | 1 |
+| **Screenshot** | 5 | **Interop** | 1 |
+| **Volume** | 5 | **Mesh** | 1 |
+| **Camera** | 4 | **Particle** | 1 |
+| **Compilation** | 4 | **Reflection** | 1 |
+| **InputSimulation** | 4 | **Timeline** | 1 |
+| **LodConstraint** | 4 | **ToolExposure** | 1 |
 | **Script** | 4 |  |  |
 
 > 📖 Every tool with its description: [TOOLS.md](TOOLS.md).
