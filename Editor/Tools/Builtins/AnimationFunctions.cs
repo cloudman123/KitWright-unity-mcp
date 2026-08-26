@@ -3,8 +3,11 @@
 // com.unity.modules.animation is optional; without it these tools disappear instead of breaking the build.
 #if KITWRIGHT_ANIMATION
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
+using System;
 using System.IO;
+using System.Linq;
 using KitWright.Editor.Tools.Helpers;
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -247,7 +250,321 @@ namespace KitWright.Editor.Tools.Builtins
             });
         }
 
+        [Description("Add a parameter to an Animator Controller asset. Parameters are what transitions test, so add " +
+                     "them before add_animator_transition references them.")]
+        public static string AddAnimatorParameter(
+            [ToolParam("Path to the .controller asset")] string controller_path,
+            [ToolParam("Parameter name")] string name,
+            [ToolParam("Parameter type: 'float', 'int', 'bool' or 'trigger'")] string type,
+            [ToolParam("Default value: a number for float/int, 'true'/'false' for bool. Ignored for trigger.", Required = false)] string default_value = null)
+        {
+            var controller = LoadController(controller_path, out var error);
+            if (controller == null) return error;
+
+            if (controller.parameters.Any(p => p.name == name))
+                return ToolResultFormatter.Error("PARAMETER_EXISTS", new { controller_path, name });
+
+            AnimatorControllerParameterType parameterType;
+            switch ((type ?? string.Empty).ToLowerInvariant())
+            {
+                case "float": parameterType = AnimatorControllerParameterType.Float; break;
+                case "int": parameterType = AnimatorControllerParameterType.Int; break;
+                case "bool": parameterType = AnimatorControllerParameterType.Bool; break;
+                case "trigger": parameterType = AnimatorControllerParameterType.Trigger; break;
+                default:
+                    return ToolResultFormatter.Error("UNKNOWN_PARAMETER_TYPE", new
+                    {
+                        type,
+                        valid = new[] { "float", "int", "bool", "trigger" }
+                    });
+            }
+
+            controller.AddParameter(name, parameterType);
+
+            if (!string.IsNullOrWhiteSpace(default_value))
+            {
+                // The property hands back a copy of the array, so the edit only lands on assignment back.
+                var parameters = controller.parameters;
+                var added = parameters[parameters.Length - 1];
+                switch (parameterType)
+                {
+                    case AnimatorControllerParameterType.Float:
+                        if (!float.TryParse(default_value, out var f))
+                            return ToolResultFormatter.Error("INVALID_DEFAULT_VALUE", new { default_value, type });
+                        added.defaultFloat = f;
+                        break;
+                    case AnimatorControllerParameterType.Int:
+                        if (!int.TryParse(default_value, out var i))
+                            return ToolResultFormatter.Error("INVALID_DEFAULT_VALUE", new { default_value, type });
+                        added.defaultInt = i;
+                        break;
+                    case AnimatorControllerParameterType.Bool:
+                        if (!bool.TryParse(default_value, out var b))
+                            return ToolResultFormatter.Error("INVALID_DEFAULT_VALUE", new { default_value, type });
+                        added.defaultBool = b;
+                        break;
+                }
+                controller.parameters = parameters;
+            }
+
+            SaveController(controller);
+            return $"Added {parameterType} parameter '{name}' to '{controller_path}'.";
+        }
+
+        [Description("Add a state to an Animator Controller layer, optionally binding an Animation Clip to it. " +
+                     "create_animator_controller leaves a layer with nothing but an empty state machine; this is what " +
+                     "fills it in.")]
+        public static string AddAnimatorState(
+            [ToolParam("Path to the .controller asset")] string controller_path,
+            [ToolParam("Name for the new state")] string state_name,
+            [ToolParam("Path to an .anim clip to play in this state", Required = false)] string clip_path = null,
+            [ToolParam("Layer index. Default 0.", Required = false)] int layer = 0,
+            [ToolParam("Make this the layer's default (entry) state", Required = false)] bool make_default = false)
+        {
+            var stateMachine = ResolveStateMachine(controller_path, layer, out var controller, out var error);
+            if (stateMachine == null) return error;
+
+            if (stateMachine.states.Any(s => s.state.name == state_name))
+                return ToolResultFormatter.Error("STATE_EXISTS", new { controller_path, state_name, layer });
+
+            var state = stateMachine.AddState(state_name);
+
+            if (!string.IsNullOrWhiteSpace(clip_path))
+            {
+                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clip_path);
+                if (clip == null)
+                    return ToolResultFormatter.Error("ANIMATION_CLIP_NOT_FOUND", new { clip_path });
+                state.motion = clip;
+            }
+
+            if (make_default)
+                stateMachine.defaultState = state;
+
+            SaveController(controller);
+            return $"Added state '{state_name}' to layer {layer} of '{controller_path}'" +
+                   (make_default ? " (now the default state)." : ".");
+        }
+
+        [Description("Add a transition between two Animator states. from_state also accepts 'any' for an Any State " +
+                     "transition and 'entry' for an entry transition; to_state also accepts 'exit'.\n" +
+                     "conditions is a JSON array, e.g. [{\"parameter\":\"Speed\",\"mode\":\"Greater\",\"threshold\":0.1}]. " +
+                     "mode is one of If, IfNot, Greater, Less, Equals, NotEqual — If/IfNot are the bool and trigger " +
+                     "forms and ignore threshold. A transition with no conditions and has_exit_time=false fires " +
+                     "immediately, which is almost never what you want.")]
+        public static string AddAnimatorTransition(
+            [ToolParam("Path to the .controller asset")] string controller_path,
+            [ToolParam("Source state name, or 'any' / 'entry'")] string from_state,
+            [ToolParam("Destination state name, or 'exit'")] string to_state,
+            [ToolParam("JSON array of conditions (see description)", Required = false)] string conditions = null,
+            [ToolParam("Layer index. Default 0.", Required = false)] int layer = 0,
+            [ToolParam("Wait for the source clip to finish before transitioning", Required = false)] bool has_exit_time = false,
+            [ToolParam("Blend duration in seconds. Default 0.25.", Required = false)] float duration = 0.25f)
+        {
+            var stateMachine = ResolveStateMachine(controller_path, layer, out var controller, out var error);
+            if (stateMachine == null) return error;
+
+            var from = (from_state ?? string.Empty).Trim().ToLowerInvariant();
+            var toExit = string.Equals((to_state ?? string.Empty).Trim(), "exit", StringComparison.OrdinalIgnoreCase);
+
+            AnimatorState destination = null;
+            if (!toExit)
+            {
+                destination = FindState(stateMachine, to_state);
+                if (destination == null)
+                    return ToolResultFormatter.Error("STATE_NOT_FOUND", new { state = to_state, layer, controller_path });
+            }
+
+            AnimatorStateTransition transition;
+            if (from == "any" || from == "anystate")
+            {
+                if (toExit)
+                    return ToolResultFormatter.Error("INVALID_TRANSITION", new { hint = "An Any State transition cannot target Exit." });
+                transition = stateMachine.AddAnyStateTransition(destination);
+            }
+            else if (from == "entry")
+            {
+                return ToolResultFormatter.Error("ENTRY_TRANSITION_UNSUPPORTED", new
+                {
+                    hint = "Entry transitions carry no exit time or duration. Use add_animator_state with " +
+                           "make_default=true to pick the state the layer enters."
+                });
+            }
+            else
+            {
+                var source = FindState(stateMachine, from_state);
+                if (source == null)
+                    return ToolResultFormatter.Error("STATE_NOT_FOUND", new { state = from_state, layer, controller_path });
+                transition = toExit ? source.AddExitTransition() : source.AddTransition(destination);
+            }
+
+            transition.hasExitTime = has_exit_time;
+            transition.duration = duration;
+
+            var conditionCount = 0;
+            if (!string.IsNullOrWhiteSpace(conditions))
+            {
+                if (!TryApplyConditions(controller, transition, conditions, out var conditionError))
+                    return conditionError;
+                conditionCount = transition.conditions.Length;
+            }
+
+            SaveController(controller);
+            return $"Added transition {from_state} -> {to_state} on layer {layer} of '{controller_path}' " +
+                   $"({conditionCount} condition(s), exitTime={has_exit_time}, duration={duration}).";
+        }
+
+        [Description("Write a float curve into an Animation Clip. create_animation_clip makes an empty clip; this is " +
+                     "what puts animation in it.\n" +
+                     "keys is a JSON array of {\"time\":<seconds>,\"value\":<float>} — at least two to see movement. " +
+                     "property is the serialized field name, which for a Transform is a single axis: " +
+                     "'m_LocalPosition.x', 'm_LocalScale.y', 'm_LocalRotation.z'. relative_path is the child path " +
+                     "under the animated root ('' for the root itself, 'Body/Head' for a descendant). " +
+                     "Curves are linear-interpolated between keys; re-running for the same binding replaces it.")]
+        public static string SetClipCurve(
+            [ToolParam("Path to the .anim clip asset")] string clip_path,
+            [ToolParam("Serialized property name, e.g. 'm_LocalPosition.x'")] string property,
+            [ToolParam("JSON array of {time, value} keyframes")] string keys,
+            [ToolParam("Child path under the animated root. Empty for the root object.", Required = false)] string relative_path = "",
+            [ToolParam("Component type the property lives on. Default 'Transform'.", Required = false)] string type = "Transform")
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clip_path);
+            if (clip == null)
+                return ToolResultFormatter.Error("ANIMATION_CLIP_NOT_FOUND", new { clip_path });
+
+            var componentType = TypeResolver.Resolve(type);
+            if (componentType == null)
+                return ToolResultFormatter.Error("TYPE_NOT_FOUND", new { type });
+
+            JArray parsedKeys;
+            try { parsedKeys = JArray.Parse(keys); }
+            catch (Exception ex) { return ToolResultFormatter.Error("INVALID_KEYS_JSON", new { message = ex.Message }); }
+
+            if (parsedKeys.Count == 0)
+                return ToolResultFormatter.Error("NO_KEYFRAMES", new { hint = "Pass at least one {time, value} pair." });
+
+            var keyframes = new Keyframe[parsedKeys.Count];
+            for (var i = 0; i < parsedKeys.Count; i++)
+            {
+                var time = parsedKeys[i]["time"];
+                var value = parsedKeys[i]["value"];
+                if (time == null || value == null)
+                    return ToolResultFormatter.Error("INVALID_KEYFRAME", new { index = i, hint = "Each key needs both 'time' and 'value'." });
+                keyframes[i] = new Keyframe(time.Value<float>(), value.Value<float>());
+            }
+
+            var curve = new AnimationCurve(keyframes);
+            for (var i = 0; i < curve.length; i++)
+            {
+                AnimationUtility.SetKeyLeftTangentMode(curve, i, AnimationUtility.TangentMode.Linear);
+                AnimationUtility.SetKeyRightTangentMode(curve, i, AnimationUtility.TangentMode.Linear);
+            }
+
+            var binding = EditorCurveBinding.FloatCurve(relative_path ?? string.Empty, componentType, property);
+            Undo.RecordObject(clip, $"Set curve {property} on {clip.name}");
+            AnimationUtility.SetEditorCurve(clip, binding, curve);
+            EditorUtility.SetDirty(clip);
+            AssetDatabase.SaveAssets();
+
+            return $"Set {curve.length}-key curve on '{property}' ({componentType.Name}, path '{relative_path}') in '{clip_path}'. " +
+                   $"Clip length is now {clip.length:0.###}s.";
+        }
+
         // -------- Helpers --------
+
+        private static AnimatorController LoadController(string controllerPath, out string error)
+        {
+            error = null;
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
+            if (controller == null)
+                error = ToolResultFormatter.Error("ANIMATOR_CONTROLLER_NOT_FOUND", new { controller_path = controllerPath });
+            return controller;
+        }
+
+        private static AnimatorStateMachine ResolveStateMachine(string controllerPath, int layer, out AnimatorController controller, out string error)
+        {
+            controller = LoadController(controllerPath, out error);
+            if (controller == null) return null;
+
+            if (layer < 0 || layer >= controller.layers.Length)
+            {
+                error = ToolResultFormatter.Error("LAYER_OUT_OF_RANGE", new
+                {
+                    layer,
+                    layerCount = controller.layers.Length,
+                    controller_path = controllerPath
+                });
+                return null;
+            }
+
+            return controller.layers[layer].stateMachine;
+        }
+
+        private static AnimatorState FindState(AnimatorStateMachine stateMachine, string name)
+        {
+            foreach (var child in stateMachine.states)
+            {
+                if (string.Equals(child.state.name, name, StringComparison.Ordinal))
+                    return child.state;
+            }
+            return null;
+        }
+
+        private static bool TryApplyConditions(AnimatorController controller, AnimatorStateTransition transition, string conditions, out string error)
+        {
+            error = null;
+
+            JArray parsed;
+            try { parsed = JArray.Parse(conditions); }
+            catch (Exception ex)
+            {
+                error = ToolResultFormatter.Error("INVALID_CONDITIONS_JSON", new { message = ex.Message });
+                return false;
+            }
+
+            foreach (var entry in parsed)
+            {
+                var parameter = entry["parameter"]?.Value<string>();
+                if (string.IsNullOrWhiteSpace(parameter))
+                {
+                    error = ToolResultFormatter.Error("INVALID_CONDITION", new { hint = "Each condition needs a 'parameter'." });
+                    return false;
+                }
+
+                // A condition on a parameter that does not exist is silently dropped by Unity, which
+                // leaves a transition that never fires and no sign of why.
+                if (!controller.parameters.Any(p => p.name == parameter))
+                {
+                    error = ToolResultFormatter.Error("PARAMETER_NOT_FOUND", new
+                    {
+                        parameter,
+                        available = controller.parameters.Select(p => p.name).ToArray(),
+                        hint = "Add it with add_animator_parameter first."
+                    });
+                    return false;
+                }
+
+                var modeName = entry["mode"]?.Value<string>() ?? "If";
+                if (!Enum.TryParse<AnimatorConditionMode>(modeName, true, out var mode))
+                {
+                    error = ToolResultFormatter.Error("UNKNOWN_CONDITION_MODE", new
+                    {
+                        mode = modeName,
+                        valid = Enum.GetNames(typeof(AnimatorConditionMode))
+                    });
+                    return false;
+                }
+
+                transition.AddCondition(mode, entry["threshold"]?.Value<float>() ?? 0f, parameter);
+            }
+
+            return true;
+        }
+
+        private static void SaveController(AnimatorController controller)
+        {
+            EditorUtility.SetDirty(controller);
+            AssetDatabase.SaveAssets();
+        }
 
         private struct ResolvedAnimator
         {
