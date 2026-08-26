@@ -35,15 +35,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             canvasGo.AddComponent<CanvasScaler>();
             canvasGo.AddComponent<GraphicRaycaster>();
-
-            // Ensure EventSystem exists
-            if (UnityEngine.Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
-            {
-                var esGo = new GameObject("EventSystem");
-                esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                esGo.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-                Undo.RegisterCreatedObjectUndo(esGo, "Create EventSystem");
-            }
+            EnsureEventSystem();
 
             Selection.activeGameObject = canvasGo;
             return $"Created Canvas '{name}' with {render_mode} render mode";
@@ -150,6 +142,94 @@ namespace KitWright.Editor.Tools.Builtins
 
             Selection.activeGameObject = imageGo;
             return $"Created UI Image '{name}'";
+        }
+
+        [Description("Create a compound uGUI control — the same object Unity's GameObject > UI menu creates, with its " +
+                     "whole child tree already wired: a Slider's Fill Area/Handle, a Dropdown's Template and item list, " +
+                     "a ScrollView's Viewport/Content/Scrollbars, and the built-in UI skin sprites on each. " +
+                     "create_button, create_text and create_image cover the three single-part elements; this covers the " +
+                     "rest.\n" +
+                     "Layout groups are deliberately not here: add_component with VerticalLayoutGroup, " +
+                     "HorizontalLayoutGroup, GridLayoutGroup or ContentSizeFitter, then set_component_properties, " +
+                     "already does that with no new tool.")]
+        public static string CreateUiElement(
+            [ToolParam("Control kind: 'slider', 'toggle', 'dropdown', 'input_field', 'scroll_view', 'scrollbar', 'panel', 'raw_image'.")] string kind,
+            [ToolParam("Name for the new element. Defaults to the control's Unity name (e.g. 'Slider').", Required = false)] string name = null,
+            [ToolParam("Parent Canvas/UI element name, hierarchy path, or instance ID (finds inactive too)", Required = false)] string parent_name = "Canvas",
+            [ToolParam("Anchored position as 'x,y'", Required = false)] string position = "0,0",
+            [ToolParam("Size as 'width,height'. Omit to keep the control's own default, which is what the Unity menu gives you.", Required = false)] string size = null,
+            [ToolParam("Anchor preset: 'top-left','top-center','top-right','middle-left','center','middle-right','bottom-left','bottom-center','bottom-right','stretch-horizontal','stretch-vertical','stretch-full'", Required = false)] string anchor = null,
+            [ToolParam("Pivot as 'x,y' (0-1)", Required = false)] string pivot = null)
+        {
+            var parent = FindParent(parent_name);
+            if (parent == null)
+                return ToolResultFormatter.Error("PARENT_NOT_FOUND", new { parent_name, hint = "Create a Canvas first." });
+
+            var normalized = (kind ?? string.Empty).ToLowerInvariant().Replace("_", "").Replace("-", "").Replace(" ", "");
+            var resources = BuiltinControlResources();
+
+            GameObject go;
+            switch (normalized)
+            {
+                case "slider": go = DefaultControls.CreateSlider(resources); break;
+                case "toggle": go = DefaultControls.CreateToggle(resources); break;
+                case "dropdown": go = DefaultControls.CreateDropdown(resources); break;
+                case "inputfield": go = DefaultControls.CreateInputField(resources); break;
+                case "scrollview": go = DefaultControls.CreateScrollView(resources); break;
+                case "scrollbar": go = DefaultControls.CreateScrollbar(resources); break;
+                case "panel": go = DefaultControls.CreatePanel(resources); break;
+                case "rawimage": go = DefaultControls.CreateRawImage(resources); break;
+                default:
+                    return ToolResultFormatter.Error("UNKNOWN_UI_KIND", new
+                    {
+                        kind,
+                        valid = new[] { "slider", "toggle", "dropdown", "input_field", "scroll_view", "scrollbar", "panel", "raw_image" }
+                    });
+            }
+
+            Undo.RegisterCreatedObjectUndo(go, $"Create {normalized}");
+            if (!string.IsNullOrWhiteSpace(name))
+                go.name = name;
+            go.transform.SetParent(parent, false);
+            EnsureEventSystem();
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchoredPosition = ValueConverter.ParseVector2(position, Vector2.zero);
+            if (!string.IsNullOrEmpty(size))
+                rect.sizeDelta = ValueConverter.ParseVector2(size, rect.sizeDelta);
+            ApplyAnchorPreset(rect, anchor, pivot);
+
+            Selection.activeGameObject = go;
+            return $"Created UI {normalized} '{go.name}' under '{parent.name}' with {go.transform.childCount} child object(s).";
+        }
+
+        // The sprites Unity's own GameObject > UI menu hands DefaultControls. Missing ones stay null,
+        // which DefaultControls treats as "untextured" rather than failing.
+        private static DefaultControls.Resources BuiltinControlResources()
+        {
+            return new DefaultControls.Resources
+            {
+                standard = BuiltinSprite("UI/Skin/UISprite.psd"),
+                background = BuiltinSprite("UI/Skin/Background.psd"),
+                inputField = BuiltinSprite("UI/Skin/InputFieldBackground.psd"),
+                knob = BuiltinSprite("UI/Skin/Knob.psd"),
+                checkmark = BuiltinSprite("UI/Skin/Checkmark.psd"),
+                dropdown = BuiltinSprite("UI/Skin/DropdownArrow.psd"),
+                mask = BuiltinSprite("UI/Skin/UIMask.psd")
+            };
+        }
+
+        private static Sprite BuiltinSprite(string path) => AssetDatabase.GetBuiltinExtraResource<Sprite>(path);
+
+        // Interactable controls do nothing without one, and a Canvas made outside create_canvas may not have it.
+        private static void EnsureEventSystem()
+        {
+            if (UnityEngine.Object.FindFirstObjectByType<EventSystem>() != null) return;
+
+            var esGo = new GameObject("EventSystem");
+            esGo.AddComponent<EventSystem>();
+            esGo.AddComponent<StandaloneInputModule>();
+            Undo.RegisterCreatedObjectUndo(esGo, "Create EventSystem");
         }
 
         // Shared sprite-placement helper for CreateImage.
