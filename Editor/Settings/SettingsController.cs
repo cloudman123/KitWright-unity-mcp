@@ -19,6 +19,7 @@ namespace KitWright.Editor.Settings
         private const string DefaultToolExportProfile = "core";
         private const string DefaultSelectedConfigTarget = "Claude Code";
         private const bool DefaultExecuteCodeSafetyChecksEnabled = true;
+        private const bool DefaultExecuteCodeSafetyChecksLocked = false;
         private const bool DefaultExecuteCodeStrictFilesystemSafetyEnabled = true;
         private const bool DefaultExecuteCodeProjectNamespaceInjectionEnabled = false;
         private const bool DefaultPluginDebugLoggingEnabled = false;
@@ -232,6 +233,25 @@ namespace KitWright.Editor.Settings
             }
         }
 
+        // When locked, ExecuteCodeSafetyChecksEnabled is the only input: a client's safety_checks
+        // argument stops overriding it in either direction.
+        public bool ExecuteCodeSafetyChecksLocked
+        {
+            get
+            {
+                lock (_lock)
+                    return _settings.executeCodeSafetyChecksLocked;
+            }
+            set
+            {
+                UpdateSettings(data =>
+                {
+                    data.executeCodeSafetyChecksLocked = value;
+                    data.executeCodeSafetyChecksLockedConfigured = true;
+                });
+            }
+        }
+
         public bool ExecuteCodeStrictFilesystemSafetyEnabled
         {
             get
@@ -404,6 +424,8 @@ namespace KitWright.Editor.Settings
                 selectedConfigTarget = DefaultSelectedConfigTarget,
                 executeCodeSafetyChecksEnabled = DefaultExecuteCodeSafetyChecksEnabled,
                 executeCodeSafetyChecksConfigured = true,
+                executeCodeSafetyChecksLocked = DefaultExecuteCodeSafetyChecksLocked,
+                executeCodeSafetyChecksLockedConfigured = true,
                 executeCodeStrictFilesystemSafetyEnabled = DefaultExecuteCodeStrictFilesystemSafetyEnabled,
                 executeCodeStrictFilesystemSafetyConfigured = true,
                 executeCodeProjectNamespaceInjectionEnabled = DefaultExecuteCodeProjectNamespaceInjectionEnabled,
@@ -438,6 +460,11 @@ namespace KitWright.Editor.Settings
             {
                 settings.executeCodeSafetyChecksEnabled = DefaultExecuteCodeSafetyChecksEnabled;
                 settings.executeCodeSafetyChecksConfigured = true;
+            }
+            if (!settings.executeCodeSafetyChecksLockedConfigured)
+            {
+                settings.executeCodeSafetyChecksLocked = DefaultExecuteCodeSafetyChecksLocked;
+                settings.executeCodeSafetyChecksLockedConfigured = true;
             }
             if (!settings.executeCodeStrictFilesystemSafetyConfigured)
             {
@@ -489,6 +516,8 @@ namespace KitWright.Editor.Settings
             public string selectedConfigTarget = DefaultSelectedConfigTarget;
             public bool executeCodeSafetyChecksEnabled = DefaultExecuteCodeSafetyChecksEnabled;
             public bool executeCodeSafetyChecksConfigured = false;
+            public bool executeCodeSafetyChecksLocked = DefaultExecuteCodeSafetyChecksLocked;
+            public bool executeCodeSafetyChecksLockedConfigured = false;
             public bool executeCodeStrictFilesystemSafetyEnabled = DefaultExecuteCodeStrictFilesystemSafetyEnabled;
             public bool executeCodeStrictFilesystemSafetyConfigured = false;
             public bool executeCodeProjectNamespaceInjectionEnabled = DefaultExecuteCodeProjectNamespaceInjectionEnabled;

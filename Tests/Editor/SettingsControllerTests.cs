@@ -20,6 +20,7 @@ namespace KitWright.Editor
                 var controller = new SettingsController(projectPath);
 
                 Assert.IsTrue(controller.ExecuteCodeSafetyChecksEnabled);
+                Assert.IsFalse(controller.ExecuteCodeSafetyChecksLocked);
                 Assert.IsTrue(controller.ExecuteCodeStrictFilesystemSafetyEnabled);
                 Assert.IsFalse(controller.ExecuteCodeProjectNamespaceInjectionEnabled);
                 Assert.IsFalse(controller.PluginDebugLoggingEnabled);
@@ -27,6 +28,8 @@ namespace KitWright.Editor
                 Assert.AreEqual(string.Empty, controller.MCPBrokerMonoPath);
                 StringAssert.Contains("\"executeCodeSafetyChecksEnabled\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeSafetyChecksConfigured\": true", ReadSettingsJson(projectPath));
+                StringAssert.Contains("\"executeCodeSafetyChecksLocked\": false", ReadSettingsJson(projectPath));
+                StringAssert.Contains("\"executeCodeSafetyChecksLockedConfigured\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeStrictFilesystemSafetyEnabled\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeStrictFilesystemSafetyConfigured\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeProjectNamespaceInjectionEnabled\": false", ReadSettingsJson(projectPath));
@@ -58,6 +61,7 @@ namespace KitWright.Editor
                 var controller = new SettingsController(projectPath);
 
                 Assert.IsTrue(controller.ExecuteCodeSafetyChecksEnabled);
+                Assert.IsFalse(controller.ExecuteCodeSafetyChecksLocked);
                 Assert.IsTrue(controller.ExecuteCodeStrictFilesystemSafetyEnabled);
                 Assert.IsFalse(controller.ExecuteCodeProjectNamespaceInjectionEnabled);
                 Assert.IsFalse(controller.PluginDebugLoggingEnabled);
@@ -65,6 +69,8 @@ namespace KitWright.Editor
                 Assert.AreEqual(string.Empty, controller.MCPBrokerMonoPath);
                 StringAssert.Contains("\"executeCodeSafetyChecksEnabled\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeSafetyChecksConfigured\": true", ReadSettingsJson(projectPath));
+                StringAssert.Contains("\"executeCodeSafetyChecksLocked\": false", ReadSettingsJson(projectPath));
+                StringAssert.Contains("\"executeCodeSafetyChecksLockedConfigured\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeStrictFilesystemSafetyEnabled\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeStrictFilesystemSafetyConfigured\": true", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeProjectNamespaceInjectionEnabled\": false", ReadSettingsJson(projectPath));
@@ -117,6 +123,28 @@ namespace KitWright.Editor
                 Assert.IsFalse(reloaded.ExecuteCodeSafetyChecksEnabled);
                 StringAssert.Contains("\"executeCodeSafetyChecksEnabled\": false", ReadSettingsJson(projectPath));
                 StringAssert.Contains("\"executeCodeSafetyChecksConfigured\": true", ReadSettingsJson(projectPath));
+            }
+            finally
+            {
+                DeleteTempProjectPath(projectPath);
+            }
+        }
+
+        [Test]
+        public void ExecuteCodeSafetyChecksLockedSetting_PersistsTrueValue()
+        {
+            var projectPath = CreateTempProjectPath();
+
+            try
+            {
+                var controller = new SettingsController(projectPath);
+                controller.ExecuteCodeSafetyChecksLocked = true;
+
+                var reloaded = new SettingsController(projectPath);
+
+                Assert.IsTrue(reloaded.ExecuteCodeSafetyChecksLocked);
+                StringAssert.Contains("\"executeCodeSafetyChecksLocked\": true", ReadSettingsJson(projectPath));
+                StringAssert.Contains("\"executeCodeSafetyChecksLockedConfigured\": true", ReadSettingsJson(projectPath));
             }
             finally
             {

@@ -53,9 +53,15 @@ namespace KitWright.Editor.MCP.Server
 
             AddToggleCard(settingsFoldout,
                 "Default execute_code safety checks",
-                "Only the default for execute_code calls that omit safety_checks. Any client can pass safety_checks=false and skip the guard, so this stops accidents, not a caller that wants through.",
+                "The default for execute_code calls that omit safety_checks. On its own it stops accidents, not a caller that wants through: any client can pass safety_checks=false. Lock it below to make that argument inert.",
                 _settingsController.ExecuteCodeSafetyChecksEnabled,
                 value => _settingsController.ExecuteCodeSafetyChecksEnabled = value);
+
+            AddToggleCard(settingsFoldout,
+                "Lock execute_code safety checks",
+                "Off by default. When on, the setting above becomes the only input and a client's safety_checks argument is ignored, so a caller cannot clear the guard. Turn it on for a shared or untrusted client; legitimate reflection, P/Invoke, or serialization snippets then need it turned off again.",
+                _settingsController.ExecuteCodeSafetyChecksLocked,
+                value => _settingsController.ExecuteCodeSafetyChecksLocked = value);
 
             AddToggleCard(settingsFoldout,
                 "Strict filesystem guard",
