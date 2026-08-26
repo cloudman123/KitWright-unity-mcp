@@ -94,14 +94,9 @@ namespace KitWright.Editor.Tools.Builtins
             }
         }
 
-        private static int ChannelDelta(Color32 x, Color32 y)
-        {
-            var dr = Mathf.Abs(x.r - y.r);
-            var dg = Mathf.Abs(x.g - y.g);
-            var db = Mathf.Abs(x.b - y.b);
-            var da = Mathf.Abs(x.a - y.a);
-            return Mathf.Max(Mathf.Max(dr, dg), Mathf.Max(db, da));
-        }
+        private static int ChannelDelta(Color32 x, Color32 y) =>
+            Mathf.Max(Mathf.Max(Mathf.Abs(x.r - y.r), Mathf.Abs(x.g - y.g)),
+                      Mathf.Max(Mathf.Abs(x.b - y.b), Mathf.Abs(x.a - y.a)));
 
         private static bool TryLoadPng(string path, string paramName, out Texture2D texture, out string error)
         {
