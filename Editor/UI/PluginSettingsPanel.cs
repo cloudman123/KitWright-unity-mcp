@@ -53,7 +53,7 @@ namespace KitWright.Editor.MCP.Server
 
             AddToggleCard(settingsFoldout,
                 "Default execute_code safety checks",
-                "Default for execute_code calls when safety_checks is omitted. Explicit safety_checks=false can still bypass this for trusted local calls.",
+                "Only the default for execute_code calls that omit safety_checks. Any client can pass safety_checks=false and skip the guard, so this stops accidents, not a caller that wants through.",
                 _settingsController.ExecuteCodeSafetyChecksEnabled,
                 value => _settingsController.ExecuteCodeSafetyChecksEnabled = value);
 

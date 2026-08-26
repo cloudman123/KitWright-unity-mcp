@@ -47,5 +47,10 @@ These are the properties a report can hold us to:
 - Issues that require the attacker to already run code as the user on the same machine. The server
   authenticates no client: every local process that clears the `Origin` check and the project pin can
   call every tool, and the console log naming each new client is observability, not a gate
+- Getting past `execute_code`'s `safety_checks`. The flag is a tool argument, so any client that can
+  call `execute_code` can pass `safety_checks=false` and skip both the source blocklist and the
+  compiled-assembly guard — no bypass is needed, and finding a pattern the blocklist misses is not a
+  vulnerability. It catches accidents, never a caller that wants through. What does count is code
+  running without a tool call that asked for it, above
 - Vulnerabilities in Unity or in third-party packages — report those upstream first; we bump our pins
   once the upstream fix lands

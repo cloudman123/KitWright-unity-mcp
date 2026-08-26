@@ -46,13 +46,14 @@ namespace KitWright.Editor.Tools.Builtins
                      "safety_checks blocks a small set of obviously dangerous patterns " +
                      "(File.Delete, Process.Start, while(true), Environment.Exit, AssetDatabase.DeleteAsset, etc) " +
                      "and, when strict filesystem safety is enabled, broad System.IO writes plus obvious absolute/system/traversal paths. " +
-                     "This is a defensive layer, not a full sandbox. If omitted, the MCP Settings window's default safety-check setting is used " +
+                     "This catches accidents, not intent: safety_checks is an argument you control, so it is neither a sandbox nor a security boundary. " +
+                     "If omitted, the MCP Settings window's default safety-check setting is used " +
                      "(enabled by default); explicitly passing true or false overrides that default. Project namespaces are not auto-injected " +
                      "by default; add `using` directives in the snippet, or enable the ScriptAssemblies-based convenience toggle in the MCP Settings window. " +
                      "Every invocation is appended to a session-scoped history (see get_execute_code_history / replay_execute_code).")]
         public static async Task<object> ExecuteCode(
             [ToolParam("C# code to execute: a bare method body, or a full class (IKitWrightCommand or static Run()).")] string code,
-            [ToolParam("If true, reject the call before compile when the code contains obviously dangerous patterns. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null,
+            [ToolParam("If true, reject the call before compile when the code contains obviously dangerous patterns. Guards against accidents only — you can pass false yourself, so it never holds against a caller that wants through. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null,
             [ToolParam("If true, skip the pre-compile AssetDatabase.Refresh + wait-for-ready. Use only when the editor is already up to date -- e.g. a read-only inspection snippet. The default refresh can trigger an import/domain reload (from your own OR another actor's pending changes in a shared editor), which is why it is skipped automatically while Play Mode runs. When skipped, external file edits made since the last compile are NOT picked up.", Required = false)] bool skip_refresh = false)
         {
             var effectiveSafetyChecks = ResolveSafetyChecks(safety_checks);
@@ -67,7 +68,7 @@ namespace KitWright.Editor.Tools.Builtins
                             pattern,
                             reason,
                             strict_filesystem_checks = strictFilesystemChecks,
-                            hint = "Disable the strict filesystem guard in the MCP Settings window or pass safety_checks=false only for trusted local calls."
+                            hint = "Rewrite the snippet to avoid the pattern. safety_checks=false and the Settings window's strict filesystem guard both lift this, but that is the user's call to make — do not retry with it on your own."
                         });
                     AppendHistory(code, false, $"Blocked: {reason}");
                     return blocked;
@@ -164,7 +165,7 @@ namespace KitWright.Editor.Tools.Builtins
                      "Pass safety_checks to override the MCP Settings window default.")]
         public static async Task<object> ReplayExecuteCode(
             [ToolParam("History index to replay (as returned by get_execute_code_history).")] int index,
-            [ToolParam("If true, re-evaluate the safety blocklist before re-running. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null)
+            [ToolParam("If true, re-evaluate the safety blocklist before re-running. Guards against accidents only — you can pass false yourself, so it never holds against a caller that wants through. If omitted, uses the MCP Settings window default.", Required = false)] bool? safety_checks = null)
         {
             var entries = LoadHistory().entries;
             if (entries.Count == 0)
@@ -363,7 +364,7 @@ namespace KitWright.Editor.Tools.Builtins
                     stage = "compiled",
                     hint = modal
                         ? "Do not retry with safety_checks=false: this call blocks the editor's message loop, so the request would hang instead of failing."
-                        : "Detected in the compiled assembly's metadata, so aliasing or building the name at runtime does not get around it. Pass safety_checks=false for trusted local calls."
+                        : "Detected in the compiled assembly's metadata, so aliasing or building the name at runtime does not get around it. safety_checks=false lifts the guard, but that is the user's call to make — do not retry with it on your own."
                 });
             }
 

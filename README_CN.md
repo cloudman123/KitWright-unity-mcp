@@ -253,7 +253,7 @@ url = "http://127.0.0.1:8765/"
 - MCP Server 默认从 `http://127.0.0.1:8765/` 启动。
 - 本地 MCP Server 配置保存在 `UserSettings/KitWrightMcpSettings.json`。
 - 插件默认使用 `core` MCP 工具暴露配置，减少 AI 客户端的工具噪音；`core` 当前暴露 38 个高频工具，覆盖 `execute_code`、运行模式控制、输入模拟、截图、性能检查、日志、编译检查、结构化对象定位与组件编辑、编辑器选中与 prefab stage 状态读写，以及 `execute_menu_item` 兜底入口。如果你需要完整工具集，可在 **Server** 页签切换到 `full`，暴露全部 266 个工具。
-- `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **Settings** 页签设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径，但它不是完整沙箱。客户端仍可在单次调用中用可选 `safety_checks` 参数显式覆盖。
+- `execute_code` safety checks 和更严格的文件系统 guard 现在可在 **Settings** 页签设置默认值，默认开启；它会阻止明显破坏性片段、宽泛的 `System.IO` 写入、原始文件流、绝对路径、用户/系统目录路径和 `../` 穿越路径。它拦截的是失误，不是恶意：`safety_checks` 本身就是一个工具参数，任何能调用 `execute_code` 的客户端都可以传 `safety_checks=false`，同时跳过源码黑名单和编译后程序集 guard。它既不是沙箱，也不是安全边界 — 详见 [SECURITY.md](./SECURITY.md)。
 - 插件 debug 日志默认关闭，也可在 **Settings** 页签中开启；Warning 和 Error 始终会输出到 Unity Console。
 - 所有已暴露的 MCP 工具都会直接执行，不再提供额外的 approval 开关。
 - 窗口会在后台检查新版本，有更新时在标题栏显示 **Update** 按钮：Git 安装会直接重新拉取，`.unitypackage` 导入会自动下载并导入最新版。
