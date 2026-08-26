@@ -92,6 +92,51 @@ namespace KitWright.Editor.Tests
             }
         }
 
+        // A user script with a `long` field is ordinary, and the 64-bit properties Unity ships are
+        // PPtr internals it will not let a test set — hence a fixture type rather than a stock one.
+        private sealed class SixtyFourBitFixture : ScriptableObject
+        {
+            public long Signed;
+            public ulong Unsigned;
+        }
+
+        [Test]
+        public void ReadProperties_SixtyFourBitFieldsAreNotTruncatedToThirtyTwo()
+        {
+            var asset = ScriptableObject.CreateInstance<SixtyFourBitFixture>();
+            try
+            {
+                asset.Signed = 5_000_000_000L;
+                asset.Unsigned = ulong.MaxValue;
+
+                var props = ComponentSerializer.ReadProperties(asset, out _);
+
+                Assert.AreEqual(5_000_000_000L, props.First(p => p.Name == "Signed").Value);
+                Assert.AreEqual(ulong.MaxValue, props.First(p => p.Name == "Unsigned").Value);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void WriteProperties_SixtyFourBitFieldsRoundTripThroughJson()
+        {
+            var asset = ScriptableObject.CreateInstance<SixtyFourBitFixture>();
+            try
+            {
+                var results = ComponentSerializer.WriteProperties(asset, new JObject { ["Signed"] = 5_000_000_000L });
+
+                Assert.IsTrue(results[0].Success, results[0].Error);
+                Assert.AreEqual(5_000_000_000L, asset.Signed);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(asset);
+            }
+        }
+
         // Settings singletons keep writable fields off the inspector, and NextVisible skips exactly
         // those — so the dump used to omit properties set_project_settings can write.
         [Test]

@@ -75,11 +75,24 @@ namespace KitWright.Editor.Tools.Helpers
         private static bool Advance(SerializedProperty property, bool enterChildren, bool includeHidden) =>
             includeHidden ? property.Next(enterChildren) : property.NextVisible(enterChildren);
 
+        // intValue truncates a 64-bit field to 32 bits, which WriteInteger would then write back as the
+        // truncated value. UInt32 stays on intValue on purpose: a high-bit mask reads as a negative,
+        // and WriteInteger accepts that form, so it round-trips.
+        private static object ReadInteger(SerializedProperty p)
+        {
+            switch (p.numericType)
+            {
+                case SerializedPropertyNumericType.Int64: return p.longValue;
+                case SerializedPropertyNumericType.UInt64: return p.ulongValue;
+                default: return p.intValue;
+            }
+        }
+
         private static object ReadPropertyValue(SerializedProperty p)
         {
             switch (p.propertyType)
             {
-                case SerializedPropertyType.Integer: return p.intValue;
+                case SerializedPropertyType.Integer: return ReadInteger(p);
                 case SerializedPropertyType.Boolean: return p.boolValue;
                 case SerializedPropertyType.Float: return p.floatValue;
                 case SerializedPropertyType.String: return p.stringValue;
