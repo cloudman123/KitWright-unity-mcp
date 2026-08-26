@@ -196,9 +196,6 @@ jobs:
 
                   echo "m_EditorVersion: 6000.0.75f1" > UnityProject/ProjectSettings/ProjectVersion.txt
 
-                  # Unity aborts rather than creating a missing -logFile directory.
-                  mkdir -p artifacts
-
                   PKG_NAME=$(python3 -c "import json; print(json.load(open('package.json'))['name'])")
                   rsync -a --exclude UnityProject --exclude .git --exclude .github ./ "UnityProject/Packages/${PKG_NAME}/"
                   echo "Package '${PKG_NAME}' copied into UnityProject/Packages/"
@@ -215,12 +212,13 @@ jobs:
                   }
                   JSON
 
-            # This step's exit code is NOT the gate. The runner is a test runner, and this project
-            # deliberately declares no "testables", so it exits non-zero for having no tests to run
-            # and no coverage directory - with the package compiling perfectly. That is what it did
-            # from a9e1389 to 2b6571b: three commits red for a reason unrelated to compilation,
-            # unnoticed because the job carried continue-on-error. It runs here only because it
-            # handles Unity licensing; the next step reads the log and decides.
+            # This step's exit code is NOT the gate, and neither is its log. It is a test runner on a
+            # project that declares no "testables", so what its exit code reports is its own business;
+            # from a9e1389 to 2b6571b it was red for three commits for a reason that was never a
+            # compile error, unnoticed because the job carried continue-on-error. It also appends its
+            # own -logFile, which overrides any passed here, so the editor log lands in this step's
+            # output and not in a file the next step could read. It runs only because it handles
+            # Unity licensing.
             - name: Compile package with the modules absent
               continue-on-error: true
               uses: game-ci/unity-test-runner@v4
@@ -232,30 +230,38 @@ jobs:
               with:
                   unityVersion: auto
                   testMode: EditMode
-                  # The workspace is mounted at /github/workspace inside the action's container.
-                  customParameters: -nographics -logFile /github/workspace/artifacts/editor.log
+                  customParameters: -nographics
                   projectPath: UnityProject
 
-            # The real gate: a compile break on a stripped project is CS0234/CS0103 in the log, and
-            # it takes KitWright.Editor down with it, which is every tool at once.
-            - name: Fail only on a real compile error
+            # The gate is the compiler's own output on disk, which needs no log and no exit code: an
+            # assembly that failed to compile is simply not emitted. KitWright.Editor is the one that
+            # matters, because a single CS0234 there takes every tool with it.
+            - name: Fail unless the package assemblies were produced
               if: always()
               run: |
-                  LOG=artifacts/editor.log
-                  if [ ! -f "$LOG" ]; then
-                      echo "::error::$LOG missing, so Unity never got far enough to compile. Read the step above."
+                  ASM=UnityProject/Library/ScriptAssemblies
+                  # Captured first: in a pipeline the exit status is sed's, so grep finding nothing
+                  # would still look like success and print an empty list.
+                  FOUND=$(ls -1 "$ASM" 2>/dev/null | grep -i kitwright | sed 's/^/  /' || true)
+                  echo "Assemblies produced:"
+                  echo "${FOUND:-  (none)}"
+
+                  for dll in KitWright.Editor.dll KitWright.Editor.Bootstrap.dll; do
+                      if [ ! -f "$ASM/$dll" ]; then
+                          echo "::error::$dll was not emitted, so the package does not compile with the seven optional modules absent. The CS errors are in the editor log in the step above."
+                          exit 1
+                      fi
+                  done
+
+                  # a9e1389 moved this assembly onto a versionDefine keyed to com.unity.inputsystem,
+                  # which this project does not install. Emitting it here means that gate is back to
+                  # keying off a Unity built-in symbol, and the dangling reference is a matter of time.
+                  if [ -f "$ASM/KitWright.Editor.InputSystem.dll" ]; then
+                      echo "::error::KitWright.Editor.InputSystem.dll was emitted without com.unity.inputsystem installed; its defineConstraints no longer gate on the package."
                       exit 1
                   fi
 
-                  if grep -qE 'error CS[0-9]+' "$LOG"; then
-                      echo "::error::The package does not compile with the seven optional modules absent:"
-                      # Whole line, so the file and line number survive; deduped because one broken
-                      # reference repeats per compilation pass.
-                      grep -E 'error CS[0-9]+' "$LOG" | sed 's/^[[:space:]]*//' | sort -u | head -40
-                      exit 1
-                  fi
-
-                  echo "No CS errors: the package compiles with the seven optional modules absent."
+                  echo "KitWright.Editor compiled with the seven modules absent, and the InputSystem assembly stayed out."
 
             # A clean compile above only proves the claim if the modules really stayed out.
             - name: Verify the modules stayed out
