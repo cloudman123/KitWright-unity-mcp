@@ -137,14 +137,21 @@ namespace KitWright.Editor.Tools
         {
             "KitWright.Editor",
             "KitWright.Editor.Bootstrap",
-            "KitWright.Editor.InputSystem",
-            "KitWright.Editor.Pro"
+            "KitWright.Editor.InputSystem"
         };
 
         internal static bool IsPackageAssembly(Assembly assembly)
         {
-            var name = assembly?.GetName().Name;
-            return name != null && PackageAssemblyNames.Contains(name);
+            return IsPackageAssembly(assembly?.GetName().Name);
+        }
+
+        // Add-on assemblies are deliberately absent from PackageAssemblyNames. A name listed there is
+        // profile-filtered, and a tool that no default set names is then invisible under core - the
+        // profile most clients connect with. Staying out of the list puts add-on tools in the custom
+        // bucket, which CustomToolIsExposedUnderNonFullProfiles pins as always exposed.
+        internal static bool IsPackageAssembly(string assemblyName)
+        {
+            return assemblyName != null && PackageAssemblyNames.Contains(assemblyName);
         }
 
         public static MethodInfo GetMethod(string snakeCaseName)

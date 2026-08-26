@@ -199,6 +199,15 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void AddOnAssemblyIsNotTreatedAsAPackageAssembly()
+        {
+            Assert.IsFalse(ToolRegistry.IsPackageAssembly("KitWright.Editor.Pro"),
+                "An add-on assembly must stay in the custom bucket - that is what keeps its tools visible "
+                + "under the core profile, which is the one most clients connect with.");
+            Assert.IsTrue(ToolRegistry.IsPackageAssembly("KitWright.Editor"));
+        }
+
+        [Test]
         public void PackageAssemblyDetectionSeparatesBuiltInFromProject()
         {
             Assert.IsTrue(ToolRegistry.IsPackageAssembly(typeof(ToolRegistry).Assembly));
