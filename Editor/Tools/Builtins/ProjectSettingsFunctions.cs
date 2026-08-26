@@ -1,8 +1,10 @@
 // Copyright (C) KitWright. Licensed under MIT.
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using KitWright.Editor.Tools.Helpers;
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
@@ -25,11 +27,8 @@ namespace KitWright.Editor.Tools.Builtins
                      "discover the real field names (the Physics window's \"Layer Collision Matrix\" is 'm_LayerCollisionMatrix', " +
                      "a 32-element array). Nested pages are descended, and each 'Name' is then the full property path you can " +
                      "hand straight to FindProperty (e.g. 'm_QualitySettings.Array.data[0].shadowResolution'); at most 400 are " +
-                     "returned and 'propertyCount' reports the real total. This tool is read-only; write a " +
-                     "field back with execute_code:\n" +
-                     "  var so = new SerializedObject(Unsupported.GetSerializedAssetInterfaceSingleton(\"PhysicsManager\"));\n" +
-                     "  so.FindProperty(\"m_Gravity\").vector3Value = new Vector3(0, -20, 0);\n" +
-                     "  so.ApplyModifiedProperties();\n" +
+                     "returned and 'propertyCount' reports the real total. This tool is read-only — hand the paths it " +
+                     "reports straight to set_project_settings to write them back.\n" +
                      "Do not patch ProjectSettings/*.asset as text while the editor is open — these pages are in-memory native " +
                      "singletons outside the AssetDatabase, so Unity does not reload the file and overwrites it on save.")]
         [ReadOnlyTool]
@@ -77,19 +76,72 @@ namespace KitWright.Editor.Tools.Builtins
                 result);
         }
 
+        [Description("Write project settings: apply a propertyPath→value map to one Project Settings page. " +
+                     "Call get_project_settings with the same `singleton` first — every 'Name' it reports is a path you " +
+                     "can pass here verbatim ('m_Gravity', 'm_LayerCollisionMatrix.Array.data[8]'). Fields are applied " +
+                     "independently and reported one by one, so a bad path does not sink the rest of the call.\n" +
+                     "The Physics page's layer collision matrix is 'm_LayerCollisionMatrix', 32 masks where bit b of " +
+                     "entry a means 'layer a collides with layer b' — Unity keeps it symmetric, so clear or set both " +
+                     "entry a bit b and entry b bit a.\n" +
+                     "Writes go through SerializedObject and are flushed with AssetDatabase.SaveAssets, because these " +
+                     "pages are native singletons outside the AssetDatabase. For the same reason, never patch " +
+                     "ProjectSettings/*.asset as text while the editor is open.")]
+        public static object SetProjectSettings(
+            [ToolParam("Settings singleton to write — the same names get_project_settings accepts ('PhysicsManager', " +
+                       "'TimeManager', 'QualitySettings', 'GraphicsSettings', ...).")] string singleton,
+            [ToolParam("JSON object of propertyPath→value pairs, e.g. {\"m_Gravity\": {\"x\": 0, \"y\": -20, \"z\": 0}}")] string properties)
+        {
+            if (string.IsNullOrWhiteSpace(properties))
+                return Response.Error("PROPERTIES_REQUIRED");
+
+            var target = ResolveSettingsSingleton(singleton, out var resolveError);
+            if (target == null) return resolveError;
+
+            JObject parsed;
+            try { parsed = JObject.Parse(properties); }
+            catch (Exception ex) { return Response.Error("INVALID_PROPERTIES_JSON", new { message = ex.Message }); }
+
+            var results = ComponentSerializer.WriteProperties(target, parsed, $"Set {singleton}");
+
+            // The singleton is outside the AssetDatabase, so SetDirty alone leaves the change in memory
+            // until Unity next decides to write ProjectSettings/*.asset.
+            AssetDatabase.SaveAssets();
+
+            var success = results.Count(r => r.Success);
+            if (success == 0)
+                return Response.Error("PROPERTY_SET_FAILED", new { singleton, fields = results });
+
+            return Response.Success($"Applied {success} of {results.Count} field(s) on {singleton}.", new
+            {
+                singleton,
+                successCount = success,
+                failCount = results.Count - success,
+                fields = results
+            });
+        }
+
         // --- Helpers ---
 
         // Settings pages are native singletons outside the AssetDatabase, keyed by the class name in ProjectSettings/*.asset.
+        private static UnityEngine.Object ResolveSettingsSingleton(string singleton, out object error)
+        {
+            error = null;
+            var target = Unsupported.GetSerializedAssetInterfaceSingleton(singleton);
+            if (target != null) return target;
+
+            error = Response.Error("SETTINGS_SINGLETON_NOT_FOUND", new
+            {
+                singleton,
+                hint = "Name is case-sensitive and is the YAML class key of a ProjectSettings/*.asset file " +
+                       "(DynamicsManager.asset -> 'PhysicsManager'). Read line 4 of the file to confirm."
+            });
+            return null;
+        }
+
         private static object DumpSettingsSingleton(string singleton)
         {
-            var target = Unsupported.GetSerializedAssetInterfaceSingleton(singleton);
-            if (target == null)
-                return Response.Error("SETTINGS_SINGLETON_NOT_FOUND", new
-                {
-                    singleton,
-                    hint = "Name is case-sensitive and is the YAML class key of a ProjectSettings/*.asset file " +
-                           "(DynamicsManager.asset -> 'PhysicsManager'). Read line 4 of the file to confirm."
-                });
+            var target = ResolveSettingsSingleton(singleton, out var error);
+            if (target == null) return error;
 
             // Nested pages (QualitySettings, TimeManager) hide every real field inside a container.
             var all = ComponentSerializer.ReadProperties(target, out _, descend: true);

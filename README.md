@@ -367,7 +367,7 @@ The current open-source package exposes four high-value capability layers:
 ## Built-in Tools
 
 <!-- tools-summary:start -->
-KitWright MCP for Unity ships **264 tool functions across 57 modules** (`core` profile exposes 40 of them).
+KitWright MCP for Unity ships **265 tool functions across 57 modules** (`core` profile exposes 40 of them).
 
 | Module | Tools | Module | Tools |
 |--------|-------|--------|-------|
@@ -389,13 +389,13 @@ KitWright MCP for Unity ships **264 tool functions across 57 modules** (`core` p
 | **InputActions** | 6 | **Material** | 2 |
 | **NavMesh** | 6 | **MenuItem** | 2 |
 | **Shader** | 6 | **Performance** | 2 |
-| **UI** | 6 | **References** | 2 |
-| **File** | 5 | **Batch** | 1 |
-| **MemorySnapshot** | 5 | **Hierarchy** | 1 |
-| **SceneView** | 5 | **Interop** | 1 |
-| **Volume** | 5 | **Mesh** | 1 |
-| **Camera** | 4 | **Particle** | 1 |
-| **Compilation** | 4 | **ProjectSettings** | 1 |
+| **UI** | 6 | **ProjectSettings** | 2 |
+| **File** | 5 | **References** | 2 |
+| **MemorySnapshot** | 5 | **Batch** | 1 |
+| **SceneView** | 5 | **Hierarchy** | 1 |
+| **Volume** | 5 | **Interop** | 1 |
+| **Camera** | 4 | **Mesh** | 1 |
+| **Compilation** | 4 | **Particle** | 1 |
 | **InputSimulation** | 4 | **Reflection** | 1 |
 | **LodConstraint** | 4 | **Timeline** | 1 |
 | **Screenshot** | 4 | **ToolExposure** | 1 |
