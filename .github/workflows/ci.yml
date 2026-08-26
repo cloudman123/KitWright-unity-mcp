@@ -176,9 +176,6 @@ jobs:
         name: Compile Without Optional Modules (6000.0.75f1)
         runs-on: ubuntu-latest
         needs: validate
-        # Advisory until one green run is observed: the module dependency closure and whether Unity
-        # re-adds an omitted built-in module are both unverified. Remove this line after that run.
-        continue-on-error: true
         permissions:
             contents: read
 
@@ -199,6 +196,9 @@ jobs:
 
                   echo "m_EditorVersion: 6000.0.75f1" > UnityProject/ProjectSettings/ProjectVersion.txt
 
+                  # Unity aborts rather than creating a missing -logFile directory.
+                  mkdir -p artifacts
+
                   PKG_NAME=$(python3 -c "import json; print(json.load(open('package.json'))['name'])")
                   rsync -a --exclude UnityProject --exclude .git --exclude .github ./ "UnityProject/Packages/${PKG_NAME}/"
                   echo "Package '${PKG_NAME}' copied into UnityProject/Packages/"
@@ -215,9 +215,14 @@ jobs:
                   }
                   JSON
 
-            # Unity refuses to run and exits non-zero when an assembly fails to compile, so the
-            # action's exit code is the gate; the editor log with the CS errors is in the step log.
+            # This step's exit code is NOT the gate. The runner is a test runner, and this project
+            # deliberately declares no "testables", so it exits non-zero for having no tests to run
+            # and no coverage directory - with the package compiling perfectly. That is what it did
+            # from a9e1389 to 2b6571b: three commits red for a reason unrelated to compilation,
+            # unnoticed because the job carried continue-on-error. It runs here only because it
+            # handles Unity licensing; the next step reads the log and decides.
             - name: Compile package with the modules absent
+              continue-on-error: true
               uses: game-ci/unity-test-runner@v4
               env:
                   UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -227,10 +232,32 @@ jobs:
               with:
                   unityVersion: auto
                   testMode: EditMode
-                  customParameters: -nographics
+                  # The workspace is mounted at /github/workspace inside the action's container.
+                  customParameters: -nographics -logFile /github/workspace/artifacts/editor.log
                   projectPath: UnityProject
 
-            # A green run above only proves the claim if the modules really stayed out.
+            # The real gate: a compile break on a stripped project is CS0234/CS0103 in the log, and
+            # it takes KitWright.Editor down with it, which is every tool at once.
+            - name: Fail only on a real compile error
+              if: always()
+              run: |
+                  LOG=artifacts/editor.log
+                  if [ ! -f "$LOG" ]; then
+                      echo "::error::$LOG missing, so Unity never got far enough to compile. Read the step above."
+                      exit 1
+                  fi
+
+                  if grep -qE 'error CS[0-9]+' "$LOG"; then
+                      echo "::error::The package does not compile with the seven optional modules absent:"
+                      # Whole line, so the file and line number survive; deduped because one broken
+                      # reference repeats per compilation pass.
+                      grep -E 'error CS[0-9]+' "$LOG" | sed 's/^[[:space:]]*//' | sort -u | head -40
+                      exit 1
+                  fi
+
+                  echo "No CS errors: the package compiles with the seven optional modules absent."
+
+            # A clean compile above only proves the claim if the modules really stayed out.
             - name: Verify the modules stayed out
               if: always()
               run: |
@@ -257,10 +284,8 @@ jobs:
     secrets:
         name: Secret Scan
         runs-on: ubuntu-latest
-        # Advisory until one green run is observed: this scans all history, so a finding from an
-        # old commit would block every PR before anyone could rotate and allowlist it.
-        # Remove this line after that run.
-        continue-on-error: true
+        # Was advisory pending one green run; run 32947311680 on 2b6571b was green with no findings,
+        # so it gates now. A hit here means rotate the credential, then allowlist the commit.
         permissions:
             contents: read
 
