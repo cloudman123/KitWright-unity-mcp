@@ -42,8 +42,21 @@ jobs:
               uses: github/codeql-action/init@v3
               with:
                   languages: csharp
-                  # No Unity license on this runner, so nothing here can be built. The extractor
-                  # reads the sources directly instead.
+                  # No Unity licence on this runner, so nothing here can be built and the extractor
+                  # reads the sources directly.
+                  #
+                  # Know what this does and does not buy. With no build there are no assembly
+                  # references, so UnityEngine/UnityEditor types go unresolved: the first scan of
+                  # 2b6571b measured 64% of calls with a known target and 79% of expressions with a
+                  # known type, against GitHub's 85% threshold, and reported "Low C# analysis
+                  # quality". Local patterns still get caught. Interprocedural taint does not: every
+                  # unresolved call is a broken edge, so a flow from a tool argument to File.Delete
+                  # can stop before it reaches the sink. Zero alerts here is NOT evidence that the
+                  # ~114 file-system calls all route through PathSafety.
+                  #
+                  # Fixing that means build-mode: manual inside a game-ci container - regenerate the
+                  # csproj with Unity, dotnet build, then analyze - which needs the licence secrets
+                  # in this job. Deliberately not done yet; it is a bigger change than this file.
                   build-mode: none
                   queries: security-extended
 

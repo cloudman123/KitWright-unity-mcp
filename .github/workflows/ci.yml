@@ -176,9 +176,6 @@ jobs:
         name: Compile Without Optional Modules (6000.0.75f1)
         runs-on: ubuntu-latest
         needs: validate
-        # Advisory until one green run is observed: the module dependency closure and whether Unity
-        # re-adds an omitted built-in module are both unverified. Remove this line after that run.
-        continue-on-error: true
         permissions:
             contents: read
 
@@ -215,9 +212,15 @@ jobs:
                   }
                   JSON
 
-            # Unity refuses to run and exits non-zero when an assembly fails to compile, so the
-            # action's exit code is the gate; the editor log with the CS errors is in the step log.
+            # This step's exit code is NOT the gate, and neither is its log. It is a test runner on a
+            # project that declares no "testables", so what its exit code reports is its own business;
+            # from a9e1389 to 2b6571b it was red for three commits for a reason that was never a
+            # compile error, unnoticed because the job carried continue-on-error. It also appends its
+            # own -logFile, which overrides any passed here, so the editor log lands in this step's
+            # output and not in a file the next step could read. It runs only because it handles
+            # Unity licensing.
             - name: Compile package with the modules absent
+              continue-on-error: true
               uses: game-ci/unity-test-runner@v4
               env:
                   UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -230,7 +233,37 @@ jobs:
                   customParameters: -nographics
                   projectPath: UnityProject
 
-            # A green run above only proves the claim if the modules really stayed out.
+            # The gate is the compiler's own output on disk, which needs no log and no exit code: an
+            # assembly that failed to compile is simply not emitted. KitWright.Editor is the one that
+            # matters, because a single CS0234 there takes every tool with it.
+            - name: Fail unless the package assemblies were produced
+              if: always()
+              run: |
+                  ASM=UnityProject/Library/ScriptAssemblies
+                  # Captured first: in a pipeline the exit status is sed's, so grep finding nothing
+                  # would still look like success and print an empty list.
+                  FOUND=$(ls -1 "$ASM" 2>/dev/null | grep -i kitwright | sed 's/^/  /' || true)
+                  echo "Assemblies produced:"
+                  echo "${FOUND:-  (none)}"
+
+                  for dll in KitWright.Editor.dll KitWright.Editor.Bootstrap.dll; do
+                      if [ ! -f "$ASM/$dll" ]; then
+                          echo "::error::$dll was not emitted, so the package does not compile with the seven optional modules absent. The CS errors are in the editor log in the step above."
+                          exit 1
+                      fi
+                  done
+
+                  # a9e1389 moved this assembly onto a versionDefine keyed to com.unity.inputsystem,
+                  # which this project does not install. Emitting it here means that gate is back to
+                  # keying off a Unity built-in symbol, and the dangling reference is a matter of time.
+                  if [ -f "$ASM/KitWright.Editor.InputSystem.dll" ]; then
+                      echo "::error::KitWright.Editor.InputSystem.dll was emitted without com.unity.inputsystem installed; its defineConstraints no longer gate on the package."
+                      exit 1
+                  fi
+
+                  echo "KitWright.Editor compiled with the seven modules absent, and the InputSystem assembly stayed out."
+
+            # A clean compile above only proves the claim if the modules really stayed out.
             - name: Verify the modules stayed out
               if: always()
               run: |
@@ -257,10 +290,8 @@ jobs:
     secrets:
         name: Secret Scan
         runs-on: ubuntu-latest
-        # Advisory until one green run is observed: this scans all history, so a finding from an
-        # old commit would block every PR before anyone could rotate and allowlist it.
-        # Remove this line after that run.
-        continue-on-error: true
+        # Was advisory pending one green run; run 32947311680 on 2b6571b was green with no findings,
+        # so it gates now. A hit here means rotate the credential, then allowlist the commit.
         permissions:
             contents: read
 
