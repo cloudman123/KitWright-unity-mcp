@@ -21,8 +21,11 @@ namespace KitWright.Editor.MCP.Server
 
             // Direct path first: FindAssets scans the whole project (~60ms in big projects),
             // which is paid during CreateGUI after every domain reload.
+            // Pro ahead of free: its presence is what the badged art announces, so when both
+            // packages are installed the add-on's copy has to win.
             Texture2D found =
-                AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.kitwright.unity.mcp/Editor/Icons/{assetName}.png")
+                AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.kitwright.unity.mcp.pro/Editor/Icons/{assetName}.png")
+                ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.kitwright.unity.mcp/Editor/Icons/{assetName}.png")
                 ?? AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/KitWright/Editor/Icons/{assetName}.png");
             if (found != null)
             {
