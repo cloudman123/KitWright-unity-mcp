@@ -23,7 +23,22 @@ namespace KitWright.Editor.Tools
             return InvokeAsync(functionCall).GetAwaiter().GetResult();
         }
 
+        // TEMPORARY (2026-08-29): names the tool the editor thread was inside if a domain reload
+        // never comes back. Remove this wrapper with ReloadWatchdog.
         public async Task<string> InvokeAsync(FunctionCall functionCall)
+        {
+            Diagnostics.ReloadWatchdog.CurrentTool = functionCall?.FunctionName;
+            try
+            {
+                return await InvokeCoreAsync(functionCall);
+            }
+            finally
+            {
+                Diagnostics.ReloadWatchdog.CurrentTool = null;
+            }
+        }
+
+        private async Task<string> InvokeCoreAsync(FunctionCall functionCall)
         {
             if (functionCall == null)
                 return ToolResultFormatter.Error("NULL_FUNCTION_CALL");
