@@ -66,6 +66,16 @@ namespace KitWright.Editor.MCP.Server
         internal static async Task<bool> EnsureRunningAsync(
             int port, string monoPathOverride, MCPBrokerRuntimePaths paths)
         {
+            // Compiling the broker is a Process.WaitForExit of up to 20s, and it runs on whatever
+            // thread called in -- on the editor thread that is a frozen editor on first launch
+            // after an install or upgrade. Nothing in EnsureBrokerExe touches the editor API, so
+            // warm the cache off-thread here and let SpawnBroker hit it. The await returns to the
+            // editor thread, which SpawnBroker still needs; the synchronous EnsureRunning above
+            // enters through Task.Run precisely so that return has no blocked thread to wait for.
+            var mono = ResolveMono(monoPathOverride);
+            if (!string.IsNullOrEmpty(mono))
+                await Task.Run(() => EnsureBrokerExe(paths, mono)).ConfigureAwait(true);
+
             var outcome = SpawnBroker(port, monoPathOverride, paths, out var pid, out var token);
             if (outcome != BrokerSpawn.Spawned)
                 return outcome == BrokerSpawn.AlreadyRunning;
@@ -99,7 +109,12 @@ namespace KitWright.Editor.MCP.Server
 
         internal static bool EnsureRunning(int port, string monoPathOverride, MCPBrokerRuntimePaths paths)
         {
-            return EnsureRunningAsync(port, monoPathOverride, paths).GetAwaiter().GetResult();
+            // Task.Run so the async method runs with no synchronization context: any await
+            // inside that wanted the editor thread back would deadlock against this
+            // GetResult(), which already owns it. Mono is resolved here because that lookup
+            // is the one part that needs editor APIs.
+            var mono = ResolveMono(monoPathOverride);
+            return Task.Run(() => EnsureRunningAsync(port, mono, paths)).GetAwaiter().GetResult();
         }
 
         private enum BrokerSpawn { AlreadyRunning, Spawned, Failed }
