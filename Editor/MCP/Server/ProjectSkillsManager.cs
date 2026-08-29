@@ -83,8 +83,16 @@ namespace KitWright.Editor.MCP.Server
 
         internal static IReadOnlyList<SkillDefinition> GetOptionalSkills()
         {
-            return SkillCatalog.Where(skill => !skill.IsBuiltIn).ToArray();
+            return AllSkills.Where(skill => !skill.IsBuiltIn).ToArray();
         }
+
+        // Skills shipped as files by an installed package are optional skills like any other.
+        // A file skill never shadows a catalog skill: the ids drive file names, and two entries
+        // sharing one id would write the same SKILL.md twice with different content.
+        private static IEnumerable<SkillDefinition> AllSkills =>
+            SkillCatalog.Concat(PackageSkillCatalog.Discover()
+                .Where(skill => !SkillCatalog.Any(existing =>
+                    string.Equals(existing.Id, skill.Id, StringComparison.OrdinalIgnoreCase))));
 
         internal static ProjectSkillsManifest LoadManifest(string projectRoot)
         {
@@ -201,7 +209,7 @@ namespace KitWright.Editor.MCP.Server
                     installedIds.Add(id);
             }
 
-            return SkillCatalog.Where(skill => installedIds.Contains(skill.Id)).ToArray();
+            return AllSkills.Where(skill => installedIds.Contains(skill.Id)).ToArray();
         }
 
         internal static ProjectSkillsUpgradeStatus GetUpgradeStatus(
@@ -250,7 +258,7 @@ namespace KitWright.Editor.MCP.Server
             if (platforms.Contains("cursor"))
             {
                 var rulesRoot = GetCursorRulesPath(projectRoot);
-                foreach (var skill in SkillCatalog)
+                foreach (var skill in AllSkills)
                 {
                     var path = Path.Combine(rulesRoot, $"kitwright-{skill.Id}.mdc");
                     if (File.Exists(path) && !IsManagedFile(path))
@@ -941,6 +949,20 @@ version: {skill.Version}
             if (string.Equals(skill.Id, "unity-mcp-workflow", StringComparison.OrdinalIgnoreCase))
                 return BuildUnityMcpWorkflowSkillDocument(skill, platform);
 
+            if (!string.IsNullOrEmpty(skill.Body))
+                return
+$@"---
+name: {skill.Id}
+description: {skill.Description}
+version: {skill.Version}
+platform: {platform.ToString().ToLowerInvariant()}
+---
+{ManagedMarker}
+{BuildSkillVersionMarker(skill)}
+
+{skill.Body}
+";
+
             return
 $@"---
 name: {skill.Id}
@@ -1333,7 +1355,7 @@ $@"
 
         internal sealed class SkillDefinition
         {
-            public SkillDefinition(string id, string version, string title, string description, bool isBuiltIn, string whenToUse, IReadOnlyList<string> rules)
+            public SkillDefinition(string id, string version, string title, string description, bool isBuiltIn, string whenToUse, IReadOnlyList<string> rules, string body = null)
             {
                 Id = id;
                 Version = version;
@@ -1342,6 +1364,7 @@ $@"
                 IsBuiltIn = isBuiltIn;
                 WhenToUse = whenToUse;
                 Rules = rules ?? Array.Empty<string>();
+                Body = body;
             }
 
             public string Id { get; }
@@ -1351,6 +1374,10 @@ $@"
             public bool IsBuiltIn { get; }
             public string WhenToUse { get; }
             public IReadOnlyList<string> Rules { get; }
+
+            /// <summary>Ready-made skill text. When set, it is written verbatim instead of
+            /// generating a document from WhenToUse and Rules.</summary>
+            public string Body { get; }
         }
 
         private sealed class ExpectedSkillVersionFile
