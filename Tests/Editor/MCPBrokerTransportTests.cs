@@ -762,6 +762,88 @@ namespace KitWright.Editor
                 throw task.Exception;
         }
 
+        [UnityTest]
+        public IEnumerator BrokerTransport_StopAbortsAPullTheBrokerNeverAnswers()
+        {
+            var port = GetFreeTcpPort();
+            var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+
+            Socket heldPull = null;
+            var serving = Task.Run(() =>
+            {
+                while (true)
+                {
+                    Socket socket;
+                    try { socket = listener.AcceptSocket(); }
+                    catch { return; }
+
+                    var head = ReadRequestHead(socket);
+                    // The pull is accepted and then never answered, which is what a healthy
+                    // long poll looks like right up until the editor decides to reload.
+                    if (head.Contains(MCPBrokerProtocol.PullPath))
+                    {
+                        heldPull = socket;
+                        continue;
+                    }
+
+                    try
+                    {
+                        socket.Send(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
+                        socket.Close();
+                    }
+                    catch { }
+                }
+            });
+
+            var transport = new MCPBrokerClientTransport(port, "token");
+            try
+            {
+                Assert.IsTrue(transport.StartAsync().Result, "transport should attach to the fake broker");
+
+                var waitForPull = Stopwatch.StartNew();
+                while (heldPull == null && waitForPull.ElapsedMilliseconds < 5000)
+                    yield return null;
+                Assert.IsNotNull(heldPull, "the transport never issued a pull");
+
+                transport.Stop();
+
+                // Peer-closed shows up as readable-with-zero-bytes. Without the abort the client
+                // stays parked in the socket wait for the full 35s pull timeout, and a thread in
+                // that native wait is one Mono cannot abort for a domain reload.
+                var freed = Stopwatch.StartNew();
+                var closed = false;
+                while (!closed && freed.ElapsedMilliseconds < 5000)
+                {
+                    closed = heldPull.Poll(0, SelectMode.SelectRead) && heldPull.Available == 0;
+                    yield return null;
+                }
+
+                Assert.IsTrue(closed, "Stop() left the pull socket open; the editor would hang in Reloading Domain");
+            }
+            finally
+            {
+                transport.Dispose();
+                try { heldPull?.Close(); } catch { }
+                listener.Stop();
+                serving.Wait(2000);
+            }
+        }
+
+        private static string ReadRequestHead(Socket socket)
+        {
+            var head = new StringBuilder();
+            var one = new byte[1];
+            while (!head.ToString().EndsWith("\r\n\r\n", StringComparison.Ordinal))
+            {
+                if (socket.Receive(one, 0, 1, SocketFlags.None) <= 0)
+                    break;
+                head.Append((char)one[0]);
+            }
+
+            return head.ToString();
+        }
+
         private static int GetFreeTcpPort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);

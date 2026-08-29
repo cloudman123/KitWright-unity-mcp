@@ -28,6 +28,44 @@ namespace KitWright.Editor.MCP.Server
         private CancellationTokenSource _cts;
         private volatile bool _isRunning;
 
+        // Every broker call blocks a thread pool thread inside a native socket wait. A cancellation
+        // token cannot end that wait, and Mono cannot abort a thread parked in it -- the editor
+        // then hangs in "Reloading Domain" until the socket times out on its own (35s for a pull,
+        // 30s for a push). Aborting the request is the only thing that frees the thread, so Stop()
+        // needs a handle on whatever is in flight.
+        private readonly HashSet<HttpWebRequest> _inFlight = new HashSet<HttpWebRequest>();
+
+        private HttpWebRequest Track(HttpWebRequest request)
+        {
+            lock (_inFlight)
+            {
+                _inFlight.Add(request);
+            }
+
+            return request;
+        }
+
+        private void Untrack(HttpWebRequest request)
+        {
+            lock (_inFlight)
+            {
+                _inFlight.Remove(request);
+            }
+        }
+
+        private void AbortInFlight()
+        {
+            lock (_inFlight)
+            {
+                foreach (var request in _inFlight)
+                {
+                    try { request.Abort(); } catch { }
+                }
+
+                _inFlight.Clear();
+            }
+        }
+
         public MCPBrokerClientTransport(int port, string token)
         {
             _port = port;
@@ -72,6 +110,7 @@ namespace KitWright.Editor.MCP.Server
             var wasRunning = _isRunning;
             _isRunning = false;
             try { _cts?.Cancel(); } catch { }
+            AbortInFlight();
             if (wasRunning)
                 TryDetach();
 
@@ -232,34 +271,48 @@ namespace KitWright.Editor.MCP.Server
             request.Headers[MCPBrokerProtocol.TokenHeader] = _token;
             request.Headers[MCPBrokerProtocol.SessionHeader] = _sessionId;
 
-            using (var response = (HttpWebResponse)request.GetResponse())
+            Track(request);
+            if (!_isRunning)
             {
-                if (response.StatusCode == HttpStatusCode.NoContent)
-                    return null;
+                Untrack(request);
+                return null;
+            }
 
-                if (response.StatusCode != HttpStatusCode.OK)
-                    throw new InvalidOperationException("Broker pull returned HTTP " + (int)response.StatusCode);
-
-                var reqIdText = response.Headers[MCPBrokerProtocol.ReqIdHeader];
-                if (string.IsNullOrEmpty(reqIdText) || !long.TryParse(reqIdText, out var reqId))
-                    throw new InvalidOperationException("Broker pull did not include a request id.");
-
-                var redeliveryText = response.Headers[MCPBrokerProtocol.RedeliveryHeader];
-                var acceptsSseText = response.Headers[MCPBrokerProtocol.AcceptSseHeader];
-                int.TryParse(response.Headers[MCPBrokerProtocol.ClientPortHeader], out var clientPort);
-                using (var stream = response.GetResponseStream())
-                using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
+            try
+            {
+                using (var response = (HttpWebResponse)request.GetResponse())
                 {
-                    return new BrokerPullResult
+                    if (response.StatusCode == HttpStatusCode.NoContent)
+                        return null;
+
+                    if (response.StatusCode != HttpStatusCode.OK)
+                        throw new InvalidOperationException("Broker pull returned HTTP " + (int)response.StatusCode);
+
+                    var reqIdText = response.Headers[MCPBrokerProtocol.ReqIdHeader];
+                    if (string.IsNullOrEmpty(reqIdText) || !long.TryParse(reqIdText, out var reqId))
+                        throw new InvalidOperationException("Broker pull did not include a request id.");
+
+                    var redeliveryText = response.Headers[MCPBrokerProtocol.RedeliveryHeader];
+                    var acceptsSseText = response.Headers[MCPBrokerProtocol.AcceptSseHeader];
+                    int.TryParse(response.Headers[MCPBrokerProtocol.ClientPortHeader], out var clientPort);
+                    using (var stream = response.GetResponseStream())
+                    using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
                     {
-                        RequestId = reqId,
-                        IsRedelivery = string.Equals(redeliveryText, "1", StringComparison.Ordinal),
-                        AcceptsSse = string.Equals(acceptsSseText, "1", StringComparison.Ordinal),
-                        ClientPort = clientPort,
-                        McpSessionId = response.Headers[MCPBrokerProtocol.McpSessionHeader] ?? string.Empty,
-                        Body = reader.ReadToEnd()
-                    };
+                        return new BrokerPullResult
+                        {
+                            RequestId = reqId,
+                            IsRedelivery = string.Equals(redeliveryText, "1", StringComparison.Ordinal),
+                            AcceptsSse = string.Equals(acceptsSseText, "1", StringComparison.Ordinal),
+                            ClientPort = clientPort,
+                            McpSessionId = response.Headers[MCPBrokerProtocol.McpSessionHeader] ?? string.Empty,
+                            Body = reader.ReadToEnd()
+                        };
+                    }
                 }
+            }
+            finally
+            {
+                Untrack(request);
             }
         }
 
@@ -304,13 +357,22 @@ namespace KitWright.Editor.MCP.Server
 
             var bytes = Encoding.UTF8.GetBytes(body ?? string.Empty);
             request.ContentLength = bytes.Length;
-            using (var requestStream = request.GetRequestStream())
-                requestStream.Write(bytes, 0, bytes.Length);
 
-            using (var response = (HttpWebResponse)request.GetResponse())
-            using (var stream = response.GetResponseStream())
-            using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
-                reader.ReadToEnd();
+            Track(request);
+            try
+            {
+                using (var requestStream = request.GetRequestStream())
+                    requestStream.Write(bytes, 0, bytes.Length);
+
+                using (var response = (HttpWebResponse)request.GetResponse())
+                using (var stream = response.GetResponseStream())
+                using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
+                    reader.ReadToEnd();
+            }
+            finally
+            {
+                Untrack(request);
+            }
         }
 
         private bool TryAttach()
@@ -336,12 +398,20 @@ namespace KitWright.Editor.MCP.Server
                 request.Headers[MCPBrokerProtocol.TokenHeader] = _token;
                 request.Headers[MCPBrokerProtocol.SessionHeader] = _sessionId;
 
-                using (var response = (HttpWebResponse)request.GetResponse())
+                Track(request);
+                try
                 {
-                    using (var stream = response.GetResponseStream())
-                    using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
-                        reader.ReadToEnd();
-                    return response.StatusCode == HttpStatusCode.OK;
+                    using (var response = (HttpWebResponse)request.GetResponse())
+                    {
+                        using (var stream = response.GetResponseStream())
+                        using (var reader = new StreamReader(stream ?? Stream.Null, Encoding.UTF8))
+                            reader.ReadToEnd();
+                        return response.StatusCode == HttpStatusCode.OK;
+                    }
+                }
+                finally
+                {
+                    Untrack(request);
                 }
             }
             catch
