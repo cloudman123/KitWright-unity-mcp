@@ -66,14 +66,6 @@ namespace KitWright.Editor.MCP.Server
         internal static async Task<bool> EnsureRunningAsync(
             int port, string monoPathOverride, MCPBrokerRuntimePaths paths)
         {
-            // Compiling the broker is a Process.WaitForExit of up to 20s, and it runs on whatever
-            // thread called in -- on the editor thread that is a frozen editor on first launch
-            // after an install or upgrade. Nothing in EnsureBrokerExe touches the editor API, so
-            // warm the cache off-thread here and let SpawnBroker hit it.
-            var mono = ResolveMono(monoPathOverride);
-            if (!string.IsNullOrEmpty(mono))
-                await Task.Run(() => EnsureBrokerExe(paths, mono)).ConfigureAwait(true);
-
             var outcome = SpawnBroker(port, monoPathOverride, paths, out var pid, out var token);
             if (outcome != BrokerSpawn.Spawned)
                 return outcome == BrokerSpawn.AlreadyRunning;
