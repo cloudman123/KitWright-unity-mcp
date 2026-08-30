@@ -455,6 +455,25 @@ namespace KitWright.Editor.MCP.Server
                         return;
                     }
 
+                    // A domain reload cancels every queued editor-thread item. Reading .Result
+                    // then throws, and the generic catch below turns a routine reload into
+                    // "-32603 Internal error: A task was canceled" -- which reads like a crash
+                    // and says nothing about whether the tool ran.
+                    if (editorThreadTask.IsCanceled)
+                    {
+                        sendResponse(new MCPResponse
+                        {
+                            Id = request?.Id,
+                            Error = new MCPError
+                            {
+                                Code = -32001,
+                                Message = "Tool call was interrupted by a domain reload and was not re-run automatically. " +
+                                          "Call get_reload_recovery_status for the outcome."
+                            }
+                        });
+                        return;
+                    }
+
                     sendResponse(editorThreadTask.Result);
                 }
             }

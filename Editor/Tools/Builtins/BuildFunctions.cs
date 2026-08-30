@@ -63,7 +63,10 @@ namespace KitWright.Editor.Tools.Builtins
                     totalSizeMb = Math.Round(summary.totalSize / (1024.0 * 1024.0), 2),
                     totalErrors = summary.totalErrors,
                     totalWarnings = summary.totalWarnings,
-                    durationSeconds = Math.Round(summary.totalTime.TotalSeconds, 1)
+                    durationSeconds = Math.Round(summary.totalTime.TotalSeconds, 1),
+                    // A failure count with no message sends the caller to Editor.log to find out
+                    // what "1 error" was, which is the one thing this response should already know.
+                    errors = CollectBuildErrors(report)
                 };
 
                 return ok
@@ -74,6 +77,25 @@ namespace KitWright.Editor.Tools.Builtins
             {
                 return Response.Error("BUILD_EXCEPTION", new { target = buildTarget.ToString(), message = ex.Message });
             }
+        }
+
+        private const int MaxReportedBuildErrors = 5;
+
+        private static string[] CollectBuildErrors(BuildReport report)
+        {
+            if (report?.steps == null)
+                return Array.Empty<string>();
+
+            return report.steps
+                .Where(step => step.messages != null)
+                .SelectMany(step => step.messages)
+                .Where(message => message.type == LogType.Error ||
+                                  message.type == LogType.Exception ||
+                                  message.type == LogType.Assert)
+                .Select(message => message.content?.Trim())
+                .Where(content => !string.IsNullOrEmpty(content))
+                .Take(MaxReportedBuildErrors)
+                .ToArray();
         }
 
         [Description("Add, remove, or set the enabled/disabled state of a scene in the Build Settings scene list.")]

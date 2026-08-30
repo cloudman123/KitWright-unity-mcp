@@ -77,7 +77,10 @@ namespace KitWright.Editor.Tools.Builtins
                 }
             }
 
-            if (!skip_refresh)
+            // The refresh can trigger an import and a domain reload, which tears down Play Mode
+            // and never returns to the caller. The parameter doc has always promised this is
+            // skipped while playing; only the check was missing.
+            if (!skip_refresh && !EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 try
                 {
@@ -346,7 +349,7 @@ namespace KitWright.Editor.Tools.Builtins
 
         private static object CompileAndExecute(string code, string className, bool safetyChecks)
         {
-            var compilation = ScriptCompilerPipeline.Compile(code);
+            var compilation = ScriptCompilerPipeline.Compile(LoopGuardInjector.Inject(code));
             if (compilation.Status == ScriptCompilationStatus.CompilationFailed)
             {
                 return Response.Error("COMPILATION_FAILED", new
@@ -388,7 +391,15 @@ namespace KitWright.Editor.Tools.Builtins
                 });
             }
 
-            return ExecuteCompiledAssembly(compilation.Assembly, className, compilation.CompilerName, compilation.Attempts);
+            LoopBudgetGuard.Begin(LoopBudgetGuard.DefaultBudget);
+            try
+            {
+                return ExecuteCompiledAssembly(compilation.Assembly, className, compilation.CompilerName, compilation.Attempts);
+            }
+            finally
+            {
+                LoopBudgetGuard.End();
+            }
         }
 
         private static object ExecuteCompiledAssembly(

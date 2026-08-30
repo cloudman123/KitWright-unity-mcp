@@ -72,13 +72,18 @@ namespace KitWright.Editor.State
 
         public static void CompletePendingFunction(StateController stateController)
         {
+            // The tool has returned, so it is no longer pending: clear the marker now, before
+            // any deferral. A domain reload wipes the deferred callback below but not
+            // SessionState, so a marker left set makes recovery report a finished tool as
+            // "interrupted" and invite the caller to run it a second time.
+            ClearPendingFunction();
+
             if (ShouldDeferPendingCompletion())
             {
                 DeferPendingCompletion(stateController);
                 return;
             }
 
-            ClearPendingFunction();
             stateController?.ReturnToPreviousState();
         }
 
@@ -244,7 +249,6 @@ namespace KitWright.Editor.State
             EditorApplication.update -= CompletePendingWhenEditorIsStable;
             _deferredCompletionRegistered = false;
 
-            ClearPendingFunction();
             _deferredCompletionStateController?.ReturnToPreviousState();
             _deferredCompletionStateController = null;
         }

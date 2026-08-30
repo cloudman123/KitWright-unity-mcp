@@ -12,6 +12,24 @@ namespace KitWright.Editor.Tests
     public sealed class ProjectSkillsManagerTests
     {
         [Test]
+        public void PackageSkillCatalog_ParsesFrontMatterAndKeepsBodyVerbatim()
+        {
+            const string markdown = "---\nname: match\ndescription: Align Unity output: to a target image\n---\n\n# Match\n\nBody line.\n";
+
+            var skill = PackageSkillCatalog.Parse("match", markdown);
+
+            Assert.AreEqual("match", skill.Id);
+            Assert.AreEqual("Match", skill.Title);
+            // Split on the FIRST colon only, or a description containing one loses its tail.
+            Assert.AreEqual("Align Unity output: to a target image", skill.Description);
+            Assert.AreEqual("# Match\n\nBody line.", skill.Body);
+            Assert.IsFalse(skill.IsBuiltIn);
+
+            // Version tracks content, so an edited skill file reports an update.
+            Assert.AreNotEqual(skill.Version, PackageSkillCatalog.Parse("match", markdown + "more\n").Version);
+        }
+
+        [Test]
         public void ApplyConfiguration_WritesSkillVersionMarkers()
         {
             var projectRoot = CreateTempProjectPath();

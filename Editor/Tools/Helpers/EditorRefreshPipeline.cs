@@ -89,7 +89,12 @@ namespace KitWright.Editor.Tools.Helpers
             {
                 try
                 {
-                    CompilationPipeline.RequestScriptCompilation(RequestScriptCompilationOptions.CleanBuildCache);
+                    // Not CleanBuildCache: this rung exists because Unity did not notice an edit,
+                    // which a plain recompile fixes. Wiping the cache instead rebuilds every
+                    // assembly in the project and ends in a "forced synchronous recompile" domain
+                    // reload -- observed hanging the editor, and pure waste when, as here, the
+                    // edit had in fact already compiled.
+                    CompilationPipeline.RequestScriptCompilation();
                     result.ScriptCompilationRequested = true;
                 }
                 catch (Exception ex)
@@ -528,7 +533,7 @@ namespace KitWright.Editor.Tools.Helpers
             var steps = new List<string>();
             if (PrimaryRefreshInvoked) steps.Add("AssetDatabase.Refresh");
             if (MenuRefreshInvoked) steps.Add("Assets/Refresh menu");
-            if (ScriptCompilationRequested) steps.Add("RequestScriptCompilation(CleanBuildCache)");
+            if (ScriptCompilationRequested) steps.Add("RequestScriptCompilation()");
             if (ScriptReloadRequested) steps.Add("RequestScriptReload");
             if (steps.Count == 0) steps.Add("none");
             return string.Join(" -> ", steps);

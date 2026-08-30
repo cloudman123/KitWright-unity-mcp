@@ -671,7 +671,11 @@ namespace KitWright.UnityMcp.Broker
                     // A live Unity long-polls every ~25s, so total HTTP silence for this long
                     // means Unity crashed or is gone -- self-terminate instead of orphaning.
                     // (Crash leaves ghost sessions in AttachedSessions, so don't check that.)
-                    if (now - LastActivityMs > IdleExitMs)
+                    // A held request is the exception: Unity went quiet because it is busy with
+                    // the work we handed it, and exiting there throws away the answer the caller
+                    // is still waiting for. Pending always drains -- the two sweeps below expire
+                    // every entry -- so this cannot keep a broker alive forever.
+                    if (Pending.Count == 0 && now - LastActivityMs > IdleExitMs)
                     {
                         Log("no HTTP activity for " + (IdleExitMs / 60000) + " min, exiting");
                         BeginShutdown();

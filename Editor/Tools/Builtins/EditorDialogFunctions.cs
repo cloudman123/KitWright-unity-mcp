@@ -14,8 +14,10 @@ namespace KitWright.Editor.Tools.Builtins
     internal static class EditorDialogFunctions
     {
         [Description("Report the modal dialog currently blocking the Unity editor: its title, message and button " +
-                     "captions. Returns none when nothing is blocking. Works while the editor is stuck, unlike every " +
-                     "other tool, because it reads window state instead of asking the editor.")]
+                     "captions. Returns none when nothing is blocking. Answers while a modal owns the editor loop, " +
+                     "unlike every other tool, because it reads window state instead of asking the editor. It cannot " +
+                     "answer during a recompile or domain reload: the MCP backend is torn down there, so this call " +
+                     "gets the same 'Unity is recompiling scripts' notice as any other tool.")]
         [ReadOnlyTool]
         [OffEditorThread]
         public static object GetEditorDialog()
