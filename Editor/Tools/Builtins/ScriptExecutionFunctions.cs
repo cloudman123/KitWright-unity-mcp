@@ -349,7 +349,7 @@ namespace KitWright.Editor.Tools.Builtins
 
         private static object CompileAndExecute(string code, string className, bool safetyChecks)
         {
-            var compilation = ScriptCompilerPipeline.Compile(code);
+            var compilation = ScriptCompilerPipeline.Compile(LoopGuardInjector.Inject(code));
             if (compilation.Status == ScriptCompilationStatus.CompilationFailed)
             {
                 return Response.Error("COMPILATION_FAILED", new
@@ -391,7 +391,15 @@ namespace KitWright.Editor.Tools.Builtins
                 });
             }
 
-            return ExecuteCompiledAssembly(compilation.Assembly, className, compilation.CompilerName, compilation.Attempts);
+            LoopBudgetGuard.Begin(LoopBudgetGuard.DefaultBudget);
+            try
+            {
+                return ExecuteCompiledAssembly(compilation.Assembly, className, compilation.CompilerName, compilation.Attempts);
+            }
+            finally
+            {
+                LoopBudgetGuard.End();
+            }
         }
 
         private static object ExecuteCompiledAssembly(
