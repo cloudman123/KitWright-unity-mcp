@@ -23,9 +23,6 @@ namespace KitWright.Editor.Tools.Scripting
         public static string Inject(string source)
         {
             if (string.IsNullOrEmpty(source)) return source;
-            if (source.IndexOf("while", StringComparison.Ordinal) < 0 &&
-                source.IndexOf("for", StringComparison.Ordinal) < 0)
-                return source;
 
             var insertions = new List<(int Offset, string Text)>();
 
@@ -47,7 +44,7 @@ namespace KitWright.Editor.Tools.Scripting
                 var cursor = i;
                 if (!TrySkipToChar(source, ref cursor, '(')) continue;
                 var open = cursor;
-                if (!TryFindMatchingParen(source, open, out var close)) continue;
+                if (!TryFindMatchingBracket(source, open, out var close)) continue;
 
                 if (word == "while") WrapSpan(insertions, open + 1, close);
                 else WrapForCondition(source, insertions, open, close);
@@ -106,9 +103,6 @@ namespace KitWright.Editor.Tools.Scripting
             }
             return false;
         }
-
-        private static bool TryFindMatchingParen(string source, int open, out int close)
-            => TryFindMatchingBracket(source, open, out close);
 
         private static bool TryFindMatchingBracket(string source, int open, out int close)
         {
