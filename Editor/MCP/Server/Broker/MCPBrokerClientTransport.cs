@@ -35,18 +35,11 @@ namespace KitWright.Editor.MCP.Server
         // needs a handle on whatever is in flight.
         private readonly HashSet<HttpWebRequest> _inFlight = new HashSet<HttpWebRequest>();
 
-        // TEMPORARY (2026-08-29): read by ReloadWatchdog to record what was in flight when a
-        // domain reload stopped coming back. Remove with the watchdog. Never commit.
-        internal static volatile int InFlightCount;
-        internal static volatile string LastStartedPath;
-
         private HttpWebRequest Track(HttpWebRequest request)
         {
             lock (_inFlight)
             {
                 _inFlight.Add(request);
-                InFlightCount = _inFlight.Count;
-                LastStartedPath = request.RequestUri?.AbsolutePath;
             }
 
             return request;
@@ -57,7 +50,6 @@ namespace KitWright.Editor.MCP.Server
             lock (_inFlight)
             {
                 _inFlight.Remove(request);
-                InFlightCount = _inFlight.Count;
             }
         }
 
@@ -71,7 +63,6 @@ namespace KitWright.Editor.MCP.Server
                 }
 
                 _inFlight.Clear();
-                InFlightCount = 0;
             }
         }
 
