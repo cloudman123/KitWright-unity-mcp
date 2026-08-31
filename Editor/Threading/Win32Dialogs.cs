@@ -21,9 +21,6 @@ namespace KitWright.Editor.Threading
         [DllImport("user32.dll")]
         private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr param);
 
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        private static extern int GetWindowTextW(IntPtr hWnd, StringBuilder text, int count);
-
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
@@ -43,10 +40,21 @@ namespace KitWright.Editor.Threading
         private static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessageTimeoutW(
+            IntPtr hWnd, uint msg, IntPtr wParam, StringBuilder lParam,
+            uint flags, uint timeoutMs, out IntPtr result);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
         private const uint BM_CLICK = 0x00F5;
         private const uint WM_CLOSE = 0x0010;
+        private const uint WM_GETTEXT = 0x000D;
+        private const uint SMTO_ABORTIFHUNG = 0x0002;
+
+        // Long enough that a pumping editor always answers, short enough that one that is not
+        // pumping costs a probe a quarter second per window instead of the rest of the session.
+        private const uint TextTimeoutMs = 250;
 #endif
 
         /// <summary>The blocking dialog's title and buttons, or null when nothing conclusive is visible.</summary>
@@ -126,8 +134,8 @@ namespace KitWright.Editor.Threading
                     if (pid != ownPid || !IsWindowVisible(hWnd))
                         return true;
 
-                    var buffer = new StringBuilder(512);
-                    if (GetWindowTextW(hWnd, buffer, buffer.Capacity) <= 0)
+                    var text = TextOf(hWnd);
+                    if (text.Length == 0)
                         return true;
 
                     if (!IsWindowEnabled(hWnd))
@@ -135,7 +143,7 @@ namespace KitWright.Editor.Threading
                     else if (enabledCount++ == 0)
                     {
                         dialog = hWnd;
-                        found = buffer.ToString();
+                        found = text;
                     }
 
                     return true;
@@ -214,10 +222,25 @@ namespace KitWright.Editor.Threading
             return name.ToString();
         }
 
+        /// <summary>
+        /// The window title, or empty when the owning thread does not answer in time.
+        /// </summary>
+        /// <remarks>
+        /// Never GetWindowText here. For a window of the calling process it sends WM_GETTEXT and
+        /// waits with no timeout for the owning thread to pump. This runs off the editor thread on
+        /// purpose, and during a domain reload that thread stops pumping -- so the call parks in
+        /// user32, where Mono cannot abort it, and the domain unload waits on that thread pool job
+        /// forever. Editor stuck in "Reloading Domain", nothing in any log. Bound the send instead.
+        /// </remarks>
         private static string TextOf(IntPtr hWnd)
         {
             var text = new StringBuilder(512);
-            return GetWindowTextW(hWnd, text, text.Capacity) > 0 ? text.ToString() : string.Empty;
+            if (SendMessageTimeoutW(
+                    hWnd, WM_GETTEXT, (IntPtr)text.Capacity, text,
+                    SMTO_ABORTIFHUNG, TextTimeoutMs, out _) == IntPtr.Zero)
+                return string.Empty;
+
+            return text.ToString();
         }
 
         private static string[] ButtonCaptions(IntPtr dialog)

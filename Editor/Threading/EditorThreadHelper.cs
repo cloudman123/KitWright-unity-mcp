@@ -90,6 +90,13 @@ namespace KitWright.Editor.Threading
             Task.Delay(StallProbeMs).ContinueWith(_ =>
             {
                 var idle = SinceLastPump;
+
+                // Reading window titles is the expensive half and it talks to the editor thread's
+                // message loop, so ask the free questions first: a finished request or a pump that
+                // ticked recently rules a block out on its own, whatever any dialog says.
+                if (!LooksBlocked(tcs.Task.IsCompleted, idle, WorkItemRunning, true))
+                    return;
+
                 var dialog = Win32Dialogs.BlockingDialog();
                 if (!LooksBlocked(tcs.Task.IsCompleted, idle, WorkItemRunning, dialog != null))
                     return;

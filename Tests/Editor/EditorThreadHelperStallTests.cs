@@ -1,10 +1,12 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using KitWright.Editor.Threading;
 using NUnit.Framework;
+using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace KitWright.Editor.Tests
@@ -87,6 +89,53 @@ namespace KitWright.Editor.Tests
         {
             Assert.IsNull(Win32Dialogs.BlockingDialog(),
                 "No modal is open while this test runs, so the probe must not name one.");
+        }
+
+        [Test]
+        public void DialogProbe_NeverReadsAWindowTitleWithoutATimeout()
+        {
+            var path = ResolveEditorSourcePath("Threading/Win32Dialogs.cs");
+            var source = File.ReadAllText(path);
+
+            // GetWindowText on a window of this process sends WM_GETTEXT and waits forever for the
+            // owning thread to pump. The probe runs on a thread pool thread, and during a domain
+            // reload the editor thread does not pump -- so the call parks in user32 where Mono
+            // cannot abort it, and the domain unload waits on that job for the rest of the session.
+            Assert.That(source, Does.Not.Contain("GetWindowText"),
+                "Read window titles with SendMessageTimeoutW(WM_GETTEXT), not GetWindowText: " + path);
+            Assert.That(source, Does.Contain("SendMessageTimeoutW"), path);
+            Assert.That(source, Does.Contain("WM_GETTEXT"), path);
+        }
+
+        [Test]
+        public void LooksBlocked_CanBeRuledOutBeforeAnyWindowIsEnumerated()
+        {
+            // FailIfEditorIsBlocked asks with dialogOpen: true first so it can skip the Win32 walk.
+            // That shortcut is only sound if a "no" under the most pessimistic dialog answer is
+            // also a "no" under the real one.
+            foreach (var completed in new[] { true, false })
+            foreach (var running in new[] { true, false })
+            foreach (var idle in new[] { TimeSpan.Zero, TimeSpan.FromSeconds(4), TimeSpan.FromMinutes(2) })
+            {
+                if (EditorThreadHelper.LooksBlocked(completed, idle, running, true))
+                    continue;
+
+                Assert.IsFalse(
+                    EditorThreadHelper.LooksBlocked(completed, idle, running, false),
+                    $"completed={completed} running={running} idle={idle}: ruled out with a dialog " +
+                    "assumed open, so it must stay ruled out without one.");
+            }
+        }
+
+        private static string ResolveEditorSourcePath(string relative)
+        {
+            var packageInfo = PackageInfo.FindForAssembly(typeof(EditorThreadHelper).Assembly);
+            var root = packageInfo != null
+                ? Path.Combine(packageInfo.resolvedPath, "Editor")
+                : Path.Combine(Application.dataPath, "unity-mcp", "Editor");
+            var path = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+            Assert.IsTrue(File.Exists(path), "Source was not found at " + path);
+            return path;
         }
 
         [Test]
