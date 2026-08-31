@@ -92,7 +92,7 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
-        public void DialogProbe_NeverReadsAWindowTitleWithoutATimeout()
+        public void DialogProbe_NeverSendsAWindowMessageWithoutATimeout()
         {
             var path = ResolveEditorSourcePath("Threading/Win32Dialogs.cs");
             var source = File.ReadAllText(path);
@@ -101,10 +101,17 @@ namespace KitWright.Editor.Tests
             // owning thread to pump. The probe runs on a thread pool thread, and during a domain
             // reload the editor thread does not pump -- so the call parks in user32 where Mono
             // cannot abort it, and the domain unload waits on that job for the rest of the session.
-            Assert.That(source, Does.Not.Contain("GetWindowText"),
+            // The trailing "(" matches a declaration or a call but not the prose explaining why
+            // these are banned, which has to be free to name them.
+            Assert.That(source, Does.Not.Contain("GetWindowTextW("),
                 "Read window titles with SendMessageTimeoutW(WM_GETTEXT), not GetWindowText: " + path);
             Assert.That(source, Does.Contain("SendMessageTimeoutW"), path);
             Assert.That(source, Does.Contain("WM_GETTEXT"), path);
+
+            // Both dialog tools are [OffEditorThread], so the click path is on a pool thread too.
+            Assert.That(source, Does.Not.Contain("SendMessageW("),
+                "Every send from here waits on the editor thread's message loop, so all of them "
+                + "need a timeout: " + path);
         }
 
         [Test]

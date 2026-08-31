@@ -36,8 +36,10 @@ namespace KitWright.Editor.Threading
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern int GetClassNameW(IntPtr hWnd, StringBuilder name, int count);
 
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        private static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageTimeoutW")]
+        private static extern IntPtr SendMessageTimeoutPtr(
+            IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam,
+            uint flags, uint timeoutMs, out IntPtr result);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern IntPtr SendMessageTimeoutW(
@@ -55,6 +57,9 @@ namespace KitWright.Editor.Threading
         // Long enough that a pumping editor always answers, short enough that one that is not
         // pumping costs a probe a quarter second per window instead of the rest of the session.
         private const uint TextTimeoutMs = 250;
+
+        // A dialog that has not acknowledged a click in five seconds is not going to.
+        private const uint ClickTimeoutMs = 5000;
 #endif
 
         /// <summary>The blocking dialog's title and buttons, or null when nothing conclusive is visible.</summary>
@@ -109,7 +114,11 @@ namespace KitWright.Editor.Threading
             if (target == IntPtr.Zero)
                 return $"'{title}' has no button captioned '{caption}'. Buttons: {string.Join(" | ", buttons)}.";
 
-            SendMessageW(target, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+            // Timeout for the same reason TextOf has one: this runs off the editor thread, and a
+            // plain SendMessage waits for the target's thread with no way out. The click is still
+            // delivered; only the wait for its acknowledgement is bounded.
+            SendMessageTimeoutPtr(
+                target, BM_CLICK, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, ClickTimeoutMs, out _);
             return null;
 #else
             return "Dismissing editor dialogs is implemented for Windows only.";

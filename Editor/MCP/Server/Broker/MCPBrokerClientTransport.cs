@@ -38,10 +38,14 @@ namespace KitWright.Editor.MCP.Server
         /// <summary>
         /// Set while <c>beforeAssemblyReload</c> is tearing the server down, so <see cref="Stop"/>
         /// skips its detach POST. That POST is synchronous on the editor thread, and the broker
-        /// answers it under a global lock it also holds while writing to other clients -- a slow
-        /// write there parked the editor in "Reloading Domain" forever, because the response read
-        /// has no timeout Mono honours. Nothing is lost by skipping it: the next domain's first
-        /// pull carries a new session id, and the broker requeues the old session's work then.
+        /// answers it under a global lock it also holds while writing to other clients, so a slow
+        /// write there can park the editor thread for as long as the broker takes -- the response
+        /// read has no timeout Mono honours. Nothing is lost by skipping it: the next domain's
+        /// first pull carries a new session id, and the broker requeues the old session's work.
+        ///
+        /// This is a hazard on the reload path, not the cause of the "Reloading Domain" hang that
+        /// prompted it: the hang reproduced unchanged with this in place, and was eventually a
+        /// cross-thread SendMessage in the stall probe (see Win32Dialogs.TextOf).
         /// </summary>
         internal static volatile bool SuppressDetach;
 
