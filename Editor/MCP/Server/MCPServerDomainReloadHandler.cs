@@ -56,6 +56,10 @@ namespace KitWright.Editor.MCP.Server
 
         private static void OnBeforeReload()
         {
+            // Never reset: this domain is about to be unloaded, and the next one starts with a
+            // fresh static. See the field for why the detach POST cannot run from here.
+            MCPBrokerClientTransport.SuppressDetach = true;
+
             try
             {
                 PrepareForReload(RootScopeServices.Services);

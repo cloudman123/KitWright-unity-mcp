@@ -830,6 +830,97 @@ namespace KitWright.Editor
             }
         }
 
+        [UnityTest]
+        public IEnumerator BrokerTransport_SkipsDetachWhileTheDomainIsReloading()
+        {
+            var port = GetFreeTcpPort();
+            var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+
+            var detaches = new List<string>();
+            var heldPulls = new List<Socket>();
+
+            int DetachCount()
+            {
+                lock (detaches)
+                    return detaches.Count;
+            }
+
+            var serving = Task.Run(() =>
+            {
+                while (true)
+                {
+                    Socket socket;
+                    try { socket = listener.AcceptSocket(); }
+                    catch { return; }
+
+                    var head = ReadRequestHead(socket);
+                    if (head.Contains(MCPBrokerProtocol.PullPath))
+                    {
+                        lock (heldPulls)
+                            heldPulls.Add(socket);
+                        continue;
+                    }
+
+                    if (head.Contains(MCPBrokerProtocol.DetachPath))
+                    {
+                        lock (detaches)
+                            detaches.Add(head);
+                    }
+
+                    try
+                    {
+                        socket.Send(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
+                        socket.Close();
+                    }
+                    catch { }
+                }
+            });
+
+            var reloading = new MCPBrokerClientTransport(port, "token");
+            var stopping = new MCPBrokerClientTransport(port, "token");
+            try
+            {
+                MCPBrokerClientTransport.SuppressDetach = true;
+                Assert.IsTrue(reloading.StartAsync().Result, "transport should attach to the fake broker");
+                reloading.Stop();
+
+                yield return new WaitForSecondsRealtime(0.5f);
+                Assert.AreEqual(0, DetachCount(),
+                    "beforeAssemblyReload must not POST detach: it blocks the editor thread on a socket " +
+                    "the broker answers under the same lock it holds while writing to other clients, and " +
+                    "the response read has no timeout Mono honours -- that is the Reloading Domain hang");
+
+                // The other half of the contract: a stop that is not a reload still notifies the
+                // broker, so the flag cannot quietly turn detach into dead code.
+                MCPBrokerClientTransport.SuppressDetach = false;
+                Assert.IsTrue(stopping.StartAsync().Result, "transport should attach to the fake broker");
+                stopping.Stop();
+
+                var waited = Stopwatch.StartNew();
+                while (DetachCount() == 0 && waited.ElapsedMilliseconds < 3000)
+                    yield return null;
+
+                Assert.AreEqual(1, DetachCount(), "an ordinary stop should still tell the broker it is going away");
+            }
+            finally
+            {
+                MCPBrokerClientTransport.SuppressDetach = false;
+                stopping.Dispose();
+                reloading.Dispose();
+                lock (heldPulls)
+                {
+                    foreach (var socket in heldPulls)
+                    {
+                        try { socket.Close(); } catch { }
+                    }
+                }
+
+                listener.Stop();
+                serving.Wait(2000);
+            }
+        }
+
         private static string ReadRequestHead(Socket socket)
         {
             var head = new StringBuilder();

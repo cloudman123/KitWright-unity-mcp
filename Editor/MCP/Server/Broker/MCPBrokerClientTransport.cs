@@ -35,6 +35,16 @@ namespace KitWright.Editor.MCP.Server
         // needs a handle on whatever is in flight.
         private readonly HashSet<HttpWebRequest> _inFlight = new HashSet<HttpWebRequest>();
 
+        /// <summary>
+        /// Set while <c>beforeAssemblyReload</c> is tearing the server down, so <see cref="Stop"/>
+        /// skips its detach POST. That POST is synchronous on the editor thread, and the broker
+        /// answers it under a global lock it also holds while writing to other clients -- a slow
+        /// write there parked the editor in "Reloading Domain" forever, because the response read
+        /// has no timeout Mono honours. Nothing is lost by skipping it: the next domain's first
+        /// pull carries a new session id, and the broker requeues the old session's work then.
+        /// </summary>
+        internal static volatile bool SuppressDetach;
+
         private HttpWebRequest Track(HttpWebRequest request)
         {
             lock (_inFlight)
@@ -111,7 +121,7 @@ namespace KitWright.Editor.MCP.Server
             _isRunning = false;
             try { _cts?.Cancel(); } catch { }
             AbortInFlight();
-            if (wasRunning)
+            if (wasRunning && !SuppressDetach)
                 TryDetach();
 
             try { _cts?.Dispose(); } catch { }
