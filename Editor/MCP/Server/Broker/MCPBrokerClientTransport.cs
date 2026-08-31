@@ -369,6 +369,16 @@ namespace KitWright.Editor.MCP.Server
             request.ContentLength = bytes.Length;
 
             Track(request);
+            // Same guard as PullOnce: a request registered after Stop()'s AbortInFlight has already
+            // emptied the set is one nothing will ever abort, and the response read below has no
+            // timeout Mono honours -- so it would park a thread pool job past the domain unload,
+            // which waits for those jobs with no timeout of its own.
+            if (!_isRunning)
+            {
+                Untrack(request);
+                return;
+            }
+
             try
             {
                 using (var requestStream = request.GetRequestStream())

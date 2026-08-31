@@ -657,6 +657,35 @@ namespace KitWright.Editor
                 "broker diagnostics belong in a file beside the broker exe");
         }
 
+        // Both broker calls run on a thread pool thread and read their response with no timeout Mono
+        // honours. Stop() frees them by aborting what Track() recorded, so a call that registers after
+        // AbortInFlight has emptied the set is unabortable -- and domain unload waits for thread pool
+        // jobs with no timeout, so that one job hangs the editor in "Reloading Domain" forever. The
+        // guard is what keeps the window shut, and it was missing from the push side once already.
+        [Test]
+        public void BrokerCalls_BailOutWhenTheTransportIsAlreadyStopping()
+        {
+            var transport = Path.Combine(
+                Path.GetDirectoryName(ResolveBrokerSourcePath()), "MCPBrokerClientTransport.cs");
+            var source = File.ReadAllText(transport);
+
+            // Match the declaration, not a call site: "() => PullOnce()" appears first in the file.
+            foreach (var method in new[] { "BrokerPullResult PullOnce(", "void PushOnce(" })
+            {
+                var start = source.IndexOf(method, StringComparison.Ordinal);
+                Assert.Greater(start, 0, method + " not found in " + transport);
+
+                var body = source.Substring(start, Math.Min(1800, source.Length - start));
+                var trackAt = body.IndexOf("Track(request)", StringComparison.Ordinal);
+                var guardAt = body.IndexOf("!_isRunning", StringComparison.Ordinal);
+
+                Assert.Greater(trackAt, 0, method + " must register its request with Track()");
+                Assert.Greater(guardAt, trackAt,
+                    method + " must re-check _isRunning after Track(), or a request created while " +
+                    "Stop() is running is one nothing can abort: " + transport);
+            }
+        }
+
         [Test]
         public void BrokerCompile_DrainsBothPipesConcurrently()
         {
