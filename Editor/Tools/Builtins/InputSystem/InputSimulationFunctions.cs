@@ -257,7 +257,7 @@ namespace KitWright.Editor.Tools.Builtins
         [Description("Simulate a gamepad in Play Mode: press or hold a button, and move the sticks and triggers. Anything left unspecified keeps the value the virtual gamepad already holds, so moving a stick does not release a held button.")]
         [ReadOnlyTool]
         public static string SimulateGamepad(
-            [ToolParam("Button name: south/a, east/b, west/x, north/y, start, select, left_shoulder, right_shoulder, dpad_up, dpad_down, dpad_left, dpad_right, left_stick, right_stick. Omit to only move sticks. The triggers are analog: use left_trigger/right_trigger.", Required = false)] string button = null,
+            [ToolParam("Button name: south/a, east/b, west/x, north/y, start, select, left_shoulder, right_shoulder, left_trigger, right_trigger, dpad_up, dpad_down, dpad_left, dpad_right, left_stick, right_stick. Omit to only move the sticks and triggers.", Required = false)] string button = null,
             [ToolParam("Action for the button: tap, press, or release", Required = false)] string action = "tap",
             [ToolParam("Seconds to hold a tapped button. 0 uses a 50 ms tap.", Required = false)] float duration = 0f,
             [ToolParam("Left stick X, -1 to 1. Omit to leave it where it is.", Required = false)] float left_stick_x = float.NaN,
@@ -285,20 +285,14 @@ namespace KitWright.Editor.Tools.Builtins
                             $"Gamepad button '{button}' not recognized. Examples: south, east, start, dpad_up, left_shoulder.");
                 }
 
-                var state = ReadState(gamepad);
-                state = WithStick(state, left_stick_x, left_stick_y, right_stick_x, right_stick_y, left_trigger, right_trigger);
-
                 var verb = (action ?? "tap").Trim().ToLowerInvariant();
                 var pressed = verb != "release";
 
-                if (target != null)
-                    state = state.WithButton(target.Value, pressed);
-
-                InputSystem.QueueStateEvent(gamepad, state);
-                InputSystem.Update();
+                WriteGamepad(gamepad, target, pressed, left_stick_x, left_stick_y, right_stick_x, right_stick_y, left_trigger, right_trigger);
 
                 if (target == null)
-                    return $"Gamepad sticks updated (left {state.leftStick}, right {state.rightStick})";
+                    return $"Gamepad updated (left stick {gamepad.leftStick.ReadValue()}, right stick {gamepad.rightStick.ReadValue()}, " +
+                           $"triggers {gamepad.leftTrigger.ReadValue():F2}/{gamepad.rightTrigger.ReadValue():F2})";
 
                 if (verb == "press")
                     return $"Gamepad button '{button}' pressed (held down)";
@@ -311,11 +305,8 @@ namespace KitWright.Editor.Tools.Builtins
                 ReleaseAfter(holdFor, () =>
                 {
                     var device = Gamepad.current;
-                    if (device == null)
-                        return;
-
-                    InputSystem.QueueStateEvent(device, ReadState(device).WithButton(buttonToRelease, false));
-                    InputSystem.Update();
+                    if (device != null)
+                        WriteGamepad(device, buttonToRelease, false, float.NaN, float.NaN, float.NaN, float.NaN, float.NaN, float.NaN);
                 });
 
                 return $"Gamepad button '{button}' tapped for {holdFor:F2}s";
@@ -340,49 +331,44 @@ namespace KitWright.Editor.Tools.Builtins
             InputSystem.Update();
         }
 
-        // Gamepad state events carry the WHOLE device state, so a partial update has to start from
-        // what the device currently reads or it silently zeroes every control it does not mention.
-        private static GamepadState ReadState(Gamepad gamepad)
+        /// <summary>
+        /// Writes only what the caller named. <c>StateEvent.From</c> seeds the event with the device's
+        /// CURRENT state, so a partial write leaves every other control where it was: moving a stick does
+        /// not release a held button, and no whole-device state has to be read back and reassembled.
+        /// Writing through the controls also keeps <c>GamepadState</c>'s 32-bit button bitmask out of it,
+        /// which matters because LeftTrigger and RightTrigger sit outside that mask.
+        /// </summary>
+        private static void WriteGamepad(Gamepad gamepad, GamepadButton? button, bool pressed,
+            float leftX, float leftY, float rightX, float rightY, float leftTrigger, float rightTrigger)
         {
-            var state = new GamepadState
+            var left = gamepad.leftStick.ReadValue();
+            var right = gamepad.rightStick.ReadValue();
+
+            QueueStateEvent(gamepad, eventPtr =>
             {
-                leftStick = gamepad.leftStick.ReadValue(),
-                rightStick = gamepad.rightStick.ReadValue(),
-                leftTrigger = gamepad.leftTrigger.ReadValue(),
-                rightTrigger = gamepad.rightTrigger.ReadValue()
-            };
+                if (button != null)
+                    gamepad[button.Value].WriteValueIntoEvent(pressed ? 1f : 0f, eventPtr);
 
-            foreach (GamepadButton value in Enum.GetValues(typeof(GamepadButton)))
-            {
-                // 32 and 33 are the triggers, which live in the analog fields copied above and not in
-                // the bitmask; passing them to WithButton would fold them onto DpadUp and DpadDown.
-                if ((int)value >= 32)
-                    continue;
+                if (!float.IsNaN(leftX) || !float.IsNaN(leftY))
+                {
+                    gamepad.leftStick.WriteValueIntoEvent(new Vector2(
+                        float.IsNaN(leftX) ? left.x : Mathf.Clamp(leftX, -1f, 1f),
+                        float.IsNaN(leftY) ? left.y : Mathf.Clamp(leftY, -1f, 1f)), eventPtr);
+                }
 
-                if (gamepad[value].isPressed)
-                    state = state.WithButton(value, true);
-            }
+                if (!float.IsNaN(rightX) || !float.IsNaN(rightY))
+                {
+                    gamepad.rightStick.WriteValueIntoEvent(new Vector2(
+                        float.IsNaN(rightX) ? right.x : Mathf.Clamp(rightX, -1f, 1f),
+                        float.IsNaN(rightY) ? right.y : Mathf.Clamp(rightY, -1f, 1f)), eventPtr);
+                }
 
-            return state;
-        }
+                if (!float.IsNaN(leftTrigger))
+                    gamepad.leftTrigger.WriteValueIntoEvent(Mathf.Clamp01(leftTrigger), eventPtr);
 
-        private static GamepadState WithStick(GamepadState state, float leftX, float leftY, float rightX, float rightY, float leftTrigger, float rightTrigger)
-        {
-            state.leftStick = new Vector2(
-                float.IsNaN(leftX) ? state.leftStick.x : Mathf.Clamp(leftX, -1f, 1f),
-                float.IsNaN(leftY) ? state.leftStick.y : Mathf.Clamp(leftY, -1f, 1f));
-
-            state.rightStick = new Vector2(
-                float.IsNaN(rightX) ? state.rightStick.x : Mathf.Clamp(rightX, -1f, 1f),
-                float.IsNaN(rightY) ? state.rightStick.y : Mathf.Clamp(rightY, -1f, 1f));
-
-            if (!float.IsNaN(leftTrigger))
-                state.leftTrigger = Mathf.Clamp01(leftTrigger);
-
-            if (!float.IsNaN(rightTrigger))
-                state.rightTrigger = Mathf.Clamp01(rightTrigger);
-
-            return state;
+                if (!float.IsNaN(rightTrigger))
+                    gamepad.rightTrigger.WriteValueIntoEvent(Mathf.Clamp01(rightTrigger), eventPtr);
+            });
         }
 
         // GamepadButton already aliases the vendor names (A/B/X/Y, Cross/Circle/Square/Triangle) onto
@@ -397,14 +383,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (wanted.Length == 0 || char.IsDigit(wanted[0]) || wanted[0] == '-')
                 return null;
 
-            if (!Enum.TryParse<GamepadButton>(wanted, true, out var parsed))
-                return null;
-
-            // LeftTrigger and RightTrigger are 32 and 33, deliberately outside GamepadState's 32-bit
-            // button mask. WithButton shifts by the member's value, and C# masks a shift count to five
-            // bits, so those two would set bit 0 and bit 1 - DpadUp and DpadDown - and trip Unity's own
-            // "Expected button < 32" assertion on the way. They are analog: use left_trigger/right_trigger.
-            return (int)parsed < 32 ? parsed : (GamepadButton?)null;
+            return Enum.TryParse<GamepadButton>(wanted, true, out var parsed) ? parsed : (GamepadButton?)null;
         }
 
         // EditorApplication.update is the only tick a tool can schedule against while Play Mode runs,
