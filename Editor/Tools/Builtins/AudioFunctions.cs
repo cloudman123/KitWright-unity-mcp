@@ -31,7 +31,13 @@ namespace KitWright.Editor.Tools.Builtins
             var go = ObjectsHelper.FindTarget(target);
             if (go == null) return ObjectsHelper.NotFound("target", target);
 
-            var src = go.GetComponent<AudioSource>() ?? Undo.AddComponent<AudioSource>(go);
+            // `== null`, never `??`: in the editor GetComponent hands back a stub for a missing
+            // component so that dereferencing it reports "there is no X attached" instead of a bare
+            // NullReferenceException. Unity's == operator calls that stub null; ?? compares references
+            // and does not, so the component was never added and the first write below threw.
+            var src = go.GetComponent<AudioSource>();
+            if (src == null)
+                src = Undo.AddComponent<AudioSource>(go);
             Undo.RecordObject(src, "Configure AudioSource");
 
             if (clip != null)

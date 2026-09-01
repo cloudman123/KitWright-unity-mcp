@@ -289,8 +289,42 @@ namespace KitWright.Editor.Tools.Builtins
         [ReadOnlyTool]
         public static object GetSortingLayers()
         {
-            var layers = SortingLayer.layers.Select(l => new { name = l.name, id = l.id, value = l.value }).ToArray();
-            return Response.Success($"{layers.Length} sorting layer(s).", layers);
+            // Read from TagManager, not from SortingLayer.layers. That property is a native cache which
+            // a SerializedObject write does not refresh, so a layer add_sorting_layer had just written
+            // was missing from this list for the rest of the session - and the duplicate check below
+            // read the same stale cache, so adding the name again passed and wrote it twice.
+            var layers = new List<object>();
+            var layersProp = SortingLayersProperty(out _);
+            for (int i = 0; i < layersProp.arraySize; i++)
+            {
+                var element = layersProp.GetArrayElementAtIndex(i);
+                layers.Add(new
+                {
+                    name = element.FindPropertyRelative("name").stringValue,
+                    id = element.FindPropertyRelative("uniqueID").intValue,
+                    value = i
+                });
+            }
+
+            return Response.Success($"{layers.Count} sorting layer(s).", layers);
+        }
+
+        private static SerializedProperty SortingLayersProperty(out SerializedObject tagManager)
+        {
+            tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            return tagManager.FindProperty("m_SortingLayers");
+        }
+
+        private static bool HasSortingLayer(string name)
+        {
+            var layersProp = SortingLayersProperty(out _);
+            for (int i = 0; i < layersProp.arraySize; i++)
+            {
+                if (layersProp.GetArrayElementAtIndex(i).FindPropertyRelative("name").stringValue == name)
+                    return true;
+            }
+
+            return false;
         }
 
         [Description("Add a new sorting layer (used to order 2D sprites/renderers). Errors if the name already exists.")]
@@ -299,19 +333,27 @@ namespace KitWright.Editor.Tools.Builtins
         {
             if (string.IsNullOrWhiteSpace(name))
                 return Response.Error("INVALID_NAME", new { message = "Sorting layer name cannot be empty." });
-            if (SortingLayer.layers.Any(l => l.name == name))
+            if (HasSortingLayer(name))
                 return Response.Error("SORTING_LAYER_EXISTS", new { name });
 
-            var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
-            var layersProp = tagManager.FindProperty("m_SortingLayers");
+            var layersProp = SortingLayersProperty(out var tagManager);
             int idx = layersProp.arraySize;
             layersProp.InsertArrayElementAtIndex(idx);
             var element = layersProp.GetArrayElementAtIndex(idx);
             element.FindPropertyRelative("name").stringValue = name;
             element.FindPropertyRelative("uniqueID").intValue = name.GetHashCode();
             tagManager.ApplyModifiedProperties();
+            FlushSortingLayers();
 
             return Response.Success($"Added sorting layer '{name}'.", new { name, index = idx });
+        }
+
+        // ApplyModifiedProperties marks the settings object dirty; nothing writes it out until Unity
+        // decides to, and a batch run that never saves loses the change. The same flush the settings
+        // writer does.
+        private static void FlushSortingLayers()
+        {
+            AssetDatabase.SaveAssets();
         }
 
         [Description("Rename an existing sorting layer. The built-in 'Default' layer cannot be renamed.")]
@@ -333,6 +375,7 @@ namespace KitWright.Editor.Tools.Builtins
                 {
                     nameProp.stringValue = new_name;
                     tagManager.ApplyModifiedProperties();
+                    FlushSortingLayers();
                     return Response.Success($"Renamed sorting layer '{old_name}' to '{new_name}'.");
                 }
             }
@@ -354,6 +397,7 @@ namespace KitWright.Editor.Tools.Builtins
                 {
                     layersProp.DeleteArrayElementAtIndex(i);
                     tagManager.ApplyModifiedProperties();
+                    FlushSortingLayers();
                     return Response.Success($"Removed sorting layer '{name}'.");
                 }
             }

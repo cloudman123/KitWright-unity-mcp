@@ -69,7 +69,11 @@ namespace KitWright.Editor.Tools.Builtins
             var go = ObjectsHelper.FindTarget(target);
             if (go == null) return ObjectsHelper.NotFound("target", target);
 
-            var agent = go.GetComponent<NavMeshAgent>() ?? Undo.AddComponent<NavMeshAgent>(go);
+            // `== null`, not `??`: a missing component comes back from GetComponent as a stub that
+            // Unity's == calls null and reference comparison does not, so ?? never added it.
+            var agent = go.GetComponent<NavMeshAgent>();
+            if (agent == null)
+                agent = Undo.AddComponent<NavMeshAgent>(go);
             agent.speed = speed;
             agent.radius = radius;
             agent.height = height;
@@ -86,7 +90,9 @@ namespace KitWright.Editor.Tools.Builtins
             var go = ObjectsHelper.FindTarget(target);
             if (go == null) return ObjectsHelper.NotFound("target", target);
 
-            var obstacle = go.GetComponent<NavMeshObstacle>() ?? Undo.AddComponent<NavMeshObstacle>(go);
+            var obstacle = go.GetComponent<NavMeshObstacle>();
+            if (obstacle == null)
+                obstacle = Undo.AddComponent<NavMeshObstacle>(go);
             obstacle.carving = carving;
             EditorUtility.SetDirty(obstacle);
 

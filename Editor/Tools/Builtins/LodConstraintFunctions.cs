@@ -25,7 +25,11 @@ namespace KitWright.Editor.Tools.Builtins
             if (go == null) return ObjectsHelper.NotFound("target", target);
 
             levels = Mathf.Clamp(levels, 1, 8);
-            var group = go.GetComponent<LODGroup>() ?? Undo.AddComponent<LODGroup>(go);
+            // `== null`, not `??`: a missing component comes back from GetComponent as a stub that
+            // Unity's == calls null and reference comparison does not, so ?? never added it.
+            var group = go.GetComponent<LODGroup>();
+            if (group == null)
+                group = Undo.AddComponent<LODGroup>(go);
             Undo.RecordObject(group, "Configure LODGroup");
 
             var renderers = go.GetComponentsInChildren<Renderer>(true);

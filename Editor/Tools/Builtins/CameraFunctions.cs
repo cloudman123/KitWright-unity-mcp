@@ -51,9 +51,16 @@ namespace KitWright.Editor.Tools.Builtins
             if (camera == null)
                 return ToolResultFormatter.Error("CAMERA_NOT_FOUND", new { game_object_name });
 
-            Undo.RecordObject(camera, "Set Camera Projection");
+            // Anything that was not "ortho..." used to mean perspective, so a typo or a third value
+            // silently switched the camera to the projection the caller did not ask for.
+            var normalized = (projection ?? string.Empty).ToLowerInvariant();
+            bool ortho = normalized.StartsWith("ortho");
+            if (!ortho && !normalized.StartsWith("persp"))
+                return ToolResultFormatter.Error("INVALID_PARAM",
+                    new { param = "projection", provided = projection },
+                    "Expected 'orthographic' or 'perspective'.");
 
-            bool ortho = projection.ToLowerInvariant().StartsWith("ortho");
+            Undo.RecordObject(camera, "Set Camera Projection");
             camera.orthographic = ortho;
 
             if (size > 0f)

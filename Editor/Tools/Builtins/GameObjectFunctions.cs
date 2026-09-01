@@ -333,19 +333,22 @@ namespace KitWright.Editor.Tools.Builtins
         }
 
         [Description("Activate or deactivate a GameObject.")]
+        // `active` is a bool rather than a string parsed here: the hand-rolled `active == "true"` read
+        // anything else - "True", "yes", a typo - as false, deactivated the object and reported
+        // success. The invoker's own conversion takes true/false/1/0/yes/no and answers INVALID_PARAM
+        // for the rest, which is the difference between a wrong write and a refusal.
         public static object SetActive(
             [ToolParam("Identifier of the GameObject")] string target,
-            [ToolParam("true to activate, false to deactivate")] string active,
+            [ToolParam("true to activate, false to deactivate")] bool active,
             [ToolParam("How to resolve target", Required = false)] string find_method = null)
         {
             var go = ObjectsHelper.FindObject(target, find_method);
             if (go == null)
                 return ObjectsHelper.NotFound("target", target, find_method);
 
-            bool isActive = active == "true" || active == "1";
             Undo.RecordObject(go, $"Set active {go.name}");
-            go.SetActive(isActive);
-            return Response.Success($"Set '{go.name}' active = {isActive}.",
+            go.SetActive(active);
+            return Response.Success($"Set '{go.name}' active = {active}.",
                 new { instanceId = ObjectIdCodec.GetSerializableId(go), activeSelf = go.activeSelf });
         }
 
