@@ -156,12 +156,20 @@ namespace KitWright.Editor.Tools.Scripting
                 return true;
             }
 
-            // A verbatim string escapes its quote by doubling it; every other form uses a backslash.
-            var verbatim = c == '@' || (c == '$' && i + 1 < source.Length && source[i + 1] == '@');
-            var quoteOffset = c == '"' ? 0 : c == '$' && i + 1 < source.Length && source[i + 1] == '"' ? 1 : verbatim ? (c == '@' ? 1 : 2) : -1;
-            if (quoteOffset < 0 || i + quoteOffset >= source.Length || source[i + quoteOffset] != '"') return false;
+            // Eat any run of the $ and @ prefixes so every spelling -- "", $"", @"", $@"" and @$"" --
+            // arrives at the same place. A verbatim string escapes its quote by doubling it; every
+            // other form uses a backslash.
+            var start = i;
+            var verbatim = false;
+            while (start < source.Length && (source[start] == '@' || source[start] == '$'))
+            {
+                verbatim |= source[start] == '@';
+                start++;
+            }
 
-            i += quoteOffset + 1;
+            if (start >= source.Length || source[start] != '"') return false;
+
+            i = start + 1;
             while (i < source.Length)
             {
                 if (verbatim)

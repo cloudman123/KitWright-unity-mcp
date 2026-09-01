@@ -26,8 +26,8 @@ namespace KitWright.Editor.Tools.Scripting
         /// </summary>
         public static readonly TimeSpan DefaultBudget = TimeSpan.FromSeconds(20);
 
-        // Reading the clock on every iteration would dominate a tight loop; a power-of-two stride
-        // keeps the common path to an increment and a mask.
+        // Reading the clock on every iteration would dominate a tight loop, so most iterations cost
+        // one increment and one compare instead.
         private const int CheckStride = 256;
 
         private static long _deadlineTimestamp;
@@ -44,7 +44,6 @@ namespace KitWright.Editor.Tools.Scripting
         internal static void End()
         {
             _deadlineTimestamp = 0;
-            _sinceLastCheck = 0;
         }
 
         /// <summary>

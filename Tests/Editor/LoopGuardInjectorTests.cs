@@ -63,6 +63,15 @@ namespace KitWright.Editor.Tests
             Assert.AreEqual(source, Inject(source));
         }
 
+        // @$"" is as legal as $@"" and the scanner used to read only the latter, so the @$"" case
+        // fell through as "not a string" and the keyword inside it was rewritten as code.
+        [Test]
+        public void IgnoresKeywordsInsideEveryInterpolatedVerbatimSpelling()
+        {
+            const string source = "var a = $@\"while (x)\"; var b = @$\"for (;;)\"; var c = $\"while (y)\";";
+            Assert.AreEqual(source, Inject(source));
+        }
+
         [Test]
         public void IgnoresIdentifiersThatMerelyStartWithAKeyword()
         {
