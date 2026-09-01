@@ -276,18 +276,28 @@ namespace KitWright.Editor.MCP.Server
             };
         }
 
-        private const string ImageDataUriPrefix = "data:image/png;base64,";
+        private const string ImageDataUriPrefix = "data:image/";
+        private const string Base64Marker = ";base64,";
 
         private List<Dictionary<string, object>> BuildContentFromResult(string result)
         {
             var content = new List<Dictionary<string, object>>();
 
-            if (result != null && result.StartsWith(ImageDataUriPrefix))
+            // Any base64 image, not only PNG: a screenshot that crossed a wire arrives JPEG-encoded
+            // because a downscaled PNG is still an order of magnitude larger, and pinning the prefix to
+            // one format silently turned those into half a megabyte of base64 text in the transcript.
+            var marker = result != null && result.StartsWith(ImageDataUriPrefix, StringComparison.Ordinal)
+                ? result.IndexOf(Base64Marker, StringComparison.Ordinal)
+                : -1;
+
+            if (marker > 0)
             {
-                var base64Data = result.Substring(ImageDataUriPrefix.Length);
+                var base64Data = result.Substring(marker + Base64Marker.Length);
                 content.Add(new Dictionary<string, object>
                 {
-                    ["type"] = "image", ["data"] = base64Data, ["mimeType"] = "image/png"
+                    ["type"] = "image",
+                    ["data"] = base64Data,
+                    ["mimeType"] = result.Substring("data:".Length, marker - "data:".Length)
                 });
                 content.Add(new Dictionary<string, object>
                 {

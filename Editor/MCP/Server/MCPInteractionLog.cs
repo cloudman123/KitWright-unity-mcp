@@ -27,7 +27,8 @@ namespace KitWright.Editor.MCP.Server
 
     internal class MCPInteractionLog
     {
-        private const string ImageDataUriPrefix = "data:image/png;base64,";
+        private const string ImageDataUriPrefix = "data:image/";
+        private const string Base64Marker = ";base64,";
 
         private const string SessionStateKey = "KitWright.MCP.InteractionLog";
         private static readonly string ImageDir =
@@ -86,7 +87,7 @@ namespace KitWright.Editor.MCP.Server
 
         public void Add(string toolName, MCPToolCallStatus status, string resultSummary)
         {
-            var isImage = resultSummary != null && resultSummary.StartsWith(ImageDataUriPrefix, StringComparison.Ordinal);
+            var isImage = Base64Of(resultSummary) != null;
             var imageFilePath = isImage
                 ? SaveImageToDisk(resultSummary)
                 : TryExtractScreenshotPath(resultSummary);
@@ -150,7 +151,10 @@ namespace KitWright.Editor.MCP.Server
         {
             try
             {
-                var base64 = dataUri.Substring(ImageDataUriPrefix.Length);
+                var base64 = Base64Of(dataUri);
+                if (base64 == null)
+                    return 1000;
+
                 var header = Convert.FromBase64String(base64.Substring(0, Math.Min(base64.Length, 64)));
                 if (header.Length < 24) return 1000;
                 int w = (header[16] << 24) | (header[17] << 16) | (header[18] << 8) | header[19];
@@ -219,13 +223,43 @@ namespace KitWright.Editor.MCP.Server
             }
         }
 
+        // Any base64 image, not only PNG. A screenshot taken across a wire arrives JPEG-encoded, and a
+        // png-only prefix logged those as their own base64 payload — a megabyte of text per entry, with
+        // no thumbnail and a token estimate off by a factor of fifty.
+        private static string Base64Of(string dataUri)
+        {
+            if (dataUri == null || !dataUri.StartsWith(ImageDataUriPrefix, StringComparison.Ordinal))
+                return null;
+
+            var marker = dataUri.IndexOf(Base64Marker, StringComparison.Ordinal);
+            return marker > 0 ? dataUri.Substring(marker + Base64Marker.Length) : null;
+        }
+
+        private static string ExtensionOf(string dataUri)
+        {
+            var marker = dataUri.IndexOf(Base64Marker, StringComparison.Ordinal);
+            var format = dataUri.Substring(ImageDataUriPrefix.Length, marker - ImageDataUriPrefix.Length);
+
+            if (format == "jpeg")
+                return "jpg";
+
+            // A subtype like "svg+xml" is not a filename; anything unexpected keeps the old extension.
+            foreach (var character in format)
+            {
+                if (!char.IsLetterOrDigit(character))
+                    return "png";
+            }
+
+            return format;
+        }
+
         private static string SaveImageToDisk(string dataUri)
         {
             try
             {
-                var bytes = Convert.FromBase64String(dataUri.Substring(ImageDataUriPrefix.Length));
+                var bytes = Convert.FromBase64String(Base64Of(dataUri));
                 Directory.CreateDirectory(ImageDir);
-                var path = Path.Combine(ImageDir, $"shot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+                var path = Path.Combine(ImageDir, $"shot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.{ExtensionOf(dataUri)}");
                 File.WriteAllBytes(path, bytes);
                 return path;
             }
