@@ -17,7 +17,7 @@ namespace KitWright.Editor.Tests
         [Description("Test-only probe verifying that project-declared tools are discovered and exposed.")]
         [ReadOnlyTool]
         public static object CustomToolExposureProbe(
-            [ToolParam("Ignored")] string value = null) => value;
+            [ToolParam("Ignored", Required = false)] string value = null) => value;
     }
 
     public sealed class MCPToolExporterTests

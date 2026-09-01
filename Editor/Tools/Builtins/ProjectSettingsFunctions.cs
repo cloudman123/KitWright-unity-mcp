@@ -37,7 +37,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("Optional settings singleton to dump in full: 'PhysicsManager', 'Physics2DSettings', 'QualitySettings', " +
                        "'GraphicsSettings', 'TimeManager', 'AudioManager', 'InputManager', 'TagManager', 'PlayerSettings', " +
                        "'MonoManager' (script execution order), 'NavMeshProjectSettings', 'EditorSettings', 'VFXManager', " +
-                       "'MemorySettings'. Omit for the flat summary.")] string singleton = null)
+                       "'MemorySettings'. Omit for the flat summary.", Required = false)] string singleton = null)
         {
             if (!string.IsNullOrWhiteSpace(singleton))
                 return DumpSettingsSingleton(singleton);
