@@ -154,10 +154,13 @@ namespace KitWright.Editor.Tests
             "search_manual",
             "select_object",
             "show_dialog",
+            "simulate_gamepad",
             "simulate_key_combo",
             "simulate_key_press",
             "simulate_mouse_click",
             "simulate_mouse_drag",
+            "simulate_touch",
+            "simulate_touch_drag",
             "validate_script",
             "wait_for_compilation"
         };
@@ -250,9 +253,10 @@ namespace KitWright.Editor.Tests
             foreach (var name in MCPToolExportPolicy.DefaultMinimalTools.Concat(MCPToolExportPolicy.DefaultCoreTools))
             {
 #if !KITWRIGHT_INPUTSYSTEM
-                // These three live in KitWright.Editor.InputSystem, which is excluded from the
-                // build without the Input System package.
-                if (name == "simulate_key_press" || name == "simulate_key_combo" || name == "simulate_mouse_drag")
+                // These live in KitWright.Editor.InputSystem, which is excluded from the build
+                // without the Input System package.
+                if (name == "simulate_key_press" || name == "simulate_key_combo" || name == "simulate_mouse_drag" ||
+                    name == "simulate_touch" || name == "simulate_touch_drag" || name == "simulate_gamepad")
                     continue;
 #endif
                 Assert.IsNotNull(ToolRegistry.GetMethod(name), $"Curated profile tool '{name}' is not registered.");

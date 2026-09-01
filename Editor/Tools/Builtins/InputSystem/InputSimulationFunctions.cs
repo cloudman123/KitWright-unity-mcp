@@ -163,6 +163,284 @@ namespace KitWright.Editor.Tools.Builtins
             }
         }
 
+        [Description("Simulate a touch on the screen in Play Mode: tap, press and hold, or release. Drives the Input System's Touchscreen device, which is what a mobile build reads — simulate_mouse_click drives uGUI directly and produces no touch input, so code reading Touch.activeTouches or a touch-bound InputAction never sees it.")]
+        [ReadOnlyTool]
+        public static string SimulateTouch(
+            [ToolParam("Screen X coordinate in pixels from the left edge")] int x,
+            [ToolParam("Screen Y coordinate in pixels from the bottom edge")] int y,
+            [ToolParam("Action type: tap, press, or release", Required = false)] string action = "tap",
+            [ToolParam("Seconds to hold a tap down. 0 uses a 50 ms tap, short but long enough to be observed.", Required = false)] float duration = 0f,
+            [ToolParam("Touch id. Pass a second id to hold two fingers at once, for a pinch.", Required = false)] int touch_id = 1)
+        {
+            if (!EditorApplication.isPlaying)
+                return ToolResultFormatter.ErrorMessage("PLAY_MODE_REQUIRED", "SimulateTouch only works in Play Mode.");
+
+            try
+            {
+                var touchscreen = EnsureDevice<Touchscreen>();
+                if (touchscreen == null)
+                    return ToolResultFormatter.ErrorMessage("INPUT_DEVICE_NOT_FOUND", "No touchscreen device found in Input System");
+
+                var position = new Vector2(x, y);
+
+                switch ((action ?? "tap").Trim().ToLowerInvariant())
+                {
+                    case "press":
+                        QueueTouch(touchscreen, touch_id, UnityEngine.InputSystem.TouchPhase.Began, position);
+                        return $"Touch {touch_id} began at ({x},{y}) and is still down";
+
+                    case "release":
+                        QueueTouch(touchscreen, touch_id, UnityEngine.InputSystem.TouchPhase.Ended, position);
+                        return $"Touch {touch_id} ended at ({x},{y})";
+
+                    default:
+                        var hold = Mathf.Clamp(duration <= 0f ? 0.05f : duration, 0.05f, 5f);
+                        QueueTouch(touchscreen, touch_id, UnityEngine.InputSystem.TouchPhase.Began, position);
+                        ReleaseAfter(hold, () =>
+                        {
+                            var device = Touchscreen.current;
+                            if (device != null)
+                                QueueTouch(device, touch_id, UnityEngine.InputSystem.TouchPhase.Ended, position);
+                        });
+                        return $"Touch {touch_id} tapped at ({x},{y}) for {hold:F2}s";
+                }
+            }
+            catch (Exception ex)
+            {
+                return ToolResultFormatter.Exception(ex);
+            }
+        }
+
+        [Description("Simulate a swipe or drag on the screen in Play Mode, as one finger moving from a start point to an end point. Drives the Input System's Touchscreen device — use this rather than simulate_mouse_drag when the code under test reads touch.")]
+        [ReadOnlyTool]
+        public static string SimulateTouchDrag(
+            [ToolParam("Start X coordinate in pixels")] int start_x,
+            [ToolParam("Start Y coordinate in pixels")] int start_y,
+            [ToolParam("End X coordinate in pixels")] int end_x,
+            [ToolParam("End Y coordinate in pixels")] int end_y,
+            [ToolParam("Duration of the swipe in seconds", Required = false)] float duration = 0.5f,
+            [ToolParam("Touch id", Required = false)] int touch_id = 1)
+        {
+            if (!EditorApplication.isPlaying)
+                return ToolResultFormatter.ErrorMessage("PLAY_MODE_REQUIRED", "SimulateTouchDrag only works in Play Mode.");
+
+            try
+            {
+                var touchscreen = EnsureDevice<Touchscreen>();
+                if (touchscreen == null)
+                    return ToolResultFormatter.ErrorMessage("INPUT_DEVICE_NOT_FOUND", "No touchscreen device found in Input System");
+
+                duration = Mathf.Clamp(duration, 0.1f, 3f);
+                var steps = Mathf.Max(5, Mathf.RoundToInt(duration * 30));
+
+                QueueTouch(touchscreen, touch_id, UnityEngine.InputSystem.TouchPhase.Began, new Vector2(start_x, start_y));
+
+                for (var i = 1; i < steps; i++)
+                {
+                    var t = (float)i / steps;
+                    QueueTouch(touchscreen, touch_id, UnityEngine.InputSystem.TouchPhase.Moved,
+                        new Vector2(Mathf.Lerp(start_x, end_x, t), Mathf.Lerp(start_y, end_y, t)));
+                }
+
+                QueueTouch(touchscreen, touch_id, UnityEngine.InputSystem.TouchPhase.Ended, new Vector2(end_x, end_y));
+
+                // Every phase is queued inside this one call, so the whole swipe lands in a single
+                // frame: 'duration' sizes the path, it does not spread the swipe over wall-clock time.
+                return $"Touch {touch_id} swiped from ({start_x},{start_y}) to ({end_x},{end_y}) ({steps} steps queued in one frame)";
+            }
+            catch (Exception ex)
+            {
+                return ToolResultFormatter.Exception(ex);
+            }
+        }
+
+        [Description("Simulate a gamepad in Play Mode: press or hold a button, and move the sticks and triggers. Anything left unspecified keeps the value the virtual gamepad already holds, so moving a stick does not release a held button.")]
+        [ReadOnlyTool]
+        public static string SimulateGamepad(
+            [ToolParam("Button name: south/a, east/b, west/x, north/y, start, select, left_shoulder, right_shoulder, dpad_up, dpad_down, dpad_left, dpad_right, left_stick, right_stick. Omit to only move sticks. The triggers are analog: use left_trigger/right_trigger.", Required = false)] string button = null,
+            [ToolParam("Action for the button: tap, press, or release", Required = false)] string action = "tap",
+            [ToolParam("Seconds to hold a tapped button. 0 uses a 50 ms tap.", Required = false)] float duration = 0f,
+            [ToolParam("Left stick X, -1 to 1. Omit to leave it where it is.", Required = false)] float left_stick_x = float.NaN,
+            [ToolParam("Left stick Y, -1 to 1. Omit to leave it where it is.", Required = false)] float left_stick_y = float.NaN,
+            [ToolParam("Right stick X, -1 to 1. Omit to leave it where it is.", Required = false)] float right_stick_x = float.NaN,
+            [ToolParam("Right stick Y, -1 to 1. Omit to leave it where it is.", Required = false)] float right_stick_y = float.NaN,
+            [ToolParam("Left trigger, 0 to 1. Omit to leave it where it is.", Required = false)] float left_trigger = float.NaN,
+            [ToolParam("Right trigger, 0 to 1. Omit to leave it where it is.", Required = false)] float right_trigger = float.NaN)
+        {
+            if (!EditorApplication.isPlaying)
+                return ToolResultFormatter.ErrorMessage("PLAY_MODE_REQUIRED", "SimulateGamepad only works in Play Mode.");
+
+            try
+            {
+                var gamepad = EnsureDevice<Gamepad>();
+                if (gamepad == null)
+                    return ToolResultFormatter.ErrorMessage("INPUT_DEVICE_NOT_FOUND", "No gamepad device found in Input System");
+
+                GamepadButton? target = null;
+                if (!string.IsNullOrWhiteSpace(button))
+                {
+                    target = FindGamepadButton(button);
+                    if (target == null)
+                        return ToolResultFormatter.ErrorMessage("BUTTON_NOT_RECOGNIZED",
+                            $"Gamepad button '{button}' not recognized. Examples: south, east, start, dpad_up, left_shoulder.");
+                }
+
+                var state = ReadState(gamepad);
+                state = WithStick(state, left_stick_x, left_stick_y, right_stick_x, right_stick_y, left_trigger, right_trigger);
+
+                var verb = (action ?? "tap").Trim().ToLowerInvariant();
+                var pressed = verb != "release";
+
+                if (target != null)
+                    state = state.WithButton(target.Value, pressed);
+
+                InputSystem.QueueStateEvent(gamepad, state);
+                InputSystem.Update();
+
+                if (target == null)
+                    return $"Gamepad sticks updated (left {state.leftStick}, right {state.rightStick})";
+
+                if (verb == "press")
+                    return $"Gamepad button '{button}' pressed (held down)";
+
+                if (verb == "release")
+                    return $"Gamepad button '{button}' released";
+
+                var holdFor = Mathf.Clamp(duration <= 0f ? 0.05f : duration, 0.05f, 5f);
+                var buttonToRelease = target.Value;
+                ReleaseAfter(holdFor, () =>
+                {
+                    var device = Gamepad.current;
+                    if (device == null)
+                        return;
+
+                    InputSystem.QueueStateEvent(device, ReadState(device).WithButton(buttonToRelease, false));
+                    InputSystem.Update();
+                });
+
+                return $"Gamepad button '{button}' tapped for {holdFor:F2}s";
+            }
+            catch (Exception ex)
+            {
+                return ToolResultFormatter.Exception(ex);
+            }
+        }
+
+        private static void QueueTouch(Touchscreen touchscreen, int touchId, UnityEngine.InputSystem.TouchPhase phase, Vector2 position)
+        {
+            // A touch id of 0 is "no touch" to the Input System, so a caller passing 0 would queue
+            // events the Touchscreen device drops on the floor.
+            InputSystem.QueueStateEvent(touchscreen, new TouchState
+            {
+                touchId = touchId <= 0 ? 1 : touchId,
+                phase = phase,
+                position = position
+            });
+
+            InputSystem.Update();
+        }
+
+        // Gamepad state events carry the WHOLE device state, so a partial update has to start from
+        // what the device currently reads or it silently zeroes every control it does not mention.
+        private static GamepadState ReadState(Gamepad gamepad)
+        {
+            var state = new GamepadState
+            {
+                leftStick = gamepad.leftStick.ReadValue(),
+                rightStick = gamepad.rightStick.ReadValue(),
+                leftTrigger = gamepad.leftTrigger.ReadValue(),
+                rightTrigger = gamepad.rightTrigger.ReadValue()
+            };
+
+            foreach (GamepadButton value in Enum.GetValues(typeof(GamepadButton)))
+            {
+                // 32 and 33 are the triggers, which live in the analog fields copied above and not in
+                // the bitmask; passing them to WithButton would fold them onto DpadUp and DpadDown.
+                if ((int)value >= 32)
+                    continue;
+
+                if (gamepad[value].isPressed)
+                    state = state.WithButton(value, true);
+            }
+
+            return state;
+        }
+
+        private static GamepadState WithStick(GamepadState state, float leftX, float leftY, float rightX, float rightY, float leftTrigger, float rightTrigger)
+        {
+            state.leftStick = new Vector2(
+                float.IsNaN(leftX) ? state.leftStick.x : Mathf.Clamp(leftX, -1f, 1f),
+                float.IsNaN(leftY) ? state.leftStick.y : Mathf.Clamp(leftY, -1f, 1f));
+
+            state.rightStick = new Vector2(
+                float.IsNaN(rightX) ? state.rightStick.x : Mathf.Clamp(rightX, -1f, 1f),
+                float.IsNaN(rightY) ? state.rightStick.y : Mathf.Clamp(rightY, -1f, 1f));
+
+            if (!float.IsNaN(leftTrigger))
+                state.leftTrigger = Mathf.Clamp01(leftTrigger);
+
+            if (!float.IsNaN(rightTrigger))
+                state.rightTrigger = Mathf.Clamp01(rightTrigger);
+
+            return state;
+        }
+
+        // GamepadButton already aliases the vendor names (A/B/X/Y, Cross/Circle/Square/Triangle) onto
+        // South/East/West/North, so parsing the enum covers them without a mapping table of our own
+        // that could contradict Unity's.
+        internal static GamepadButton? FindGamepadButton(string name)
+        {
+            var wanted = (name ?? string.Empty).Replace("_", string.Empty).Replace(" ", string.Empty).Trim();
+
+            // Enum.TryParse accepts an ordinal, so "3" would resolve to whichever button happens to
+            // sit at 3 and the caller would never learn its name was not understood.
+            if (wanted.Length == 0 || char.IsDigit(wanted[0]) || wanted[0] == '-')
+                return null;
+
+            if (!Enum.TryParse<GamepadButton>(wanted, true, out var parsed))
+                return null;
+
+            // LeftTrigger and RightTrigger are 32 and 33, deliberately outside GamepadState's 32-bit
+            // button mask. WithButton shifts by the member's value, and C# masks a shift count to five
+            // bits, so those two would set bit 0 and bit 1 - DpadUp and DpadDown - and trip Unity's own
+            // "Expected button < 32" assertion on the way. They are analog: use left_trigger/right_trigger.
+            return (int)parsed < 32 ? parsed : (GamepadButton?)null;
+        }
+
+        // EditorApplication.update is the only tick a tool can schedule against while Play Mode runs,
+        // so a hold-then-release is a deadline on that loop rather than a coroutine.
+        private static void ReleaseAfter(float seconds, Action release)
+        {
+            var deadline = EditorApplication.timeSinceStartup + seconds;
+            EditorApplication.CallbackFunction callback = null;
+            callback = () =>
+            {
+                if (EditorApplication.timeSinceStartup < deadline)
+                    return;
+
+                EditorApplication.update -= callback;
+                release();
+            };
+
+            EditorApplication.update += callback;
+        }
+
+        private static TDevice EnsureDevice<TDevice>() where TDevice : InputDevice
+        {
+            try
+            {
+                var existing = InputSystem.GetDevice<TDevice>();
+                if (existing != null)
+                    return existing;
+
+                return InputSystem.AddDevice<TDevice>();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private static string TapKey(Keyboard keyboard, KeyControl keyControl, string key, float duration)
         {
             if (duration <= 0f)
