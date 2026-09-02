@@ -399,6 +399,73 @@ namespace KitWright.Editor.Tests
         }
 
         [Test]
+        public void FindObjectsByTypeUnsorted_PreservesInactiveFilter()
+        {
+            var suffix = Guid.NewGuid().ToString("N");
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject activeObj = null;
+            GameObject inactiveObj = null;
+
+            try
+            {
+                activeObj = new GameObject("CompatActive_" + suffix);
+                inactiveObj = new GameObject("CompatInactive_" + suffix);
+                inactiveObj.SetActive(false);
+
+                var included = ObjectsHelper.FindObjectsByTypeUnsorted<Transform>(FindObjectsInactive.Include);
+                var excluded = ObjectsHelper.FindObjectsByTypeUnsorted<Transform>(FindObjectsInactive.Exclude);
+
+                Assert.IsTrue(Array.Exists(included, item => item == activeObj.transform));
+                Assert.IsTrue(Array.Exists(included, item => item == inactiveObj.transform));
+                Assert.IsTrue(Array.Exists(excluded, item => item == activeObj.transform));
+                Assert.IsFalse(Array.Exists(excluded, item => item == inactiveObj.transform));
+            }
+            finally
+            {
+                if (activeObj != null) UnityEngine.Object.DestroyImmediate(activeObj);
+                if (inactiveObj != null) UnityEngine.Object.DestroyImmediate(inactiveObj);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
+        public void SerializedObjectReferenceId_TracksAssignedReference()
+        {
+            var scene = SceneManager.GetActiveScene();
+            var wasDirty = scene.isDirty;
+            GameObject target = null;
+            Mesh mesh = null;
+
+            try
+            {
+                target = new GameObject("SerializedReferenceCompat_" + Guid.NewGuid().ToString("N"));
+                var filter = target.AddComponent<MeshFilter>();
+                mesh = new Mesh();
+                filter.sharedMesh = mesh;
+
+                using (var serializedObject = new SerializedObject(filter))
+                {
+                    var meshProperty = serializedObject.FindProperty("m_Mesh");
+                    Assert.IsNotNull(meshProperty);
+                    Assert.IsTrue(ObjectIdCodec.HasSerializedObjectReferenceId(meshProperty));
+
+                    meshProperty.objectReferenceValue = null;
+                    serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                    Assert.IsFalse(ObjectIdCodec.HasSerializedObjectReferenceId(meshProperty));
+                }
+            }
+            finally
+            {
+                if (target != null) UnityEngine.Object.DestroyImmediate(target);
+                if (mesh != null) UnityEngine.Object.DestroyImmediate(mesh);
+                if (!wasDirty && scene.IsValid())
+                    ClearSceneDirtiness(scene);
+            }
+        }
+
+        [Test]
         public void GetHierarchy_ExcludeInactive_DoesNotShowInactiveObjects()
         {
             var suffix = Guid.NewGuid().ToString("N");

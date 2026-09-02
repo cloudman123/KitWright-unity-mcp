@@ -44,7 +44,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             return Response.Success($"Created terrain '{name}'.", new
             {
-                instanceId = go.GetInstanceID(),
+                instanceId = ObjectIdCodec.GetSerializableId(go),
                 name = go.name,
                 assetPath,
                 heightmapResolution = data.heightmapResolution,

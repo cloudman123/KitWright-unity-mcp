@@ -274,11 +274,11 @@ namespace KitWright.Editor.Tools.Builtins
         {
             var targetPath = AssetDatabase.GetAssetPath(targetAsset);
             var subAssets = AssetDatabase.LoadAllAssetsAtPath(targetPath);
-            var targetIds = new HashSet<int>();
+            var targetIds = new HashSet<string>();
             foreach (var sub in subAssets)
             {
                 if (sub != null)
-                    targetIds.Add(sub.GetInstanceID());
+                    targetIds.Add(ObjectIdCodec.GetSerializableId(sub));
             }
 
             for (int i = 0; i < SceneManager.sceneCount; i++)
@@ -307,7 +307,7 @@ namespace KitWright.Editor.Tools.Builtins
         }
 
         private static void ScanComponentForAssetRef(Component comp, string objectPath, string sceneName,
-            HashSet<int> targetIds, List<object> findings, int maxResults, ref bool truncated)
+            HashSet<string> targetIds, List<object> findings, int maxResults, ref bool truncated)
         {
             try
             {
@@ -318,7 +318,7 @@ namespace KitWright.Editor.Tools.Builtins
                     {
                         if (sp.propertyType != SerializedPropertyType.ObjectReference) continue;
                         var value = sp.objectReferenceValue;
-                        if (value == null || !targetIds.Contains(value.GetInstanceID())) continue;
+                        if (value == null || !targetIds.Contains(ObjectIdCodec.GetSerializableId(value))) continue;
 
                         if (!AddFinding(findings, maxResults, ref truncated,
                                 new { scene = sceneName, object_path = objectPath, component = comp.GetType().Name, field = sp.propertyPath }))
@@ -378,7 +378,7 @@ namespace KitWright.Editor.Tools.Builtins
                     {
                         if (sp.propertyType != SerializedPropertyType.ObjectReference)
                             continue;
-                        if (sp.objectReferenceInstanceIDValue != 0 && sp.objectReferenceValue == null)
+                        if (ObjectIdCodec.HasSerializedObjectReferenceId(sp) && sp.objectReferenceValue == null)
                         {
                             if (!AddFinding(findings, maxResults, ref truncated,
                                     new { object_path = objectPath, kind = "broken_reference", component = componentName, field = sp.propertyPath }))
