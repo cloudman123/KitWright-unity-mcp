@@ -127,16 +127,23 @@ jobs:
                   # com.unity.inputsystem is here for the same reason as the modules above: the input
                   # tools and their tests sit behind a versionDefine keyed to the package, so without
                   # it this job tested a surface ~20 tools smaller than any project that has it.
-                  # Pinned, not floating: the version decides which controls exist. 1.18.0 declares
-                  # unity 2022.3, so one entry covers both editors in the matrix.
+                  # Pinned, not floating: the version decides which controls exist. 1.18.0 is the
+                  # newest that still declares unity 2022.3 - and it goes in on the 6000 leg only:
+                  # with the package present, 2022.3.0f1 dies in batchmode before it writes a
+                  # results file (docker exit 133), while the very same commit runs 767 tests green
+                  # on 6000.0.75f1. The tools themselves are editor-version-agnostic, so one leg
+                  # gates them; the old leg keeps gating everything else.
                   # URP is deliberately absent. Since 2021.2 the SRP packages are editor-bundled -
                   # packages-lock reports source "builtin" and packages.unity.com serves nothing above
                   # 10.10.1 - so the version is whatever the editor image ships and any pinned one
                   # fails to resolve. The Volume tools' tests only run where URP is installed.
+                  INPUT_SYSTEM='"com.unity.inputsystem": "1.18.0",'
+                  if [ "${{ matrix.unityVersion }}" = "2022.3.0f1" ]; then INPUT_SYSTEM=''; fi
+
                   cat > UnityProject/Packages/manifest.json <<JSON
                   {
                       "dependencies": {
-                          "com.unity.inputsystem": "1.18.0",
+                          ${INPUT_SYSTEM}
                           "com.unity.modules.ai": "1.0.0",
                           "com.unity.modules.animation": "1.0.0",
                           "com.unity.modules.audio": "1.0.0",
