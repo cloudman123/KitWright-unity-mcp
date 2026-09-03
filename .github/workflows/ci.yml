@@ -123,9 +123,20 @@ jobs:
                   # 2D tools out and quietly tested a smaller tool surface than any real project
                   # has. Stripping them is the separate optional-modules job's job.
                   # testables makes the test runner pick up the package's tests.
+                  #
+                  # com.unity.inputsystem is here for the same reason as the modules above: the input
+                  # tools and their tests sit behind a versionDefine keyed to the package, so without
+                  # it this job tested a surface ~20 tools smaller than any project that has it.
+                  # Pinned, not floating: the version decides which controls exist. 1.18.0 declares
+                  # unity 2022.3, so one entry covers both editors in the matrix.
+                  # URP is deliberately absent. Since 2021.2 the SRP packages are editor-bundled -
+                  # packages-lock reports source "builtin" and packages.unity.com serves nothing above
+                  # 10.10.1 - so the version is whatever the editor image ships and any pinned one
+                  # fails to resolve. The Volume tools' tests only run where URP is installed.
                   cat > UnityProject/Packages/manifest.json <<JSON
                   {
                       "dependencies": {
+                          "com.unity.inputsystem": "1.18.0",
                           "com.unity.modules.ai": "1.0.0",
                           "com.unity.modules.animation": "1.0.0",
                           "com.unity.modules.audio": "1.0.0",
