@@ -1,10 +1,8 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
-using System.Collections.Generic;
-using KitWright.Editor.Tools;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using static KitWright.Editor.Tests.ToolCall;
 
 namespace KitWright.Editor.Tests
 {
@@ -42,30 +40,6 @@ namespace KitWright.Editor.Tests
             }
 
             subject = null;
-        }
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
-        }
-
-        private static JObject Ok(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsTrue((bool)answer["success"], $"{tool}: {answer}");
-            return answer;
-        }
-
-        private static JObject Refused(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsFalse((bool)answer["success"], $"{tool} should have refused: {answer}");
-            return answer;
         }
 
         [Test]

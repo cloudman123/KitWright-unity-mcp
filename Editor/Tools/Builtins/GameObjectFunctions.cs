@@ -314,8 +314,19 @@ namespace KitWright.Editor.Tools.Builtins
 
             if (!string.IsNullOrEmpty(tag))
             {
-                try { go.tag = tag; changes.Add($"tag={tag}"); }
-                catch (UnityException) { warnings.Add($"Tag '{tag}' is not defined; use add_tag first."); }
+                // Checked against the defined tags rather than caught: assigning an undefined tag
+                // raises UnityException on some versions and simply takes the string on others (6000.3
+                // does), so the catch reported nothing while the tag silently did not stick. The layer
+                // half below has always pre-checked, and this is the same warning in the same shape.
+                if (System.Array.IndexOf(UnityEditorInternal.InternalEditorUtility.tags, tag) >= 0)
+                {
+                    go.tag = tag;
+                    changes.Add($"tag={tag}");
+                }
+                else
+                {
+                    warnings.Add($"Tag '{tag}' is not defined; use add_tag first.");
+                }
             }
             if (!string.IsNullOrEmpty(layer))
             {

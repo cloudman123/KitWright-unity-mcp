@@ -1,11 +1,10 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
-using System.Collections.Generic;
-using KitWright.Editor.Tools;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using static KitWright.Editor.Tests.ToolCall;
 
 namespace KitWright.Editor.Tests
 {
@@ -48,16 +47,6 @@ namespace KitWright.Editor.Tests
 
             Selection.objects = previousSelection;
             UnityEditor.Tools.current = previousTool;
-        }
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
         }
 
         private static void AssertSuccess(JObject answer) =>

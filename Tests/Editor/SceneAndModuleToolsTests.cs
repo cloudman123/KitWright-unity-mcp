@@ -1,11 +1,9 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
-using System.Collections.Generic;
-using KitWright.Editor.Tools;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using static KitWright.Editor.Tests.ToolCall;
 
 namespace KitWright.Editor.Tests
 {
@@ -51,30 +49,6 @@ namespace KitWright.Editor.Tests
             var leftover = GameObject.Find(Subject);
             if (leftover != null)
                 Object.DestroyImmediate(leftover);
-        }
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
-        }
-
-        private static JObject Ok(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsTrue((bool)answer["success"], $"{tool}: {answer}");
-            return answer;
-        }
-
-        private static JObject Refused(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsFalse((bool)answer["success"], $"{tool} should have refused: {answer}");
-            return answer;
         }
 
         // A tool from an optional module either does the thing or says the module is missing. Both are
@@ -211,10 +185,10 @@ namespace KitWright.Editor.Tests
             // game running at zero.
             Refused("set_time_scale", "scale", "fast");
 
-            // NOT_IN_PLAY_MODE, not the PLAY_MODE_REQUIRED the input and flow tools answer with. Pinned
-            // as it is rather than changed: the code is what a client branches on.
-            Assert.AreEqual("NOT_IN_PLAY_MODE", (string)Call("set_paused", "paused", "true")["code"]);
-            Assert.AreEqual("NOT_IN_PLAY_MODE", (string)Call("step_frame")["code"]);
+            // The same code the input and NavMesh tools answer with. These two used to say
+            // NOT_IN_PLAY_MODE instead, so a client branching on the code had to know both.
+            Assert.AreEqual("PLAY_MODE_REQUIRED", Code("set_paused", "paused", "true"));
+            Assert.AreEqual("PLAY_MODE_REQUIRED", Code("step_frame"));
         }
 
         [Test]

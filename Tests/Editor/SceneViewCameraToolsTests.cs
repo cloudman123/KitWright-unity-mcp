@@ -1,10 +1,9 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
-using System.Collections.Generic;
-using KitWright.Editor.Tools;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using static KitWright.Editor.Tests.ToolCall;
 
 namespace KitWright.Editor.Tests
 {
@@ -17,30 +16,6 @@ namespace KitWright.Editor.Tests
     {
         private const string Subject = "KwSceneViewSubject";
         private const string NoView = "NO_SCENE_VIEW";
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
-        }
-
-        private static JObject Ok(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsTrue((bool)answer["success"], $"{tool}: {answer}");
-            return answer;
-        }
-
-        private static string Code(string tool, params string[] pairs) => (string)Call(tool, pairs)["code"];
-
-        private static Vector3 Pivot(JObject answer) => new Vector3(
-            (float)answer["data"]["pivot"]["x"],
-            (float)answer["data"]["pivot"]["y"],
-            (float)answer["data"]["pivot"]["z"]);
 
         private static string Vector(JToken point) =>
             $"{(float)point["x"]},{(float)point["y"]},{(float)point["z"]}";
@@ -70,7 +45,7 @@ namespace KitWright.Editor.Tests
                 // all hand the camera to Unity's animated transition, which has not moved yet when the
                 // tool describes the view. Those three are checked for answering, not for arriving.
                 var placed = Ok("set_scene_view_camera", "pivot", "1,2,3", "rotation", "30,45,0", "size", "12");
-                Assert.AreEqual(new Vector3(1f, 2f, 3f), Pivot(placed));
+                Assert.AreEqual("1,2,3", Vector(placed["data"]["pivot"]));
                 Assert.AreEqual(12f, (float)placed["data"]["size"], 0.01f);
 
                 Ok("look_at_point", "point", "5,5,5", "distance", "9");

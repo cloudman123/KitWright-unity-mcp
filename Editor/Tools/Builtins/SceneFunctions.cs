@@ -287,7 +287,7 @@ namespace KitWright.Editor.Tools.Builtins
             [ToolParam("true to pause, false to resume")] bool paused)
         {
             if (!EditorApplication.isPlaying)
-                return ToolResultFormatter.Error("NOT_IN_PLAY_MODE", new { hint = "Enter play mode first." });
+                return ToolResultFormatter.Error("PLAY_MODE_REQUIRED", new { hint = "Enter play mode first." });
 
             EditorApplication.isPaused = paused;
             return paused ? "Paused play mode" : "Resumed play mode";
@@ -297,7 +297,7 @@ namespace KitWright.Editor.Tools.Builtins
         public static string StepFrame()
         {
             if (!EditorApplication.isPlaying)
-                return ToolResultFormatter.Error("NOT_IN_PLAY_MODE", new { hint = "Enter play mode first." });
+                return ToolResultFormatter.Error("PLAY_MODE_REQUIRED", new { hint = "Enter play mode first." });
 
             EditorApplication.isPaused = true;
             EditorApplication.Step();

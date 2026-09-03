@@ -1,14 +1,12 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 #if KITWRIGHT_URP
-using System.Collections.Generic;
 using System.Linq;
-using KitWright.Editor.Tools;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using static KitWright.Editor.Tests.ToolCall;
 
 namespace KitWright.Editor.Tests
 {
@@ -42,25 +40,6 @@ namespace KitWright.Editor.Tests
             subject = null;
             profile = null;
         }
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
-        }
-
-        private static JObject Ok(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsTrue((bool)answer["success"], $"{tool}: {answer}");
-            return answer;
-        }
-
-        private static string Code(string tool, params string[] pairs) => (string)Call(tool, pairs)["code"];
 
         private T Override<T>() where T : VolumeComponent => profile.components.OfType<T>().SingleOrDefault();
 

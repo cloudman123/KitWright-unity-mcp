@@ -1,13 +1,11 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 #if KITWRIGHT_TERRAIN
-using System.Collections.Generic;
-using KitWright.Editor.Tools;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
+using static KitWright.Editor.Tests.ToolCall;
 
 namespace KitWright.Editor.Tests
 {
@@ -66,26 +64,7 @@ namespace KitWright.Editor.Tests
             AssetDatabase.DeleteAsset(Folder);
         }
 
-        private static TerrainData Data() => GameObject.Find(Subject).GetComponent<Terrain>().terrainData;
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
-        }
-
-        private static JObject Ok(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsTrue((bool)answer["success"], $"{tool}: {answer}");
-            return answer;
-        }
-
-        private static string Code(string tool, params string[] pairs) => (string)Call(tool, pairs)["code"];
+        private TerrainData Data() => subject.GetComponent<Terrain>().terrainData;
 
         [Test]
         public void FlattenAndAdjustWriteRealHeightsAndStayInsideTheTerrain()

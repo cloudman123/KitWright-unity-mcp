@@ -1,10 +1,8 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
-using System.Collections.Generic;
-using KitWright.Editor.Tools;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using static KitWright.Editor.Tests.ToolCall;
 #if KITWRIGHT_ANIMATION
 using UnityEngine.Animations;
 #endif
@@ -48,25 +46,6 @@ namespace KitWright.Editor.Tests
             subject = null;
             source = null;
         }
-
-        private static JObject Call(string tool, params string[] pairs)
-        {
-            var parameters = new Dictionary<string, string>();
-            for (var i = 0; i + 1 < pairs.Length; i += 2)
-                parameters[pairs[i]] = pairs[i + 1];
-
-            return JObject.Parse(new FunctionInvoker().Invoke(
-                new FunctionCall { FunctionName = tool, Parameters = parameters }));
-        }
-
-        private static JObject Ok(string tool, params string[] pairs)
-        {
-            var answer = Call(tool, pairs);
-            Assert.IsTrue((bool)answer["success"], $"{tool}: {answer}");
-            return answer;
-        }
-
-        private static string Code(string tool, params string[] pairs) => (string)Call(tool, pairs)["code"];
 
         [Test]
         public void CreateLodGroupPutsTheChildRenderersOnLod0AndReconfiguresInPlace()
