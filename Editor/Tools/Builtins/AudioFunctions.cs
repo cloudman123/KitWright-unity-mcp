@@ -85,7 +85,7 @@ namespace KitWright.Editor.Tools.Builtins
             if (!allow_multiple)
             {
 #if UNITY_2023_1_OR_NEWER
-                var existing = UnityEngine.Object.FindFirstObjectByType<AudioListener>();
+                var existing = UnityEngine.Object.FindAnyObjectByType<AudioListener>();
 #else
                 var existing = UnityEngine.Object.FindObjectOfType<AudioListener>();
 #endif

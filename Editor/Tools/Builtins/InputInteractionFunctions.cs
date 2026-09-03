@@ -83,7 +83,7 @@ namespace KitWright.Editor.Tools.Builtins
         {
             Canvas.ForceUpdateCanvases();
 
-            var eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            var eventSystem = EventSystem.current ?? UnityEngine.Object.FindAnyObjectByType<EventSystem>();
             if (eventSystem == null)
             {
                 results.AppendLine("  EventSystem: skipped (no EventSystem found)");
@@ -113,7 +113,7 @@ namespace KitWright.Editor.Tools.Builtins
 
         private static void AppendDirectButtonFallback(StringBuilder results, Vector2 position)
         {
-            foreach (var button in UnityEngine.Object.FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var button in ObjectsHelper.FindObjectsByTypeUnsorted<Button>(FindObjectsInactive.Include))
             {
                 if (button == null || !button.isActiveAndEnabled)
                     continue;

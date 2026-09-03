@@ -52,7 +52,7 @@ namespace KitWright.Editor.Tools.Builtins
             Selection.activeGameObject = go;
             return Response.Success($"Created {(global ? "global" : "local")} volume '{name}'.", new
             {
-                instanceId = go.GetInstanceID(),
+                instanceId = ObjectIdCodec.GetSerializableId(go),
                 name = go.name,
                 profilePath = path,
                 global,

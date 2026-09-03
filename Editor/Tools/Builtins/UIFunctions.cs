@@ -224,7 +224,7 @@ namespace KitWright.Editor.Tools.Builtins
         // Interactable controls do nothing without one, and a Canvas made outside create_canvas may not have it.
         private static void EnsureEventSystem()
         {
-            if (UnityEngine.Object.FindFirstObjectByType<EventSystem>() != null) return;
+            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
 
             var esGo = new GameObject("EventSystem");
             esGo.AddComponent<EventSystem>();

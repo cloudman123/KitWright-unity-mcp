@@ -276,7 +276,7 @@ namespace KitWright.Editor.MCP.Server
 
                 SetUpdateProgress($"Importing {safeFileName}...", 0.95f);
                 EditorUtility.ClearProgressBar();
-                AssetDatabase.ImportPackage(filteredPackagePath, true);
+                ImportUnityPackage(filteredPackagePath, true);
 
                 SetUpdateProgress($"Import window opened for {safeFileName}.", 1f);
             }
@@ -285,6 +285,15 @@ namespace KitWright.Editor.MCP.Server
                 EditorUtility.ClearProgressBar();
                 TryDeleteFile(tempPackagePath);
             }
+        }
+
+        private static void ImportUnityPackage(string packagePath, bool interactive)
+        {
+#if UNITY_6000_6_OR_NEWER
+            UnityEditor.AssetPackage.Package.Import(packagePath, interactive);
+#else
+            AssetDatabase.ImportPackage(packagePath, interactive);
+#endif
         }
 
         private static string CreateFilteredUnityPackage(string sourcePath, string destinationPath, string installRootPath)

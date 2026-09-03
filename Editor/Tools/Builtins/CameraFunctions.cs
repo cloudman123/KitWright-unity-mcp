@@ -170,7 +170,7 @@ namespace KitWright.Editor.Tools.Builtins
         private static Camera FindCamera(string name)
         {
             if (string.IsNullOrEmpty(name))
-                return Camera.main ?? Object.FindFirstObjectByType<Camera>();
+                return Camera.main ?? Object.FindAnyObjectByType<Camera>();
 
             var go = ObjectsHelper.FindTarget(name);
             if (go == null) return null;
