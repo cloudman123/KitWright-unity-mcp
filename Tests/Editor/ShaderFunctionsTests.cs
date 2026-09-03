@@ -1,6 +1,7 @@
 // Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.IO;
 using System.Text.RegularExpressions;
 using KitWright.Editor.Tools.Builtins;
 using Newtonsoft.Json.Linq;
@@ -51,6 +52,31 @@ namespace KitWright.Editor.Tests
                 JObject.FromObject(capped)["data"]["shaders"][0].ToString(),
                 JObject.FromObject(second)["data"]["shaders"][0].ToString(),
                 "Page two returned the shader from page one, so the cursor was ignored.");
+        }
+
+        // Same reason as above for the guards only: create_shader's success path imports a .shader,
+        // and that is the call that cost the suite 843 seconds. What is worth pinning is that neither
+        // writer touches the disk when it refuses.
+        [Test]
+        public void CreateShader_RejectsANameThatWouldNotCompileWithoutWritingAFile()
+        {
+            StringAssert.Contains("INVALID_NAME", ShaderFunctions.CreateShader("9Lives").ToString());
+            StringAssert.Contains("INVALID_NAME", ShaderFunctions.CreateShader("has spaces").ToString());
+            StringAssert.Contains("INVALID_NAME", ShaderFunctions.CreateShader("Custom/Nested").ToString());
+
+            Assert.IsFalse(File.Exists(ShaderFunctions.ResolvePaths("9Lives", "Shaders").fullPath));
+        }
+
+        [Test]
+        public void UpdateShader_MissingFileIsAnErrorNotAQuietlyCreatedShader()
+        {
+            var missing = "Ghost_" + Guid.NewGuid().ToString("N");
+            const string folder = "__KitWrightNoSuchFolder";
+
+            StringAssert.Contains("SHADER_NOT_FOUND",
+                ShaderFunctions.UpdateShader(missing, "Shader \"" + missing + "\" {}", folder).ToString());
+            Assert.IsFalse(File.Exists(ShaderFunctions.ResolvePaths(missing, folder).fullPath),
+                "update_shader must not create the file it says it could not find.");
         }
 
         [Test]

@@ -37,7 +37,10 @@ namespace KitWright.Editor.Tools.Builtins
             for (int i = 0; i < levels; i++)
             {
                 // Transition heights descend geometrically: 0.5, 0.25, ... last level culls at ~0.01.
-                float height = (i == levels - 1) ? 0.01f : Mathf.Pow(0.5f, i + 1);
+                // Min, not a flat 0.01: from 8 levels up the geometric run passes under 0.01, and a
+                // cull height above the level before it makes Unity reject the whole SetLODs call.
+                float geometric = Mathf.Pow(0.5f, i + 1);
+                float height = (i == levels - 1) ? Mathf.Min(0.01f, geometric) : geometric;
                 lods[i] = new LOD(height, i == 0 ? renderers : Array.Empty<Renderer>());
             }
             group.SetLODs(lods);
@@ -95,16 +98,24 @@ namespace KitWright.Editor.Tools.Builtins
             if (componentType == null)
                 return Response.Error("INVALID_CONSTRAINT_TYPE", new { type, valid = new[] { "position", "rotation", "scale", "aim", "lookat", "parent" } });
 
-            var existing = go.GetComponent(componentType);
-            var component = existing != null ? existing : Undo.AddComponent(go, componentType);
-            var constraint = (IConstraint)component;
-
+            // Resolved before the component is added: doing it after left a dead constraint on the
+            // object whenever the source name was a typo, next to an answer that said the call failed.
+            Transform sourceTransform = null;
             if (!string.IsNullOrEmpty(source))
             {
                 var src = ObjectsHelper.FindTarget(source);
                 if (src == null) return Response.Error("SOURCE_NOT_FOUND", new { source });
+                sourceTransform = src.transform;
+            }
+
+            var existing = go.GetComponent(componentType);
+            var component = existing != null ? existing : Undo.AddComponent(go, componentType);
+            var constraint = (IConstraint)component;
+
+            if (sourceTransform != null)
+            {
                 Undo.RecordObject(component, "Add constraint source");
-                constraint.AddSource(new ConstraintSource { sourceTransform = src.transform, weight = 1f });
+                constraint.AddSource(new ConstraintSource { sourceTransform = sourceTransform, weight = 1f });
             }
 
             if (activate)

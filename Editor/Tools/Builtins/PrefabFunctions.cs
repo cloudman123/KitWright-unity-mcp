@@ -40,12 +40,14 @@ namespace KitWright.Editor.Tools.Builtins
             if (prefab == null)
                 return Response.Error("PREFAB_NOT_FOUND", new { prefab_path });
 
+            // Parsed before the instantiate: checking it after left the refused call's instance sitting
+            // in the scene, unregistered with Undo, next to an answer that said the call had failed.
+            if (!ValueConverter.TryParseVector3(position, out var pos, out var posErr))
+                return Response.Error("INVALID_PARAM", new { param = "position", provided = position, expected = "Vector3 'x,y,z'", detail = posErr });
+
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             if (instance == null)
                 return Response.Error("PREFAB_INSTANTIATE_FAILED", new { prefab_path });
-
-            if (!ValueConverter.TryParseVector3(position, out var pos, out var posErr))
-                return Response.Error("INVALID_PARAM", new { param = "position", provided = position, expected = "Vector3 'x,y,z'", detail = posErr });
 
             Undo.RegisterCreatedObjectUndo(instance, "Instantiate prefab");
 

@@ -235,8 +235,21 @@ namespace KitWright.Editor.Tools.Builtins
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            File.WriteAllText(path, asset.ToJson());
+            File.WriteAllText(path, ToJson(asset, path));
             AssetDatabase.ImportAsset(path);
+        }
+
+        // InputActionAsset.ToJson() runs LINQ's Count() straight over its map array, which stays null
+        // until the first map is added - so serializing an asset with no maps throws
+        // ArgumentNullException instead of writing an empty document. That is exactly what
+        // create_input_actions does when no first_map is given, so write that document by hand.
+        private static string ToJson(InputActionAsset asset, string path)
+        {
+            if (asset.actionMaps.Count > 0)
+                return asset.ToJson();
+
+            return "{\n    \"name\": \"" + Path.GetFileNameWithoutExtension(path) +
+                   "\",\n    \"maps\": [],\n    \"controlSchemes\": []\n}";
         }
 
         private static bool IsSuccess(object result)
