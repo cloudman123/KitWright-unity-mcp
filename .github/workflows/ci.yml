@@ -132,7 +132,10 @@ jobs:
                   # with the package present, 2022.3.0f1 dies in batchmode before it writes a
                   # results file (docker exit 133), while the very same commit runs 767 tests green
                   # on 6000.0.75f1. The tools themselves are editor-version-agnostic, so one leg
-                  # gates them; the old leg keeps gating everything else.
+                  # gates them; the old leg keeps gating everything else. A 6000.6 leg would have to
+                  # move to 1.20.0 or newer: 1.18.0's own PlayerInputEditor casts EntityId to int,
+                  # which 6.6 promotes to an error, so the package stops compiling before anything
+                  # in this one is reached.
                   # URP is deliberately absent. Since 2021.2 the SRP packages are editor-bundled -
                   # packages-lock reports source "builtin" and packages.unity.com serves nothing above
                   # 10.10.1 - so the version is whatever the editor image ships and any pinned one
