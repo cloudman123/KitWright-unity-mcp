@@ -21,7 +21,7 @@ namespace KitWright.Editor.Tests
         {
             // The tool creates one on demand; without this the fixture would leave it behind in
             // whatever scene the suite happens to run in.
-            _preexistingEventSystem = Object.FindFirstObjectByType<EventSystem>();
+            _preexistingEventSystem = Object.FindAnyObjectByType<EventSystem>();
 
             _parent = new GameObject("__KwTestUiParent", typeof(RectTransform));
             _created.Add(_parent);
@@ -37,7 +37,7 @@ namespace KitWright.Editor.Tests
             }
             _created.Clear();
 
-            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystem = Object.FindAnyObjectByType<EventSystem>();
             if (eventSystem != null && eventSystem != _preexistingEventSystem)
                 Object.DestroyImmediate(eventSystem.gameObject);
         }
