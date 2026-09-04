@@ -90,9 +90,13 @@ namespace KitWright.Editor.MCP.Server.SSE
                 return false;
             }
 
-            session = _sessions.GetOrAdd(sessionId, id => new SSESession(id));
-            session.LastActiveAt = DateTime.UtcNow;
-            return true;
+            if (_sessions.TryGetValue(sessionId, out session))
+            {
+                session.LastActiveAt = DateTime.UtcNow;
+                return true;
+            }
+
+            return false;
         }
 
         public AttachStreamResult TryAttachStream(string sessionId, NetworkStream stream, out SSESession session)
@@ -266,6 +270,54 @@ namespace KitWright.Editor.MCP.Server.SSE
                 DetachStream(session);
             }
         }
+
+        /// <summary>The live sessions as JSON for the reload handler to park in SessionState, so a
+        /// client keeps its id across a domain reload instead of being told to re-initialize.
+        /// Streams are left out: those sockets die with the domain.</summary>
+        internal string ExportSnapshot()
+        {
+            var sessions = new List<object>();
+            foreach (var kvp in _sessions)
+            {
+                sessions.Add(new Dictionary<string, object>
+                {
+                    ["id"] = kvp.Key,
+                    ["level"] = kvp.Value.MinSeverityLevel
+                });
+            }
+
+            return JsonCodec.Serialize(new Dictionary<string, object>
+            {
+                ["global"] = _globalMinSeverityLevel,
+                ["sessions"] = sessions
+            });
+        }
+
+        internal void ImportSnapshot(string json)
+        {
+            if (!(JsonCodec.Deserialize(json) is Dictionary<string, object> root))
+                return;
+
+            root.TryGetValue("global", out var globalLevel);
+            _globalMinSeverityLevel = AsLevel(globalLevel);
+
+            if (!(root.TryGetValue("sessions", out var list) && list is List<object> sessions))
+                return;
+
+            foreach (var entry in sessions)
+            {
+                if (!(entry is Dictionary<string, object> fields) ||
+                    !(fields.TryGetValue("id", out var id) && id is string sessionId) ||
+                    string.IsNullOrEmpty(sessionId))
+                    continue;
+
+                fields.TryGetValue("level", out var level);
+                _sessions.TryAdd(sessionId, new SSESession(sessionId) { MinSeverityLevel = AsLevel(level) });
+            }
+        }
+
+        // JsonCodec reads every number back as a double.
+        private static int? AsLevel(object value) => value is double d ? (int?)(int)d : null;
 
         public void CleanupExpiredSessions()
         {

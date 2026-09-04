@@ -178,6 +178,7 @@ namespace KitWright.Editor.Tests
         public void LogNotificationGuard_FollowsWhetherASubscriberIsAttached()
         {
             var sessions = MCP.Server.SSE.SSESessionManager.Instance;
+            var liveSessions = sessions.ExportSnapshot();
             sessions.ResetForTests();
 
             try
@@ -191,6 +192,7 @@ namespace KitWright.Editor.Tests
             finally
             {
                 sessions.ResetForTests();
+                sessions.ImportSnapshot(liveSessions);
             }
         }
 

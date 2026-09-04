@@ -19,6 +19,7 @@ namespace KitWright.Editor.MCP.Server
         private const string WasRunningKey = "KitWright_MCPServer_WasRunning";
         private const string PortKey = "KitWright_MCPServer_Port";
         private const string RestartDeadlineTicksKey = "KitWright_MCPServer_RestartDeadlineTicks";
+        private const string SessionsKey = "KitWright_MCPServer_Sessions";
         private static readonly TimeSpan RestartRetryWindow = TimeSpan.FromMinutes(5);
         private static bool _restartScheduled;
         private static bool _restartInProgress;
@@ -31,6 +32,7 @@ namespace KitWright.Editor.MCP.Server
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeReload;
             AssemblyReloadEvents.afterAssemblyReload += OnAfterReload;
 
+            RestoreSessions();
             if (IsPendingPostReloadRestart())
                 SchedulePostReloadRestart();
         }
@@ -40,13 +42,19 @@ namespace KitWright.Editor.MCP.Server
             try
             {
                 var mcpServer = services?.GetService(typeof(MCPServerService)) as MCPServerService;
-                if (mcpServer?.IsRunning != true)
+                // A start still in flight, or the stop half of a settings restart, is a server meant
+                // to be up: IsRunning alone missed both and the server stayed down after the reload.
+                if (mcpServer == null || !(mcpServer.IsRunning || mcpServer.IsTransitioning))
                     return;
 
                 PluginDebugLogger.Log("[KitWright MCP Server] Saving state before domain reload");
                 SessionState.SetBool(WasRunningKey, true);
-                SessionState.SetInt(PortKey, mcpServer.Port);
+                // Port lags a settings change until the restart binds it, and the hint beats the
+                // configured port, so only a settled bind is worth remembering.
+                if (mcpServer.IsRunning && !mcpServer.IsTransitioning)
+                    SessionState.SetInt(PortKey, mcpServer.Port);
                 SessionState.SetString(RestartDeadlineTicksKey, DateTime.UtcNow.Add(RestartRetryWindow).Ticks.ToString());
+                SessionState.SetString(SessionsKey, SSE.SSESessionManager.Instance.ExportSnapshot());
             }
             catch (Exception ex)
             {
@@ -96,12 +104,27 @@ namespace KitWright.Editor.MCP.Server
             return SessionState.GetBool(WasRunningKey, false);
         }
 
+        // Runs from the static constructor, so the table is filled before the post-reload restart
+        // can pull a client request. Erased on read: a snapshot must never replay into a later reload.
+        private static void RestoreSessions()
+        {
+            var json = SessionState.GetString(SessionsKey, string.Empty);
+            if (json.Length == 0)
+                return;
+
+            SessionState.EraseString(SessionsKey);
+            SSE.SSESessionManager.Instance.ImportSnapshot(json);
+        }
+
         private static void OnAfterReload()
         {
             try
             {
-                PluginDebugLogger.Log("[KitWright MCP Server] Restarting server after domain reload");
-                SchedulePostReloadRestart();
+                if (SessionState.GetBool(WasRunningKey, false))
+                {
+                    PluginDebugLogger.Log("[KitWright MCP Server] Restarting server after domain reload");
+                    SchedulePostReloadRestart();
+                }
             }
             catch (System.Exception ex)
             {
@@ -125,7 +148,11 @@ namespace KitWright.Editor.MCP.Server
             if (_restartInProgress)
                 return;
 
-            // WasRunningKey check omitted so MCP server restarts reliably after domain reload
+            if (!SessionState.GetBool(WasRunningKey, false))
+            {
+                ClearScheduledRestart();
+                return;
+            }
 
             if (ShouldWaitForCompilationBeforeRestart())
                 return;

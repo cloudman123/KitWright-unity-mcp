@@ -29,12 +29,42 @@ namespace KitWright.Editor
         // A full 64-hex identity; only the first ProjectIdentity.PinLength chars form the pin.
         private const string IdentityAaaa = "aaaa1111" + "00000000000000000000000000000000000000000000000000000000";
 
+        // The session table is the live editor's: resetting it mid-run 404s every client attached
+        // to this editor, so the sessions that were there before a test go back after it.
+        private string _liveSessions;
+
+        [SetUp]
+        public void KeepLiveSessions()
+        {
+            _liveSessions = SSESessionManager.Instance.ExportSnapshot();
+        }
+
         [TearDown]
         public void ClearSseSessions()
         {
             LogAssert.ignoreFailingMessages = false;
             SSESessionManager.Instance.PingIntervalMs = 15_000;
             SSESessionManager.Instance.ResetForTests();
+            SSESessionManager.Instance.ImportSnapshot(_liveSessions);
+        }
+
+        [Test]
+        public void SessionSnapshot_RestoresMintedIdsAndLevels_AndStillRefusesUnknownIds()
+        {
+            var manager = SSESessionManager.Instance;
+            var minted = manager.CreateSession().SessionId;
+            manager.SetLoggingLevel(minted, "warning");
+
+            var snapshot = manager.ExportSnapshot();
+            manager.ResetForTests();
+            Assert.IsFalse(manager.TryGetSession(minted, out _), "the reset must drop the session so the import is what restores it");
+
+            manager.ImportSnapshot(snapshot);
+
+            Assert.IsTrue(manager.TryGetSession(minted, out var restored), "a session minted before a reload is still known after it");
+            Assert.AreEqual(SSESessionManager.ParseSeverityRank("warning"), restored.MinSeverityLevel);
+            Assert.IsFalse(manager.TryGetSession("kw-not-a-session", out _),
+                "a restored table must still refuse ids the server never minted");
         }
 
         [Test]
