@@ -36,7 +36,7 @@ namespace KitWright.Editor.Tests
 
             try
             {
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex", "claude" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex", "claude" });
 
                 var manifest = ProjectSkillsManager.LoadManifest(projectRoot);
                 var status = ProjectSkillsManager.GetUpgradeStatus(projectRoot, manifest, "codex");
@@ -74,9 +74,9 @@ namespace KitWright.Editor.Tests
                 var agentsPath = ProjectSkillsManager.GetCodexAgentsPath(projectRoot);
                 File.WriteAllText(agentsPath, "# Team instructions\n\nKeep this before KitWright.\n");
 
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" });
                 File.AppendAllText(agentsPath, "\nKeep this after KitWright.\n");
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" });
 
                 var content = File.ReadAllText(agentsPath);
                 StringAssert.Contains("# Team instructions", content);
@@ -113,7 +113,7 @@ namespace KitWright.Editor.Tests
                 Assert.IsTrue(before.HasUpdates);
                 Assert.AreEqual("legacy marker", projectStatus.InstalledVersion);
 
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" });
 
                 var migrated = File.ReadAllText(agentsPath);
                 StringAssert.Contains(ProjectSkillsManager.ManagedEndMarker, migrated);
@@ -142,7 +142,7 @@ namespace KitWright.Editor.Tests
                 File.WriteAllText(agentsPath, editedLegacy);
 
                 var exception = Assert.Throws<InvalidOperationException>(() =>
-                    ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>()));
+                    ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }));
 
                 StringAssert.Contains("No content was changed", exception.Message);
                 Assert.AreEqual(editedLegacy, File.ReadAllText(agentsPath));
@@ -164,8 +164,8 @@ namespace KitWright.Editor.Tests
             {
                 var sharedPath = ProjectSkillsManager.GetCodexAgentsPath(sharedRoot);
                 File.WriteAllText(sharedPath, "# Team instructions\nKeep me.\n");
-                ProjectSkillsManager.ApplyConfiguration(sharedRoot, new[] { "codex" }, Array.Empty<string>());
-                ProjectSkillsManager.ApplyConfiguration(sharedRoot, Array.Empty<string>(), Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(sharedRoot, new[] { "codex" });
+                ProjectSkillsManager.ApplyConfiguration(sharedRoot, Array.Empty<string>());
 
                 var sharedContent = File.ReadAllText(sharedPath);
                 StringAssert.Contains("# Team instructions", sharedContent);
@@ -174,9 +174,9 @@ namespace KitWright.Editor.Tests
                 StringAssert.DoesNotContain(ProjectSkillsManager.ManagedEndMarker, sharedContent);
 
                 var kitwrightOnlyPath = ProjectSkillsManager.GetCodexAgentsPath(kitwrightOnlyRoot);
-                ProjectSkillsManager.ApplyConfiguration(kitwrightOnlyRoot, new[] { "codex" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(kitwrightOnlyRoot, new[] { "codex" });
                 Assert.IsTrue(File.Exists(kitwrightOnlyPath));
-                ProjectSkillsManager.ApplyConfiguration(kitwrightOnlyRoot, Array.Empty<string>(), Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(kitwrightOnlyRoot, Array.Empty<string>());
                 Assert.IsFalse(File.Exists(kitwrightOnlyPath));
             }
             finally
@@ -193,7 +193,7 @@ namespace KitWright.Editor.Tests
 
             try
             {
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" });
                 var skillPath = GetCodexWorkflowSkillPath(projectRoot);
                 RemoveLinesContaining(skillPath, "KitWright Unity skill version:");
                 RemoveLinesContaining(skillPath, "version: 1.0.0");
@@ -220,7 +220,7 @@ namespace KitWright.Editor.Tests
 
             try
             {
-                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" }, Array.Empty<string>());
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "codex" });
                 var skillPath = GetCodexWorkflowSkillPath(projectRoot);
                 File.Delete(skillPath);
 
@@ -265,7 +265,7 @@ namespace KitWright.Editor.Tests
         {
             return Path.Combine(
                 ProjectSkillsManager.GetCodexSkillsRoot(projectRoot),
-                "kitwright-unity-mcp-workflow",
+                "unity-mcp-workflow",
                 "SKILL.md");
         }
 
@@ -273,8 +273,7 @@ namespace KitWright.Editor.Tests
         {
             return new ProjectSkillsManager.ProjectSkillsManifest
             {
-                platforms = platforms.ToList(),
-                optionalSkills = new System.Collections.Generic.List<string>()
+                platforms = platforms.ToList()
             };
         }
 
@@ -307,6 +306,84 @@ namespace KitWright.Editor.Tests
                 .Where(line => !line.Contains(text))
                 .ToArray();
             File.WriteAllLines(path, lines);
+        }
+
+        [Test]
+        public void GetInstalledSkills_CoversEverySkillWithoutAnOptIn()
+        {
+            var installed = ProjectSkillsManager.GetInstalledSkills().Select(skill => skill.Id).ToArray();
+
+            // No manifest, no toggles: a package that ships a skill is a project that has it.
+            CollectionAssert.IsSupersetOf(installed, ProjectSkillsManager.GetBuiltInSkills().Select(skill => skill.Id));
+            CollectionAssert.IsSupersetOf(installed, ProjectSkillsManager.GetPackageSkills().Select(skill => skill.Id));
+            CollectionAssert.AllItemsAreUnique(installed);
+        }
+
+        [Test]
+        public void ShortDescription_KeepsLeadSentenceAndDropsTriggerList()
+        {
+            Assert.AreEqual(
+                "Match Unity output to a target image",
+                ProjectSkillsManager.ShortDescription(
+                    "Match Unity output to a target image. Two modes are available. Triggers - match, /match."));
+
+            Assert.AreEqual(
+                "Play a game in Play Mode",
+                ProjectSkillsManager.ShortDescription("Play a game in Play Mode. Triggers - playtest"));
+
+            Assert.AreEqual(string.Empty, ProjectSkillsManager.ShortDescription(null));
+        }
+
+        // Antigravity and Claude Code list `.agents/skills/<folder>` as `/<folder>`, so the folder
+        // is the skill id. A legacy `kitwright-<id>` folder is ours by its marker and is cleaned up.
+        [Test]
+        public void ApplyConfiguration_NamesSkillFolderAfterTheSkillAndRemovesLegacyPrefixedFolder()
+        {
+            var projectRoot = CreateTempProjectPath();
+
+            try
+            {
+                var skillsRoot = ProjectSkillsManager.GetAgentsSkillsRoot(projectRoot);
+                var legacy = Path.Combine(skillsRoot, "kitwright-unity-mcp-workflow");
+                var userOwned = Path.Combine(skillsRoot, "my-skill");
+                Directory.CreateDirectory(legacy);
+                Directory.CreateDirectory(userOwned);
+                File.WriteAllText(Path.Combine(legacy, "SKILL.md"), ProjectSkillsManager.ManagedMarker + "\n");
+                File.WriteAllText(Path.Combine(userOwned, "SKILL.md"), "# Mine\n");
+
+                ProjectSkillsManager.ApplyConfiguration(projectRoot, new[] { "agents" });
+
+                Assert.IsTrue(File.Exists(Path.Combine(skillsRoot, "unity-mcp-workflow", "SKILL.md")));
+                Assert.IsFalse(Directory.Exists(legacy));
+                Assert.IsTrue(File.Exists(Path.Combine(userOwned, "SKILL.md")));
+
+                var manifest = ProjectSkillsManager.LoadManifest(projectRoot);
+                Assert.IsFalse(ProjectSkillsManager.GetUpgradeStatus(projectRoot, manifest, "agents").HasUpdates);
+            }
+            finally
+            {
+                DeleteTempProjectPath(projectRoot);
+            }
+        }
+
+        [Test]
+        public void GetPlatformConflictPaths_ReportsUserOwnedSkillFolderWithASkillsName()
+        {
+            var projectRoot = CreateTempProjectPath();
+
+            try
+            {
+                var path = Path.Combine(ProjectSkillsManager.GetAgentsSkillsRoot(projectRoot), "unity-mcp-workflow", "SKILL.md");
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, "# Hand-written\n");
+
+                CollectionAssert.Contains(ProjectSkillsManager.GetPlatformConflictPaths(projectRoot, new[] { "agents" }), path);
+                CollectionAssert.IsEmpty(ProjectSkillsManager.GetPlatformConflictPaths(projectRoot, new[] { "claude" }));
+            }
+            finally
+            {
+                DeleteTempProjectPath(projectRoot);
+            }
         }
 
         private static string CreateTempProjectPath()

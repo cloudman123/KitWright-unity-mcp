@@ -81,9 +81,23 @@ namespace KitWright.Editor.MCP.Server
             return SkillCatalog.Where(skill => skill.IsBuiltIn).ToArray();
         }
 
-        internal static IReadOnlyList<SkillDefinition> GetOptionalSkills()
+        internal static IReadOnlyList<SkillDefinition> GetPackageSkills()
         {
             return AllSkills.Where(skill => !skill.IsBuiltIn).ToArray();
+        }
+
+        // A skill description is written for the agent router: a full sentence followed by a
+        // trigger list. A card shows this lead sentence and keeps the whole text in its tooltip.
+        internal static string ShortDescription(string description)
+        {
+            var text = (description ?? string.Empty).Trim();
+
+            var triggers = text.IndexOf("Triggers", StringComparison.OrdinalIgnoreCase);
+            if (triggers > 0)
+                text = text.Substring(0, triggers).TrimEnd(' ', '.', ',', '-');
+
+            var sentence = text.IndexOf(". ", StringComparison.Ordinal);
+            return sentence > 0 ? text.Substring(0, sentence) : text;
         }
 
         // Skills shipped as files by an installed package are optional skills like any other.
@@ -180,12 +194,11 @@ namespace KitWright.Editor.MCP.Server
                 "Cancel");
         }
 
-        internal static void ApplyConfiguration(string projectRoot, IEnumerable<string> selectedPlatforms, IEnumerable<string> selectedOptionalSkills)
+        internal static void ApplyConfiguration(string projectRoot, IEnumerable<string> selectedPlatforms)
         {
             var manifest = new ProjectSkillsManifest
             {
-                platforms = selectedPlatforms?.Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new List<string>(),
-                optionalSkills = selectedOptionalSkills?.Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new List<string>()
+                platforms = selectedPlatforms?.Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new List<string>()
             };
 
             SaveManifest(projectRoot, manifest);
@@ -197,19 +210,14 @@ namespace KitWright.Editor.MCP.Server
             SyncAgents(projectRoot, normalized);
         }
 
-        internal static IReadOnlyList<SkillDefinition> GetInstalledSkills(ProjectSkillsManifest manifest)
+        // Every skill the installed packages ship is installed. A per-skill opt-in existed here and
+        // defaulted to none, so a package could ship a skill that no project ever saw until someone
+        // found the toggle: "Configure + Skills" wrote the built-in skill alone and reported success.
+        // Uninstalling the package is the way to remove its skills, which is where that decision
+        // already lives.
+        internal static IReadOnlyList<SkillDefinition> GetInstalledSkills()
         {
-            var installedIds = new HashSet<string>(
-                GetBuiltInSkills().Select(skill => skill.Id),
-                StringComparer.OrdinalIgnoreCase);
-
-            if (manifest?.optionalSkills != null)
-            {
-                foreach (var id in manifest.optionalSkills)
-                    installedIds.Add(id);
-            }
-
-            return AllSkills.Where(skill => installedIds.Contains(skill.Id)).ToArray();
+            return AllSkills.ToArray();
         }
 
         internal static ProjectSkillsUpgradeStatus GetUpgradeStatus(
@@ -254,7 +262,26 @@ namespace KitWright.Editor.MCP.Server
 
             // AGENTS.md and CLAUDE.md are shared files. Their KitWright block is appended when no
             // managed marker exists, so user-owned content there is no longer an overwrite conflict.
-            // Cursor rules remain KitWright-namespaced whole files and still need conflict handling.
+            // Skill folders are named after the skill id — that name is the slash command in
+            // Antigravity and Claude Code — so a hand-written skill of the same name is a conflict.
+            foreach (var (platform, skillsRoot) in new[]
+            {
+                ("codex", GetCodexSkillsRoot(projectRoot)),
+                ("claude", GetClaudeSkillsRoot(projectRoot)),
+                ("agents", GetAgentsSkillsRoot(projectRoot))
+            })
+            {
+                if (!platforms.Contains(platform))
+                    continue;
+
+                foreach (var skill in AllSkills)
+                {
+                    var path = Path.Combine(skillsRoot, skill.Id, "SKILL.md");
+                    if (File.Exists(path) && !IsManagedFile(path))
+                        conflicts.Add(path);
+                }
+            }
+
             if (platforms.Contains("cursor"))
             {
                 var rulesRoot = GetCursorRulesPath(projectRoot);
@@ -384,9 +411,9 @@ namespace KitWright.Editor.MCP.Server
         {
             DeleteManagedSkillDirectories(skillsRoot);
 
-            foreach (var skill in GetInstalledSkills(manifest))
+            foreach (var skill in GetInstalledSkills())
             {
-                var directory = Path.Combine(skillsRoot, $"kitwright-{skill.Id}");
+                var directory = Path.Combine(skillsRoot, skill.Id);
                 Directory.CreateDirectory(directory);
                 File.WriteAllText(Path.Combine(directory, "SKILL.md"), BuildSkillDocument(skill, platform));
             }
@@ -396,7 +423,7 @@ namespace KitWright.Editor.MCP.Server
         {
             DeleteManagedCursorRules(rulesRoot);
 
-            foreach (var skill in GetInstalledSkills(manifest))
+            foreach (var skill in GetInstalledSkills())
             {
                 var path = Path.Combine(rulesRoot, $"kitwright-{skill.Id}.mdc");
                 File.WriteAllText(path, BuildCursorRuleContent(skill));
@@ -408,7 +435,9 @@ namespace KitWright.Editor.MCP.Server
             if (!Directory.Exists(skillsRoot))
                 return;
 
-            foreach (var directory in Directory.GetDirectories(skillsRoot, "kitwright-*", SearchOption.TopDirectoryOnly))
+            // Any folder whose SKILL.md carries the marker is ours, including the legacy
+            // `kitwright-<id>` folders an earlier version wrote.
+            foreach (var directory in Directory.GetDirectories(skillsRoot))
             {
                 var skillPath = Path.Combine(directory, "SKILL.md");
                 if (IsManagedFile(skillPath))
@@ -586,7 +615,7 @@ namespace KitWright.Editor.MCP.Server
 
         private static List<SkillVersionEntry> BuildCurrentSkillVersionEntries(ProjectSkillsManifest manifest)
         {
-            return GetInstalledSkills(manifest)
+            return GetInstalledSkills()
                 .OrderBy(skill => skill.Id, StringComparer.OrdinalIgnoreCase)
                 .Select(skill => new SkillVersionEntry { id = skill.Id, version = skill.Version })
                 .ToList();
@@ -621,7 +650,7 @@ namespace KitWright.Editor.MCP.Server
             ProjectSkillsManifest manifest,
             string platformId)
         {
-            var skills = GetInstalledSkills(manifest).ToArray();
+            var skills = GetInstalledSkills().ToArray();
             var result = new List<ExpectedSkillVersionFile>();
 
             switch (platformId?.Trim().ToLowerInvariant())
@@ -631,7 +660,7 @@ namespace KitWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetCodexSkillsRoot(projectRoot), $"kitwright-{skill.Id}", "SKILL.md"),
+                            Path.Combine(GetCodexSkillsRoot(projectRoot), skill.Id, "SKILL.md"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -642,7 +671,7 @@ namespace KitWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetClaudeSkillsRoot(projectRoot), $"kitwright-{skill.Id}", "SKILL.md"),
+                            Path.Combine(GetClaudeSkillsRoot(projectRoot), skill.Id, "SKILL.md"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -662,7 +691,7 @@ namespace KitWright.Editor.MCP.Server
                     foreach (var skill in skills)
                     {
                         result.Add(new ExpectedSkillVersionFile(
-                            Path.Combine(GetAgentsSkillsRoot(projectRoot), $"kitwright-{skill.Id}", "SKILL.md"),
+                            Path.Combine(GetAgentsSkillsRoot(projectRoot), skill.Id, "SKILL.md"),
                             skill.Id,
                             skill.Version,
                             BuildSkillVersionMarker(skill)));
@@ -804,7 +833,7 @@ namespace KitWright.Editor.MCP.Server
 
         private static string BuildCodexManagedBlock(string projectRoot, ProjectSkillsManifest manifest)
         {
-            var installed = GetInstalledSkills(manifest);
+            var installed = GetInstalledSkills();
             return
 $@"{ManagedMarker}
 {BuildProjectSkillVersionsMarker(installed)}
@@ -815,7 +844,7 @@ $@"{ManagedMarker}
 
 ## Installed project skills
 
-{string.Join("\n", installed.Select(skill => $"- `kitwright-{skill.Id}` v{skill.Version} - {skill.Description}"))}
+{string.Join("\n", installed.Select(skill => $"- `{skill.Id}` v{skill.Version} - {skill.Description}"))}
 
 ## Codex workflow rules
 
@@ -851,7 +880,7 @@ $@"{ManagedMarker}
 
         private static string BuildClaudeManagedBlock(string projectRoot, ProjectSkillsManifest manifest)
         {
-            var installed = GetInstalledSkills(manifest);
+            var installed = GetInstalledSkills();
             return
 $@"{ManagedMarker}
 {BuildProjectSkillVersionsMarker(installed)}
@@ -1278,8 +1307,7 @@ $@"
         {
             return new ProjectSkillsManifest
             {
-                platforms = new List<string>(),
-                optionalSkills = new List<string>()
+                platforms = new List<string>()
             };
         }
 
@@ -1287,7 +1315,6 @@ $@"
         {
             manifest ??= CreateDefaultManifest();
             manifest.platforms ??= new List<string>();
-            manifest.optionalSkills ??= new List<string>();
             manifest.skillVersions ??= new List<SkillVersionEntry>();
 
             manifest.platforms = manifest.platforms
@@ -1297,20 +1324,8 @@ $@"
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var optionalIds = new HashSet<string>(
-                GetOptionalSkills().Select(skill => skill.Id),
-                StringComparer.OrdinalIgnoreCase);
-
-            manifest.optionalSkills = manifest.optionalSkills
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Select(value => value.Trim())
-                .Where(value => optionalIds.Contains(value))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
             var installedIds = new HashSet<string>(
-                GetInstalledSkills(manifest).Select(skill => skill.Id),
+                GetInstalledSkills().Select(skill => skill.Id),
                 StringComparer.OrdinalIgnoreCase);
 
             manifest.skillVersions = manifest.skillVersions
@@ -1342,7 +1357,6 @@ $@"
         internal sealed class ProjectSkillsManifest
         {
             public List<string> platforms = new List<string>();
-            public List<string> optionalSkills = new List<string>();
             public List<SkillVersionEntry> skillVersions = new List<SkillVersionEntry>();
         }
 

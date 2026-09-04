@@ -24,11 +24,12 @@ namespace KitWright.Editor.MCP.Server
         private Label _descriptionLabel;
         private Label _unsavedLabel;
         private Button _saveButton;
-        private ScrollView _toolScrollView;
+        private ListView _toolList;
+        private VisualElement _panelTree;
+        private readonly List<ListEntry> _entries = new List<ListEntry>();
         private List<string> _allToolNames = new List<string>();
         private readonly Dictionary<string, string> _toolCategories = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _toolDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        private readonly List<Foldout> _categoryFoldouts = new List<Foldout>();
         private string _searchFilter = string.Empty;
         private HashSet<string> _editingTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private string _editingProfile = "core";
@@ -59,6 +60,21 @@ namespace KitWright.Editor.MCP.Server
         {
             if (_settingsController != null)
                 _settingsController.OnSettingsChanged -= RefreshStatus;
+            _panelTree?.UnregisterCallback<GeometryChangedEvent>(OnPanelGeometryChanged);
+        }
+
+        private void OnPanelGeometryChanged(GeometryChangedEvent _)
+        {
+            FitListHeight();
+        }
+
+        private void FitListHeight()
+        {
+            if (_toolList == null || _panelTree == null)
+                return;
+
+            var available = _panelTree.layout.height - _toolList.worldBound.yMin - 24;
+            _toolList.style.height = Mathf.Max(240, available);
         }
 
         private void BuildUI()
@@ -264,11 +280,29 @@ namespace KitWright.Editor.MCP.Server
             });
             toolsBody.Add(searchContainer);
 
-            _toolScrollView = new ScrollView(ScrollViewMode.Vertical);
-            _toolScrollView.style.flexGrow = 1;
-            _toolScrollView.style.backgroundColor = new Color(0.14f, 0.14f, 0.14f);
-            _toolScrollView.Rounded(4).Padding(5, 6, 5, 6);
-            toolsBody.Add(_toolScrollView);
+            // Virtualized: only the rows inside the viewport exist, however many tools there are.
+            // The window wraps every panel in its own ScrollView, so the list has no bounded
+            // parent to grow into and is sized to the window instead (FitListHeight).
+            _toolList = new ListView
+            {
+                fixedItemHeight = RowHeight,
+                virtualizationMethod = CollectionVirtualizationMethod.FixedHeight,
+                selectionType = SelectionType.None,
+                showBorder = false,
+                makeItem = MakeRow,
+                bindItem = (element, index) => BindRow((RowView)element, index),
+                itemsSource = _entries
+            };
+            _toolList.style.backgroundColor = new Color(0.14f, 0.14f, 0.14f);
+            _toolList.Rounded(4).Padding(5, 6, 5, 6);
+            _toolList.RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                _panelTree = _toolList.panel?.visualTree;
+                _panelTree?.RegisterCallback<GeometryChangedEvent>(OnPanelGeometryChanged);
+                _toolList.schedule.Execute(FitListHeight);
+            });
+            foldout.RegisterValueChangedCallback(_ => _toolList.schedule.Execute(FitListHeight));
+            toolsBody.Add(_toolList);
 
             toolsFoldout.Add(toolsBody);
             toolsFoldout.contentContainer.style.marginRight = 11;
@@ -383,8 +417,7 @@ namespace KitWright.Editor.MCP.Server
             _settingsController.MCPToolExportProfile = profile;
             UpdateSegmentStyles(profile);
             LoadEditingTools();
-            RebuildToolList();
-            RefreshStatus();
+            RefreshRows();
         }
 
         private void UpdateSegmentStyles(string activeProfile)
@@ -461,13 +494,42 @@ namespace KitWright.Editor.MCP.Server
             return ProfileChoices.Contains(currentProfile) ? currentProfile : "core";
         }
 
+        private const int RowHeight = 30;
+
+        private sealed class ListEntry
+        {
+            public string Category;
+            public string Tool;
+            public IReadOnlyList<string> CategoryTools;
+            public bool IsLast;
+            public bool IsHeader => Tool == null;
+        }
+
+        // One recycled row serves both entry kinds; Bind shows the half that applies. Handlers
+        // read Entry at click time rather than capturing it, since the row outlives any one entry.
+        private sealed class RowView : VisualElement
+        {
+            public ListEntry Entry;
+            public VisualElement Card;
+            public VisualElement Header;
+            public Label Arrow;
+            public Label CategoryName;
+            public Label CountBadge;
+            public VisualElement ToolRow;
+            public Label ToolName;
+            public Label ToolDescription;
+            public VisualElement Switch;
+            public VisualElement Knob;
+        }
+
+        // Flat entry list: a header per category, followed by its tools unless it is collapsed.
+        // A typed filter opens every category, as the foldouts used to.
         private void RebuildToolList()
         {
-            if (_toolScrollView == null)
+            if (_toolList == null)
                 return;
 
-            _toolScrollView.contentContainer.Clear();
-            _categoryFoldouts.Clear();
+            _entries.Clear();
 
             var filter = (_searchFilter ?? string.Empty).Trim();
             var hasFilter = filter.Length > 0;
@@ -484,135 +546,193 @@ namespace KitWright.Editor.MCP.Server
                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
                 if (categoryTools.Count == 0) continue;
-                var section = CreateCategorySection(group.Key, categoryTools);
-                if (hasFilter)
+
+                var collapsed = !hasFilter && IsCollapsed(group.Key);
+                _entries.Add(new ListEntry { Category = group.Key, CategoryTools = categoryTools, IsLast = collapsed });
+                if (collapsed)
+                    continue;
+
+                for (var i = 0; i < categoryTools.Count; i++)
                 {
-                    var sectionFoldout = section.Q<Foldout>();
-                    if (sectionFoldout != null) sectionFoldout.value = true;
+                    _entries.Add(new ListEntry
+                    {
+                        Category = group.Key,
+                        Tool = categoryTools[i],
+                        CategoryTools = categoryTools,
+                        IsLast = i == categoryTools.Count - 1
+                    });
                 }
-                _toolScrollView.Add(section);
             }
+
+            _toolList.Rebuild();
         }
 
-        private VisualElement CreateCategorySection(string category, IReadOnlyList<string> categoryTools)
+        private void RefreshRows()
         {
-            var selectedCount = categoryTools.Count(tool => _editingTools.Contains(tool));
-            var allOn = selectedCount == categoryTools.Count && categoryTools.Count > 0;
-            var noneOn = selectedCount == 0;
+            _toolList?.RefreshItems();
+            RefreshStatus();
+        }
 
+        // Same SessionState key the category Foldouts persisted under, so open/closed state
+        // survives the switch to a list.
+        private static string CollapseKey(string category) => "KitWright.MCP.Foldout.Category." + category;
+
+        private static bool IsCollapsed(string category) => !SessionState.GetBool(CollapseKey(category), true);
+
+        private void ToggleCategory(string category)
+        {
+            SessionState.SetBool(CollapseKey(category), IsCollapsed(category));
+            RebuildToolList();
+        }
+
+        private void ToggleTool(string toolName)
+        {
+            if (!_editingTools.Remove(toolName))
+                _editingTools.Add(toolName);
+            RefreshRows();
+        }
+
+        private RowView MakeRow()
+        {
+            var view = new RowView();
+
+            // Each row paints its slice of the category card: the header the top edge, the last
+            // tool the bottom edge, everything between the sides. Stacked, they read as one card.
             var card = new VisualElement();
             card.style.backgroundColor = new Color(0.165f, 0.165f, 0.17f);
-            card.Rounded(6).Border(1, new Color(0.10f, 0.10f, 0.10f)).Padding(6, 8, 6, 8);
-            card.style.marginBottom = 6;
+            card.style.borderLeftWidth = card.style.borderRightWidth = 1;
+            card.style.borderTopColor = card.style.borderBottomColor =
+                card.style.borderLeftColor = card.style.borderRightColor = new Color(0.10f, 0.10f, 0.10f);
+            card.style.paddingLeft = card.style.paddingRight = 8;
+            view.Add(card);
 
-            var foldout = new Foldout { value = true }.Persist("Category." + category);
-            foldout.style.marginBottom = 0;
-            _categoryFoldouts.Add(foldout);
+            var header = new VisualElement();
+            header.style.flexDirection = FlexDirection.Row;
+            header.style.alignItems = Align.Center;
+            header.RegisterCallback<ClickEvent>(_ => ToggleCategory(view.Entry.Category));
 
-            // Style the foldout toggle row: category name on the left, a count badge and quick
-            // Select/Clear actions on the right, all on the toggle's own row so it reads as a header.
-            var headerRow = new VisualElement();
-            headerRow.style.flexDirection = FlexDirection.Row;
-            headerRow.style.alignItems = Align.Center;
-            headerRow.style.flexGrow = 1;
+            var arrow = new Label();
+            arrow.style.width = 14;
+            arrow.style.fontSize = 11;
+            arrow.style.color = MCPPalette.TextMuted;
+            header.Add(arrow);
 
-            var nameLabel = SectionTitle(HighlightMatch(category, _searchFilter));
-            nameLabel.enableRichText = true;
-            nameLabel.style.flexShrink = 0;
-            headerRow.Add(nameLabel);
+            var categoryName = SectionTitle(string.Empty);
+            categoryName.style.flexShrink = 0;
+            header.Add(categoryName);
 
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1;
-            headerRow.Add(spacer);
+            header.Add(spacer);
 
-            var countBadge = new Label($"{selectedCount}/{categoryTools.Count}");
+            var countBadge = new Label();
             countBadge.style.fontSize = 11;
             countBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
-            countBadge.style.color = allOn ? new Color(0.6f, 0.9f, 0.6f)
-                : noneOn ? new Color(0.6f, 0.6f, 0.62f)
-                : new Color(0.95f, 0.8f, 0.45f);
             countBadge.style.marginRight = 8;
-            headerRow.Add(countBadge);
+            header.Add(countBadge);
 
-            var selectButton = CreateCategoryButton("All", () => SetCategoryTools(categoryTools, true));
-            headerRow.Add(selectButton);
+            header.Add(CreateCategoryButton("All", () => SetCategoryTools(view.Entry.CategoryTools, true)));
+            var noneButton = CreateCategoryButton("None", () => SetCategoryTools(view.Entry.CategoryTools, false));
+            noneButton.style.marginLeft = 4;
+            header.Add(noneButton);
+            card.Add(header);
 
-            var clearButton = CreateCategoryButton("None", () => SetCategoryTools(categoryTools, false));
-            clearButton.style.marginLeft = 4;
-            headerRow.Add(clearButton);
+            var toolRow = new VisualElement();
+            toolRow.style.flexDirection = FlexDirection.Row;
+            toolRow.style.alignItems = Align.Center;
+            toolRow.style.height = 24;
+            toolRow.Padding(0, 6, 0, 8);
+            toolRow.Rounded(5);
+            toolRow.RegisterCallback<MouseEnterEvent>(_ => toolRow.style.backgroundColor = RowBg(view.Entry, hover: true));
+            toolRow.RegisterCallback<MouseLeaveEvent>(_ => toolRow.style.backgroundColor = RowBg(view.Entry, hover: false));
+            toolRow.RegisterCallback<ClickEvent>(_ => ToggleTool(view.Entry.Tool));
 
-            AttachHeader(foldout, headerRow);
+            var toolName = new Label();
+            toolName.style.flexShrink = 0;
+            toolName.style.fontSize = 13;
+            toolRow.Add(toolName);
 
-            var body = new VisualElement();
-            body.style.marginTop = 4;
-            foreach (var toolName in categoryTools)
-                body.Add(CreateToolRow(toolName));
-            foldout.Add(body);
+            var toolDescription = new Label();
+            toolDescription.Ellipsize();
+            toolDescription.style.flexGrow = 1;
+            toolDescription.style.marginLeft = 10;
+            toolDescription.style.fontSize = 11;
+            toolDescription.style.color = new Color(0.55f, 0.55f, 0.58f);
+            toolDescription.style.whiteSpace = WhiteSpace.NoWrap;
+            toolRow.Add(toolDescription);
 
-            card.Add(foldout);
-            return card;
+            var toggle = CreateSwitch();
+            toolRow.Add(toggle);
+            card.Add(toolRow);
+
+            view.Card = card;
+            view.Header = header;
+            view.Arrow = arrow;
+            view.CategoryName = categoryName;
+            view.CountBadge = countBadge;
+            view.ToolRow = toolRow;
+            view.ToolName = toolName;
+            view.ToolDescription = toolDescription;
+            view.Switch = toggle;
+            view.Knob = toggle[0];
+            return view;
         }
 
-        private VisualElement CreateToolRow(string toolName)
+        private Color RowBg(ListEntry entry, bool hover)
         {
-            var isOn = _editingTools.Contains(toolName);
+            var isOn = entry?.Tool != null && _editingTools.Contains(entry.Tool);
+            if (hover)
+                return isOn ? new Color(0.20f, 0.25f, 0.20f) : new Color(0.205f, 0.205f, 0.215f);
+            return isOn ? RowOnBg : RowOffBg;
+        }
 
-            var baseBg = isOn ? RowOnBg : RowOffBg;
-            var hoverBg = isOn ? new Color(0.20f, 0.25f, 0.20f) : new Color(0.205f, 0.205f, 0.215f);
+        private void BindRow(RowView view, int index)
+        {
+            var entry = _entries[index];
+            view.Entry = entry;
+            var hasFilter = _searchFilter.Length > 0;
 
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.marginBottom = 3;
-            row.Padding(5, 6, 5, 8);
-            row.style.backgroundColor = baseBg;
-            row.Rounded(5);
-            row.style.transitionProperty = new List<StylePropertyName> { "background-color" };
-            row.style.transitionDuration = new List<TimeValue> { new TimeValue(0.1f, TimeUnit.Second) };
-            row.RegisterCallback<MouseEnterEvent>(_ => row.style.backgroundColor = hoverBg);
-            row.RegisterCallback<MouseLeaveEvent>(_ => row.style.backgroundColor = baseBg);
+            view.Header.style.display = entry.IsHeader ? DisplayStyle.Flex : DisplayStyle.None;
+            view.ToolRow.style.display = entry.IsHeader ? DisplayStyle.None : DisplayStyle.Flex;
 
-            var hasDescription = _toolDescriptions.TryGetValue(toolName, out var description)
-                                 && !string.IsNullOrWhiteSpace(description);
+            // Every row is RowHeight tall; borders, margins and padding are budgeted inside it so
+            // the card edges line up without the fixed-height list clipping a pixel.
+            var card = view.Card;
+            var top = entry.IsHeader ? 1 : 0;
+            var bottom = entry.IsLast ? 1 : 0;
+            card.style.borderTopWidth = top;
+            card.style.borderBottomWidth = bottom;
+            card.style.borderTopLeftRadius = card.style.borderTopRightRadius = entry.IsHeader ? 6 : 0;
+            card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = entry.IsLast ? 6 : 0;
+            card.style.marginTop = entry.IsHeader ? 6 : 0;
+            card.style.paddingTop = entry.IsHeader ? 0 : 3;
+            card.style.paddingBottom = entry.IsHeader ? 0 : 3 - bottom;
+            view.Header.style.height = 24 - top - bottom;
 
-            var label = new Label(HighlightMatch(toolName, _searchFilter));
-            label.enableRichText = true;
-            label.style.flexShrink = 0;
-            label.style.fontSize = 13;
-            label.style.color = isOn ? RowOnText : RowOffText;
-            if (!hasDescription)
-                label.style.flexGrow = 1;
-            row.Add(label);
-
-            if (hasDescription)
+            if (entry.IsHeader)
             {
-                var descLabel = new Label(description);
-                descLabel.Ellipsize();
-                descLabel.style.flexGrow = 1;
-                descLabel.style.marginLeft = 10;
-                descLabel.style.fontSize = 11;
-                descLabel.style.color = new Color(0.55f, 0.55f, 0.58f);
-                descLabel.style.whiteSpace = WhiteSpace.NoWrap;
-                descLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
-                row.Add(descLabel);
+                var total = entry.CategoryTools.Count;
+                var selected = entry.CategoryTools.Count(tool => _editingTools.Contains(tool));
+                view.Arrow.text = !hasFilter && IsCollapsed(entry.Category) ? "▸" : "▾";
+                view.CategoryName.enableRichText = hasFilter;
+                view.CategoryName.text = HighlightMatch(entry.Category, _searchFilter);
+                view.CountBadge.text = $"{selected}/{total}";
+                view.CountBadge.style.color = selected == total ? new Color(0.6f, 0.9f, 0.6f)
+                    : selected == 0 ? new Color(0.6f, 0.6f, 0.62f)
+                    : new Color(0.95f, 0.8f, 0.45f);
+                return;
             }
 
-            row.tooltip = hasDescription ? description : toolName;
-
-            row.Add(CreateSwitch(isOn));
-
-            row.RegisterCallback<ClickEvent>(_ =>
-            {
-                if (_editingTools.Contains(toolName))
-                    _editingTools.Remove(toolName);
-                else
-                    _editingTools.Add(toolName);
-
-                RebuildToolList();
-                RefreshStatus();
-            });
-
-            return row;
+            var isOn = _editingTools.Contains(entry.Tool);
+            view.ToolName.enableRichText = hasFilter;
+            view.ToolName.text = HighlightMatch(entry.Tool, _searchFilter);
+            view.ToolName.style.color = isOn ? RowOnText : RowOffText;
+            view.ToolRow.style.backgroundColor = RowBg(entry, hover: false);
+            var hasDescription = _toolDescriptions.TryGetValue(entry.Tool, out var description) && !string.IsNullOrWhiteSpace(description);
+            view.ToolDescription.text = hasDescription ? description : string.Empty;
+            view.ToolRow.tooltip = hasDescription ? description : entry.Tool;
+            view.Switch.style.backgroundColor = isOn ? SwitchOnTrack : SwitchOffTrack;
+            view.Knob.style.left = isOn ? 18 : 2;
         }
 
         private static string HighlightMatch(string text, string filter)
@@ -630,13 +750,14 @@ namespace KitWright.Editor.MCP.Server
             return $"{before}<color=#FFD54F><b>{match}</b></color>{after}";
         }
 
-        private static VisualElement CreateSwitch(bool isOn)
+        // State (track colour, knob side) is applied in BindRow. No knob transition: a recycled row
+        // rebinding from an on tool to an off one would otherwise animate while scrolling.
+        private static VisualElement CreateSwitch()
         {
             var track = new VisualElement();
             track.style.width = 34;
             track.style.height = 18;
             track.style.flexShrink = 0;
-            track.style.backgroundColor = isOn ? SwitchOnTrack : SwitchOffTrack;
             track.Rounded(9);
             track.style.justifyContent = Justify.Center;
 
@@ -645,12 +766,8 @@ namespace KitWright.Editor.MCP.Server
             knob.style.width = 14;
             knob.style.height = 14;
             knob.style.top = 2;
-            knob.style.left = isOn ? 18 : 2;
             knob.style.backgroundColor = Color.white;
             knob.Rounded(7);
-            knob.style.transitionProperty = new List<StylePropertyName> { "left" };
-            knob.style.transitionDuration = new List<TimeValue> { new TimeValue(0.1f, TimeUnit.Second) };
-            knob.style.transitionTimingFunction = new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutCubic) };
             track.Add(knob);
 
             return track;
@@ -669,7 +786,9 @@ namespace KitWright.Editor.MCP.Server
             button.style.unityTextAlign = TextAnchor.MiddleCenter;
             button.style.backgroundColor = new Color(0.24f, 0.24f, 0.26f);
             button.style.color = new Color(0.85f, 0.85f, 0.85f);
-            // Sits inside the foldout toggle: stop the click from also toggling the foldout.
+            // Rows are made after the window's ApplyRoundedButtons pass, so round here.
+            button.Rounded(6);
+            // Sits inside the category header: stop the click from also collapsing it.
             button.RegisterCallback<ClickEvent>(evt =>
             {
                 evt.StopPropagation();
@@ -688,8 +807,7 @@ namespace KitWright.Editor.MCP.Server
                     _editingTools.Remove(toolName);
             }
 
-            RebuildToolList();
-            RefreshStatus();
+            RefreshRows();
         }
 
         private void SetAllToolToggles(bool enabled)
@@ -699,8 +817,7 @@ namespace KitWright.Editor.MCP.Server
             else
                 _editingTools.Clear();
 
-            RebuildToolList();
-            RefreshStatus();
+            RefreshRows();
         }
 
         private void SelectAllTools()
@@ -718,8 +835,7 @@ namespace KitWright.Editor.MCP.Server
             _settingsController.SetProfileTools(_editingProfile, null);
 
             LoadEditingTools();
-            RebuildToolList();
-            RefreshStatus();
+            RefreshRows();
         }
 
         private void SaveEditingTools()

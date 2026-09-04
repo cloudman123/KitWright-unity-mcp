@@ -661,7 +661,7 @@ namespace KitWright.Editor.MCP.Server
             if (!ProjectSkillsManager.ConfirmOverwriteConflicts(projectRoot, selectedPlatforms))
                 return false;
 
-            ProjectSkillsManager.ApplyConfiguration(projectRoot, selectedPlatforms, manifest.optionalSkills);
+            ProjectSkillsManager.ApplyConfiguration(projectRoot, selectedPlatforms);
             return true;
         }
 
