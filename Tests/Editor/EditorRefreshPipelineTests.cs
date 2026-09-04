@@ -1,10 +1,13 @@
 ﻿// Copyright (C) KitWright. Licensed under MIT.
 
 using System;
+using System.Collections;
+using System.Reflection;
 using System.IO;
 using KitWright.Editor.Tools.Helpers;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine.TestTools;
 
 namespace KitWright.Editor.Tests
 {
@@ -220,6 +223,47 @@ namespace KitWright.Editor.Tests
             {
                 DeleteTempDirectory(temp);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator RefreshAndRequestCompilation_WhilePlaying_LeavesTheImportAlone()
+        {
+            yield return new EnterPlayMode();
+
+            var task = EditorRefreshPipeline.RefreshAndRequestCompilationAsync(
+                forceUpdate: false, verifyScriptChanges: false);
+
+            // In Play Mode the pipeline answers without awaiting anything, so a task still running
+            // after two seconds of frames means it took a path this test cannot read.
+            for (var frame = 0; frame < 120 && !task.IsCompleted; frame++)
+                yield return null;
+
+            Assert.IsTrue(task.IsCompleted, "The Play Mode path returns without awaiting an import.");
+            Assert.IsTrue(task.Result.PlayModeActive);
+            Assert.IsFalse(task.Result.PrimaryRefreshInvoked,
+                "An import mid-play can reload the domain and wipe the state the caller is playing to observe.");
+            Assert.IsNull(task.Result.PrimaryRefreshError,
+                "A skipped import is not a failed one, so nothing should be reported as an error.");
+
+            yield return new ExitPlayMode();
+        }
+
+        [Test]
+        public void CaptureScriptChangeState_ReusesTheBeeScanItAlreadyDid()
+        {
+            var cache = typeof(EditorRefreshPipeline).GetField(
+                "s_beeOutputTimes", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(cache, "The Bee scan cache is what keeps one refresh from scanning five times.");
+
+            cache.SetValue(null, null);
+            EditorRefreshPipeline.CaptureScriptChangeState(scanForUnknownProjectScripts: false);
+            var firstScan = cache.GetValue(null);
+            Assert.NotNull(firstScan, "The first capture has to fill the cache, or there is nothing to reuse.");
+
+            EditorRefreshPipeline.CaptureScriptChangeState(scanForUnknownProjectScripts: false);
+            Assert.AreSame(firstScan, cache.GetValue(null),
+                "A second capture must reuse the scan: only a compile can change those timestamps, and " +
+                "Library/Bee/artifacts is walked recursively.");
         }
 
         private static string CreateTempDirectory()
