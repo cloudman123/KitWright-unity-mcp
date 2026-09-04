@@ -100,11 +100,8 @@ namespace KitWright.Editor.MCP.Server
         {
             try
             {
-                if (SessionState.GetBool(WasRunningKey, false))
-                {
-                    PluginDebugLogger.Log("[KitWright MCP Server] Restarting server after domain reload");
-                    SchedulePostReloadRestart();
-                }
+                PluginDebugLogger.Log("[KitWright MCP Server] Restarting server after domain reload");
+                SchedulePostReloadRestart();
             }
             catch (System.Exception ex)
             {
@@ -128,11 +125,7 @@ namespace KitWright.Editor.MCP.Server
             if (_restartInProgress)
                 return;
 
-            if (!SessionState.GetBool(WasRunningKey, false))
-            {
-                ClearScheduledRestart();
-                return;
-            }
+            // WasRunningKey check omitted so MCP server restarts reliably after domain reload
 
             if (ShouldWaitForCompilationBeforeRestart())
                 return;

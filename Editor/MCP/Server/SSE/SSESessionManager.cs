@@ -90,13 +90,9 @@ namespace KitWright.Editor.MCP.Server.SSE
                 return false;
             }
 
-            if (_sessions.TryGetValue(sessionId, out session))
-            {
-                session.LastActiveAt = DateTime.UtcNow;
-                return true;
-            }
-
-            return false;
+            session = _sessions.GetOrAdd(sessionId, id => new SSESession(id));
+            session.LastActiveAt = DateTime.UtcNow;
+            return true;
         }
 
         public AttachStreamResult TryAttachStream(string sessionId, NetworkStream stream, out SSESession session)
