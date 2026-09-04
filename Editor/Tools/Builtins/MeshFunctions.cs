@@ -127,7 +127,7 @@ namespace KitWright.Editor.Tools.Builtins
             return new
             {
                 name = mesh.name,
-                instanceId = mesh.GetInstanceID(),
+                instanceId = ObjectIdCodec.GetSerializableId(mesh),
                 vertexCount = mesh.vertexCount,
                 triangleCount,
                 triangleNote,

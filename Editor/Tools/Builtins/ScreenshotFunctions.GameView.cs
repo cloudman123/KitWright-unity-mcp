@@ -41,7 +41,7 @@ namespace KitWright.Editor.Tools.Builtins
 
             var camera = Camera.main;
             if (camera == null)
-                camera = UnityEngine.Object.FindFirstObjectByType<Camera>();
+                camera = UnityEngine.Object.FindAnyObjectByType<Camera>();
 
             if (camera == null)
                 return ToolResultFormatter.Error("CAMERA_NOT_FOUND", new { hint = "Add a Camera component to capture the Game View." });
@@ -208,7 +208,7 @@ namespace KitWright.Editor.Tools.Builtins
                 renderTexture.Create();
 
                 // Find all ScreenSpaceOverlay canvases and temporarily switch to ScreenSpaceCamera
-                var allCanvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+                var allCanvases = ObjectsHelper.FindObjectsByTypeUnsorted<Canvas>(FindObjectsInactive.Exclude);
                 foreach (var canvas in allCanvases)
                 {
                     if (canvas.renderMode == RenderMode.ScreenSpaceOverlay && canvas.gameObject.activeInHierarchy)

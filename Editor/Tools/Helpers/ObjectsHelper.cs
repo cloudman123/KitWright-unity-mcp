@@ -57,6 +57,16 @@ namespace KitWright.Editor.Tools.Helpers
         public const string MethodByComponent = "by_component";
         public const string MethodByIdOrNameOrPath = "by_id_or_name_or_path";
 
+        internal static T[] FindObjectsByTypeUnsorted<T>(FindObjectsInactive inactive)
+            where T : UnityEngine.Object
+        {
+#if UNITY_6000_6_OR_NEWER
+            return UnityEngine.Object.FindObjectsByType<T>(inactive);
+#else
+            return UnityEngine.Object.FindObjectsByType<T>(inactive, FindObjectsSortMode.None);
+#endif
+        }
+
         /// <summary>
         /// Find a single GameObject. Throws <see cref="AmbiguousTargetException"/> when more than
         /// one object matches, so a destructive tool never picks an arbitrary one.

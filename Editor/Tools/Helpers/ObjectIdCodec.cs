@@ -60,6 +60,18 @@ namespace KitWright.Editor.Tools.Helpers
 #endif
         }
 
+        public static bool HasSerializedObjectReferenceId(SerializedProperty property)
+        {
+            if (property == null)
+                return false;
+
+#if UNITY_6000_6_OR_NEWER
+            return property.objectReferenceEntityIdValue.IsValid();
+#else
+            return property.objectReferenceInstanceIDValue != 0;
+#endif
+        }
+
         public static UnityObject ToObject(string objectId)
         {
             if (string.IsNullOrWhiteSpace(objectId) || objectId == "0")
