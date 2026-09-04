@@ -87,6 +87,7 @@ namespace KitWright.Editor
             var paths = CreateBrokerPaths(root);
             var oldPort = GetFreeTcpPort();
             var newPort = GetFreeTcpPort();
+            while (newPort == oldPort) newPort = GetFreeTcpPort();
 
             try
             {
@@ -119,6 +120,7 @@ namespace KitWright.Editor
             var paths = CreateBrokerPaths(root);
             var recordedPort = GetFreeTcpPort();
             var requestedPort = GetFreeTcpPort();
+            while (requestedPort == recordedPort) requestedPort = GetFreeTcpPort();
             var recordedPortOwner = new TcpListener(IPAddress.Loopback, recordedPort);
             var requestedPortOwner = new TcpListener(IPAddress.Loopback, requestedPort);
             Process unrelatedProcess = null;

@@ -133,24 +133,24 @@ namespace KitWright.Editor.MCP.Server
 
                 if (TryReadState(paths.PidFilePath, out var existing))
                 {
-                    if (existing.Port == port &&
-                        TryProbeBroker(existing.Port, existing.Token, out var health) &&
-                        health.Pid == existing.Pid)
-                    {
+                    var verified = TryProbeBroker(existing.Port, existing.Token, out var health) &&
+                                   health.Pid == existing.Pid;
+                    if (verified && existing.Port == port)
                         return BrokerSpawn.AlreadyRunning;
-                    }
 
                     // The pid file points at a broker we previously started, either on this
                     // port (but it no longer passes the health probe -- typically a
                     // protocol-version mismatch after a package upgrade) or on a different
                     // port (the Server Port setting changed). Either way it's ours: shut it
                     // down with its recorded token so its port frees up, instead of leaving
-                    // it orphaned and squatting on that port forever.
-                    if (IsTcpPortOpen(existing.Port))
+                    // it orphaned and squatting on that port forever. A broker the probe
+                    // verified is killed even when the shutdown POST times out, as Stop() does:
+                    // gating the kill on a 1s HTTP round trip left it alive under load.
+                    if (verified || IsTcpPortOpen(existing.Port))
                     {
                         var shutdownAccepted = SendShutdown(existing.Port, existing.Token);
                         WaitForExit(existing.Pid, 2500);
-                        if (shutdownAccepted)
+                        if (verified || shutdownAccepted)
                             KillVerifiedProcess(existing.Pid);
                     }
 
